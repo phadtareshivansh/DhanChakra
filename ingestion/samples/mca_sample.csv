@@ -1,0 +1,7 @@
+CIN,GSTIN,Company Name,Date of Incorporation,Status,Authorized Capital,Paid Up Capital,NIC Code,ROC,Director DIN,Director Name,PAN Hash,Appointment Date,Registered Address,State,Since Date,IFSC,Account Hash
+L12345KA2024PLC888999,29AAAAA0000J9D4,Orbit Logistics Pvt Ltd,2024-01-15,active,600000,600000,49299,Bangalore,03459901,Anil Hegde,hash-anil-hegde,2024-01-20,14/2 MG Road Koramangala,Bangalore,2024-01-15,SBIN0001111,acct-hash-orbit
+L12345KA2024PLC888100,29AAAAA0000K1E5,Harbor Freight Lines,2024-02-20,active,450000,450000,49299,Bangalore,03459902,Meera Iyer,hash-meera-iyer,2024-02-25,88 Outer Ring Road Whitefield,Bangalore,2024-02-20,SBIN0002222,acct-hash-harbor
+L12345DL2024PLC777111,07AAAAA0000L2F6,Summit Textiles India,2024-03-05,active,900000,900000,13999,Delhi,03459903,Rahul Verma,hash-rahul-verma,2024-03-10,22 Karol Bagh Lane,Delhi,2024-03-05,HDFC0003333,acct-hash-summit
+L12345MH2024PLC666222,27AAAAA0000M3G7,CloudNine IT Services,2024-04-10,active,750000,750000,62099,Mumbai,03459904,Priya Deshmukh,hash-priya-deshmukh,2024-04-15,5 Andheri East Link Road,Mumbai,2024-04-10,ICIC0004444,acct-hash-cloudnine
+L12345MH2024PLC666333,27AAAAA0000N4H8,Vertex Analytics Pvt Ltd,2024-05-12,active,850000,850000,62099,Mumbai,03459904,Priya Deshmukh,hash-priya-deshmukh,2024-05-18,5 Andheri East Link Road,Mumbai,2024-05-12,ICIC0005555,acct-hash-vertex
+L12345MH2024PLC666399,27AAAAA0000N4H9,Vertex Analytics Pvt. Ltd.,2024-06-01,dormant,500000,500000,62099,Mumbai,,,,,,,,

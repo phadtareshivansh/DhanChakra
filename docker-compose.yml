@@ -1,0 +1,103 @@
+version: '3.8'
+
+services:
+  neo4j:
+    image: neo4j:5.23-community
+    container_name: dhanchakra-neo4j
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    environment:
+      - NEO4J_AUTH=neo4j/dhanchakra123
+      - NEO4J_PLUGINS=["graph-data-science"]
+      - NEO4J_dbms_memory_heap_initial__size=512m
+      - NEO4J_dbms_memory_heap_max__size=1G
+      - NEO4J_dbms_memory_pagecache_size=512m
+    volumes:
+      - neo4j-data:/data
+      - neo4j-logs:/logs
+      - neo4j-import:/var/lib/neo4j/import
+      - ./graph/cypher:/cypher
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null --timeout=5 http://localhost:7474 || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 20
+      start_period: 60s
+    networks:
+      - dhanchakra-net
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: dhanchakra-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=dhanchakra
+      - POSTGRES_PASSWORD=dhanchakra123
+      - POSTGRES_DB=dhanchakra
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./api/migrations:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dhanchakra -d dhanchakra"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - dhanchakra-net
+
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    container_name: dhanchakra-api
+    ports:
+      - "8000:8000"
+    environment:
+      - NEO4J_URI=bolt://neo4j:7687
+      - NEO4J_USER=neo4j
+      - NEO4J_PASSWORD=dhanchakra123
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=dhanchakra
+      - POSTGRES_PASSWORD=dhanchakra123
+      - POSTGRES_DB=dhanchakra
+      - PYTHONPATH=/app
+    volumes:
+      - ./api/app:/app/app:ro
+      - ./api/models:/app/models
+    depends_on:
+      neo4j:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    networks:
+      - dhanchakra-net
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: dhanchakra-frontend
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_API_URL=http://localhost:8000/api/v1
+    volumes:
+      - ./frontend/src:/app/src:ro
+      - ./frontend/public:/app/public:ro
+    depends_on:
+      - api
+    networks:
+      - dhanchakra-net
+
+volumes:
+  neo4j-data:
+  neo4j-logs:
+  neo4j-import:
+  postgres-data:
+
+networks:
+  dhanchakra-net:
+    driver: bridge

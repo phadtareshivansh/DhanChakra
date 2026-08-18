@@ -1,0 +1,12 @@
+{
+  "benchmark": {
+    "f1": 0.5058,
+    "auc_pr": 1.0,
+    "recall_at_k": 1.0
+  },
+  "live": {
+    "f1": 0.6667,
+    "auc_pr": 1.0,
+    "recall_at_k": 1.0
+  }
+}

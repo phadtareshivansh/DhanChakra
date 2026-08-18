@@ -1,0 +1,87 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  min-height: 100vh;
+}
+
+:root {
+  --risk-critical: #E5484D;
+  --risk-high: #F2994A;
+  --risk-medium: #F2C94C;
+  --risk-low: #6FCF97;
+  --risk-neutral: #8B99AB;
+}
+
+body {
+  margin: 0;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: #0B0F14;
+  color: #E7EDF3;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #121821;
+}
+::-webkit-scrollbar-thumb {
+  background: #26303E;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #333f52;
+}
+
+@layer components {
+  .panel {
+    @apply bg-surface border border-border rounded-lg;
+  }
+  .panel-raised {
+    @apply bg-raised border border-border rounded-lg;
+  }
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 h-10 px-4 rounded-lg bg-accent text-white text-sm font-medium transition-colors hover:bg-accent-hover disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 h-10 px-4 rounded-lg border border-border text-text-primary text-sm font-medium transition-colors hover:bg-raised disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn-critical {
+    @apply inline-flex items-center justify-center gap-2 h-10 px-4 rounded-lg bg-risk-critical text-white text-sm font-medium transition-colors hover:opacity-90 disabled:opacity-50;
+  }
+  .btn-compact {
+    @apply h-8 px-3 text-xs;
+  }
+  .input {
+    @apply h-10 px-3 rounded-lg bg-canvas border border-border text-text-primary text-sm placeholder:text-text-disabled focus:outline-none focus:ring-2 focus:ring-accent-ring focus:border-accent-ring transition-shadow;
+  }
+  .micro-label {
+    @apply text-micro uppercase tracking-micro font-semibold text-text-secondary;
+  }
+  .mono-id {
+    @apply font-mono text-data text-text-primary;
+  }
+}
+
+@keyframes shimmer {
+  0% { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+
+.skeleton {
+  background: linear-gradient(90deg, #1A2230 25%, #222c3d 37%, #1A2230 63%);
+  background-size: 800px 100%;
+  animation: shimmer 1.4s infinite linear;
+  border-radius: 6px;
+}
