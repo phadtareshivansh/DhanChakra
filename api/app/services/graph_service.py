@@ -2,7 +2,7 @@
 entity resolution, and explainability. Each function returns plain dicts consumed
 by the API layer."""
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 from neo4j.time import DateTime, Date
 
@@ -147,7 +147,45 @@ async def get_network(session, entity_id: str, hops: int) -> Dict[str, Any]:
             seen_edges.add(key)
             unique_edges.append(e)
 
+    flagged = await _flagged_cycle_edges(session, entity_id)
+    for e in unique_edges:
+        e["flagged"] = (e["source"], e["target"], e["type"]) in flagged
+
     return {"nodes": list(nodes_dict.values()), "edges": unique_edges}
+
+
+async def _flagged_cycle_edges(session, entity_id: str) -> Set[Tuple[str, str, str]]:
+    """Invoice edges (company -> txn -> company) that form a detected
+    circular-trading ring involving the entity. Used by the UI to paint
+    flagged-cycle edges red (TRD §4.6)."""
+    flagged: Set[Tuple[str, str, str]] = set()
+    try:
+        ring_query = f"""
+        MATCH path = (c1:Company {{id: $id}}) ((:Company)-[:BILLED]->(:Transaction)-[:BILLED_TO]->(:Company)){{2,6}} (c1)
+        WITH [n IN nodes(path) WHERE n:Company] AS comps
+        RETURN comps
+        LIMIT 50
+        """
+        result = await session.run(ring_query, id=entity_id)
+        ring_ids: Set[str] = set()
+        for rec in await result.data():
+            for c in rec["comps"]:
+                cid = str(c.get("id") or c["id"]) if isinstance(c, dict) else str(c.id)
+                ring_ids.add(cid)
+        if not ring_ids:
+            return flagged
+        edge_query = """
+        MATCH (a:Company)-[:BILLED]->(t:Transaction)-[:BILLED_TO]->(b:Company)
+        WHERE a.id IN $ring AND b.id IN $ring
+        RETURN a.id AS a, t.id AS t, b.id AS b
+        """
+        result = await session.run(edge_query, ring=list(ring_ids))
+        for rec in await result.data():
+            flagged.add((str(rec["a"]), str(rec["t"]), "BILLED"))
+            flagged.add((str(rec["t"]), str(rec["b"]), "BILLED_TO"))
+    except Exception:
+        pass
+    return flagged
 
 
 async def get_timeline(session, entity_id: str) -> List[Dict[str, Any]]:
@@ -420,7 +458,8 @@ async def run_structural_analytics(session) -> Dict[str, Any]:
         for r in records:
             score = _heuristic_risk_score(r)
             await session.run(
-                "MATCH (c:Company {cin: $cin}) SET c.risk_score = $score, c.updated_at = datetime()",
+                "MATCH (c:Company {cin: $cin}) "
+                "SET c.risk_score = $score, c.risk_source = 'heuristic', c.updated_at = datetime()",
                 cin=r["cin"], score=score
             )
             summary["scored"] += 1

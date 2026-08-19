@@ -124,6 +124,7 @@ class NetworkEdge(BaseModel):
     target: str
     type: str
     properties: dict
+    flagged: bool = False
 
 
 class NetworkResponse(BaseModel):

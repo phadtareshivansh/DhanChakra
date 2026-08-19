@@ -19,6 +19,7 @@ interface GraphEdge {
   target: string
   type: string
   properties: Record<string, any>
+  flagged?: boolean
 }
 
 const TYPE_COLORS: Record<string, string> = {
@@ -38,7 +39,6 @@ export default function EntityDetail() {
   const [entity, setEntity] = useState<any>(null)
   const [nodes, setNodes] = useState<GraphNode[]>([])
   const [edges, setEdges] = useState<GraphEdge[]>([])
-  const [cycleEdges, setCycleEdges] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null)
@@ -76,26 +76,8 @@ export default function EntityDetail() {
       .catch(() => setExplanation(null))
   }, [id])
 
-  // Highlight invoice edges that form the detected ring: match ring company
-  // membership against BILLED (company -> txn) and BILLED_TO (txn -> company).
-  useEffect(() => {
-    if (!entity?.cin || edges.length === 0) return
-    api.get(`/analytics/loops/${entity.cin}?max_length=6`)
-      .then((res) => {
-        const ringIds = new Set<string>()
-        res.data.loops.forEach((loop: any) => {
-          ;(loop.path || []).forEach((cid: string) => ringIds.add(cid))
-        })
-        const matched = new Set<string>()
-        edges.forEach((e) => {
-          if (e.type === 'BILLED' && ringIds.has(e.source)) matched.add(e.source + e.target)
-          if (e.type === 'BILLED_TO' && ringIds.has(e.target)) matched.add(e.source + e.target)
-        })
-        setCycleEdges(matched)
-      })
-      .catch(() => setCycleEdges(new Set()))
-  }, [entity, edges])
-
+  // Flagged-cycle edges are marked by the API (see graph_service.get_network),
+  // so the highlight is deterministic and can't be lost to client-side races.
   useEffect(() => {
     if (!svgRef.current || nodes.length === 0 || tab !== 'network') return
 
@@ -121,8 +103,8 @@ export default function EntityDetail() {
       .selectAll('line')
       .data(edges)
       .join('line')
-      .attr('stroke', (d: any) => cycleEdges.has(d.source.id + d.target.id) || cycleEdges.has(d.target.id + d.source.id) ? '#E5484D' : '#26303E')
-      .attr('stroke-width', (d: any) => cycleEdges.has(d.source.id + d.target.id) || cycleEdges.has(d.target.id + d.source.id) ? 3 : 1.5)
+      .attr('stroke', (d: any) => d.flagged ? '#E5484D' : '#26303E')
+      .attr('stroke-width', (d: any) => d.flagged ? 3 : 1.5)
       .attr('stroke-opacity', 0.85)
       .attr('marker-end', 'url(#arrow)')
 
@@ -195,7 +177,7 @@ export default function EntityDetail() {
     }
 
     return () => simulation.stop()
-  }, [nodes, edges, cycleEdges, tab])
+  }, [nodes, edges, tab])
 
   const fitView = () => {
     const svg = d3.select(svgRef.current)
