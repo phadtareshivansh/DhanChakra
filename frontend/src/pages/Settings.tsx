@@ -1,17 +1,12 @@
 import { useEffect, useState } from 'react'
 import api from '../utils/api'
-import { WorklistResponse } from '../types/api'
+import { RISK_THRESHOLDS } from '../config/risk'
 
 const THRESHOLDS_KEY = 'dhanchakra_thresholds'
 
 export default function Settings() {
-  const [thresholds, setThresholds] = useState({
-    critical: 85,
-    high: 65,
-    medium: 40,
-  })
+  const [thresholds, setThresholds] = useState({ ...RISK_THRESHOLDS })
   const [saved, setSaved] = useState(false)
-  const [version, setVersion] = useState<string | null>(null)
   const [apiHealth, setApiHealth] = useState<string | null>(null)
 
   useEffect(() => {
@@ -53,7 +48,7 @@ export default function Settings() {
         </div>
         <div className="flex items-center justify-between pt-2">
           <button className="btn-primary" onClick={save}>{saved ? '✓ Saved' : 'Save thresholds'}</button>
-          <button className="btn-secondary" onClick={() => setThresholds({ critical: 85, high: 65, medium: 40 })}>Reset defaults</button>
+          <button className="btn-secondary" onClick={() => setThresholds({ ...RISK_THRESHOLDS })}>Reset defaults</button>
         </div>
       </div>
 

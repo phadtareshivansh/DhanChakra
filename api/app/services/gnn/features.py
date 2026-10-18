@@ -6,6 +6,8 @@ directors/addresses) and balance-sheet signal (paid-up capital).
 
 from typing import Any, Dict, List, Optional
 
+from ...config import settings
+
 
 FEATURE_COLS = [
     "degree",           # normalized invoice degree
@@ -118,9 +120,12 @@ def _log1p(v: Optional[float]) -> float:
         return 0.0
 
 
-def weak_labels(companies: List[Dict[str, Any]], threshold: float = 40.0) -> List[int]:
+def weak_labels(companies: List[Dict[str, Any]], threshold: Optional[float] = None) -> List[int]:
     """Structural weak labels: 1 if the company is in a materialized cycle or
-    the heuristic risk score already exceeds the threshold (TRD §4.6)."""
+    the heuristic risk score already exceeds the threshold (TRD §4.6).
+    Defaults to the configured weak-label threshold."""
+    if threshold is None:
+        threshold = settings.weak_label_threshold
     labels = []
     for c in companies:
         in_cycle = bool(c.get("cycle_member"))

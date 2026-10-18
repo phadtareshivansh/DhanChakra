@@ -6,6 +6,8 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 
 from neo4j.time import DateTime, Date
 
+from ..config import settings
+
 
 def _node_to_dict(node: Any) -> Dict[str, Any]:
     d = dict(node)
@@ -96,8 +98,8 @@ async def get_entity_by_identifier(session, identifier: str) -> Optional[Dict[st
 
 
 async def get_network(session, entity_id: str, hops: int) -> Dict[str, Any]:
-    if not (1 <= hops <= 5):
-        hops = 2
+    if not (1 <= hops <= settings.max_neighborhood_hops):
+        hops = settings.default_neighborhood_hops
     query = f"""
     MATCH path = (n)-[*1..{hops}]-(m)
     WHERE n.id = $id
@@ -161,7 +163,7 @@ async def _flagged_cycle_edges(session, entity_id: str) -> Set[Tuple[str, str, s
     flagged: Set[Tuple[str, str, str]] = set()
     try:
         ring_query = f"""
-        MATCH path = (c1:Company {{id: $id}}) ((:Company)-[:BILLED]->(:Transaction)-[:BILLED_TO]->(:Company)){{2,6}} (c1)
+        MATCH path = (c1:Company {{id: $id}}) ((:Company)-[:BILLED]->(:Transaction)-[:BILLED_TO]->(:Company)){{2,{settings.max_cycle_hops}}} (c1)
         WITH [n IN nodes(path) WHERE n:Company] AS comps
         RETURN comps
         LIMIT 50
@@ -226,8 +228,8 @@ def _canonical_cycle(path_ids: List[str]) -> tuple:
 
 
 async def get_loops(session, max_length: int, cin: Optional[str] = None) -> Dict[str, Any]:
-    if not (2 <= max_length <= 8):
-        max_length = 5
+    if not (2 <= max_length <= settings.max_cycle_hops):
+        max_length = settings.loops_default_max_length
     company_hop = "((:Company)-[:BILLED]->(:Transaction)-[:BILLED_TO]->(:Company))"
     if cin:
         query = f"""
@@ -347,12 +349,12 @@ async def run_structural_analytics(session) -> Dict[str, Any]:
 
     # --- 1. Detect and materialize cycles ---
     try:
-        result = await session.run("""
-        MATCH path = (c1:Company) ((:Company)-[:BILLED]->(:Transaction)-[:BILLED_TO]->(:Company)){2,5} (c1)
+        result = await session.run(f"""
+        MATCH path = (c1:Company) ((:Company)-[:BILLED]->(:Transaction)-[:BILLED_TO]->(:Company)){{2,{settings.max_cycle_hops}}} (c1)
         WITH [n IN nodes(path) WHERE n:Company] AS comps,
              [n IN nodes(path) WHERE n:Transaction | coalesce(n.amount, 0)] AS amounts
         WITH [c IN comps | c.cin] AS cins, comps, amounts
-        WHERE size(cins) >= 3
+        WHERE size(cins) >= {settings.min_cycle_length}
         RETURN DISTINCT cins,
                reduce(s = 0.0, a IN amounts | s + a) AS total_amount
         LIMIT 1000
@@ -362,7 +364,7 @@ async def run_structural_analytics(session) -> Dict[str, Any]:
         for r in records:
             cins = r["cins"]
             dedup = list(dict.fromkeys(cins))
-            if len(dedup) < 3:
+            if len(dedup) < settings.min_cycle_length:
                 continue
             key_set = tuple(sorted(dedup))
             if key_set in seen_sets:
@@ -471,7 +473,8 @@ async def run_structural_analytics(session) -> Dict[str, Any]:
 
 def _heuristic_risk_score(features: Dict[str, Any]) -> float:
     """Rule-based 0-100 score combining structural red flags. Explainable and
-    independent of any ML layer (PRD NFR reliability)."""
+    independent of any ML layer (PRD NFR reliability). All weights are
+    configurable via settings/environment."""
     score = 0.0
     cycle_count = features.get("cycle_count") or 0
     degree = features.get("degree") or 0
@@ -481,15 +484,30 @@ def _heuristic_risk_score(features: Dict[str, Any]) -> float:
     betweenness = features.get("betweenness") or 0.0
 
     if cycle_count > 0:
-        score += 40 + min(20, cycle_count * 5)
+        score += settings.risk_cycle_base + min(
+            settings.risk_cycle_cap,
+            cycle_count * settings.risk_cycle_step,
+        )
     if shared_director > 0:
-        score += min(15, shared_director * 5)
+        score += min(
+            settings.risk_director_cap,
+            shared_director * settings.risk_director_weight,
+        )
     if shared_address > 0:
-        score += min(10, shared_address * 4)
+        score += min(
+            settings.risk_address_cap,
+            shared_address * settings.risk_address_weight,
+        )
     if degree >= 2:
-        score += min(10, (degree - 1) * 2)
-    score += min(15, pagerank * 150)
-    score += min(10, betweenness * 100)
+        score += min(
+            settings.risk_degree_cap,
+            (degree - 1) * settings.risk_degree_weight,
+        )
+    score += min(settings.risk_pagerank_cap, pagerank * settings.risk_pagerank_weight)
+    score += min(
+        settings.risk_betweenness_cap,
+        betweenness * settings.risk_betweenness_weight,
+    )
     return round(min(score, 100.0), 1)
 
 
@@ -616,11 +634,13 @@ def _jaro_winkler(a: str, b: str, prefix_scale: float = 0.1) -> float:
     return jaro + prefix * prefix_scale * (1.0 - jaro)
 
 
-async def run_entity_resolution(session, fuzzy_threshold: float = 0.92) -> Dict[str, Any]:
+async def run_entity_resolution(session, fuzzy_threshold: Optional[float] = None) -> Dict[str, Any]:
     """Phase 2 entity resolution (Backend Schema §2.2):
     - deterministic: shared DIN / normalized address / bank IFSC+account_hash
     - fuzzy: Jaro-Winkler name similarity, confidence-scored
     Writes :RESOLVED_AS edges between companies."""
+    if fuzzy_threshold is None:
+        fuzzy_threshold = settings.entity_resolution_fuzzy_threshold
     summary = {"resolved_edges": 0, "deterministic": 0, "fuzzy": 0}
 
     # --- Deterministic: directors with same DIN ---
@@ -700,23 +720,26 @@ async def get_stats_overview(session, db) -> Dict[str, Any]:
     cycles = await session.run("MATCH (cy: FraudCycle) RETURN count(cy) AS n")
     cycle_count = (await cycles.single())["n"] if cycles else 0
 
-    flagged = await session.run("MATCH (c:Company) WHERE c.risk_score >= 40 RETURN count(c) AS n")
+    flagged = await session.run(
+        "MATCH (c:Company) WHERE c.risk_score >= $threshold RETURN count(c) AS n",
+        threshold=settings.risk_flag_threshold,
+    )
     flagged_count = (await flagged.single())["n"] if flagged else 0
 
     at_risk = await session.run("""
-    MATCH (c:Company) WHERE c.risk_score >= 40
+    MATCH (c:Company) WHERE c.risk_score >= $threshold
     OPTIONAL MATCH (c)-[:BILLED]->(:Transaction)-[:BILLED_TO]->(n:Company)
     WITH c, n
     RETURN sum(coalesce(c.paid_up_capital, 0)) AS total
-    """)
+    """, threshold=settings.risk_flag_threshold)
     at_risk_total = (await at_risk.single())["total"] or 0
 
     top_state = await session.run("""
     MATCH (c:Company)-[:REGISTERED_AT]->(a:Address)
-    WHERE c.risk_score >= 40
+    WHERE c.risk_score >= $threshold
     RETURN a.state AS state, count(c) AS n
     ORDER BY n DESC LIMIT 1
-    """)
+    """, threshold=settings.risk_flag_threshold)
     tr = await top_state.single()
     top_state_name = tr["state"] if tr and tr["state"] else "N/A"
 

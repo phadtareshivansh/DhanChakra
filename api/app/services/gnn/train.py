@@ -18,13 +18,14 @@ from typing import Any, Dict, List
 
 import torch
 
+from ...config import settings
 from . import features as feat
 from .model import GraphSAGE, build_adjacency, evaluate, train_model, weighted_f1_loss
 from .synthetic import generate_benchmark, split_benchmark
 
-CHECKPOINT_DIR = os.getenv("GNN_CHECKPOINT_DIR", "/app/models")
-CHECKPOINT_PATH = os.path.join(CHECKPOINT_DIR, "gnn_risk_v1.pt")
-METRICS_PATH = os.path.join(CHECKPOINT_DIR, "gnn_metrics.json")
+CHECKPOINT_DIR = settings.gnn_checkpoint_dir
+CHECKPOINT_PATH = settings.gnn_checkpoint_file
+METRICS_PATH = os.path.join(CHECKPOINT_DIR, settings.gnn_metrics_filename)
 
 
 async def _extract_live(session) -> Dict[str, Any]:
@@ -150,9 +151,9 @@ async def register_version(db, summary: Dict[str, Any], version_tag: str = "gnn_
 
 def _default_args() -> argparse.Namespace:
     p = argparse.ArgumentParser()
-    p.add_argument("--epochs", type=int, default=60)
-    p.add_argument("--finetune-epochs", type=int, default=120)
-    p.add_argument("--benchmark-graphs", type=int, default=40)
+    p.add_argument("--epochs", type=int, default=settings.gnn_default_epochs)
+    p.add_argument("--finetune-epochs", type=int, default=settings.gnn_finetune_epochs)
+    p.add_argument("--benchmark-graphs", type=int, default=settings.gnn_benchmark_graphs)
     p.add_argument("--no-finetune", action="store_true")
     p.add_argument("--no-register", action="store_true")
     return p.parse_args([])
@@ -160,9 +161,9 @@ def _default_args() -> argparse.Namespace:
 
 def main(argv: List[str] = None) -> None:
     parser = argparse.ArgumentParser(description="Dhan-Chakra GNN trainer (Phase 3)")
-    parser.add_argument("--epochs", type=int, default=60)
-    parser.add_argument("--finetune-epochs", type=int, default=120)
-    parser.add_argument("--benchmark-graphs", type=int, default=40)
+    parser.add_argument("--epochs", type=int, default=settings.gnn_default_epochs)
+    parser.add_argument("--finetune-epochs", type=int, default=settings.gnn_finetune_epochs)
+    parser.add_argument("--benchmark-graphs", type=int, default=settings.gnn_benchmark_graphs)
     parser.add_argument("--no-finetune", action="store_true")
     parser.add_argument("--no-register", action="store_true")
     args = parser.parse_args(argv)

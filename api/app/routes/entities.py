@@ -4,6 +4,7 @@ from datetime import datetime
 import uuid
 
 from sqlalchemy import text
+from ..config import settings
 from ..deps import get_neo4j_session, get_db_session
 from ..services import graph_service, ingestion_service, auth_service, case_service
 from ..models.schemas import (
@@ -102,7 +103,7 @@ async def get_entity(entity_id: str, db=Depends(get_db_session)):
 
 
 @router.get("/entities/{entity_id}/network", response_model=NetworkResponse)
-async def get_entity_network(entity_id: str, hops: int = 2, db=Depends(get_db_session)):
+async def get_entity_network(entity_id: str, hops: int = settings.default_neighborhood_hops, db=Depends(get_db_session)):
     async with get_neo4j_session() as session:
         resolved = await _resolve_entity_id(session, entity_id)
         if not resolved:
@@ -141,14 +142,14 @@ async def health_alias():
 
 
 @router.get("/analytics/loops", response_model=LoopsResponse)
-async def get_loops(max_length: int = 5, db=Depends(get_db_session)):
+async def get_loops(max_length: int = settings.loops_default_max_length, db=Depends(get_db_session)):
     async with get_neo4j_session() as session:
         data = await graph_service.get_loops(session, max_length)
         return LoopsResponse(loops=[LoopResult(**l) for l in data["loops"]], total=data["total"])
 
 
 @router.get("/analytics/loops/{cin}", response_model=LoopsResponse)
-async def get_loops_for_company(cin: str, max_length: int = 5, db=Depends(get_db_session)):
+async def get_loops_for_company(cin: str, max_length: int = settings.loops_default_max_length, db=Depends(get_db_session)):
     async with get_neo4j_session() as session:
         data = await graph_service.get_loops(session, max_length, cin=cin)
         return LoopsResponse(loops=[LoopResult(**l) for l in data["loops"]], total=data["total"])
@@ -239,7 +240,7 @@ async def get_worklist(
     db=Depends(get_db_session),
 ):
     page = max(1, page)
-    page_size = min(100, max(1, page_size))
+    page_size = min(settings.max_page_size, max(1, page_size))
     async with get_neo4j_session() as session:
         from app.services.gnn import predict as gnn_predict
 

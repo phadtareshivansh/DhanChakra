@@ -2,17 +2,14 @@
 Plan Phase 2). Pure-python units run anywhere; live tests run against the
 running Neo4j stack (they create + clean up their own fixture subgraph).
 
-Usage: docker exec dhanchakra-api pytest /tmp/tests/test_entity_resolution.py -q
+Usage: docker compose exec api pytest tests -q
 """
 
 import asyncio
-import sys
 
 import pytest
 
-sys.path.insert(0, "/app/app")
-
-from services import graph_service
+from app.services import graph_service
 
 
 @pytest.fixture

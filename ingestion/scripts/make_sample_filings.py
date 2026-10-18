@@ -15,11 +15,17 @@ def _escape(s: str) -> str:
 
 
 def build_pdf(lines: list) -> bytes:
-    """Minimal single-page text PDF."""
-    content = ["BT", "/F1 11 Tf", "72 720 Td"]
+    """Minimal single-page text PDF.
+
+    Each line is positioned with an absolute text matrix (Tm). The relative
+    `Td` operator accumulates offsets across lines, which pushes text off-page
+    and makes PDF text extractors (pypdf) collapse the whole page into a
+    single line — breaking the labeled-line extraction downstream.
+    """
+    content = ["BT", "/F1 11 Tf"]
     for i, line in enumerate(lines):
         y = 720 - 22 * i
-        content.append(f"72 {y} Td ({_escape(line)}) Tj")
+        content.append(f"1 0 0 1 72 {y} Tm ({_escape(line)}) Tj")
     content.append("ET")
     stream = "\n".join(content)
     stream_bytes = stream.encode("latin-1", "replace")

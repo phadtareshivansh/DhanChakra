@@ -6,6 +6,7 @@ import { NetworkResponse, ExplainResponse } from '../types/api'
 import RiskBadge from '../components/RiskBadge'
 import ExplainDrawer from '../components/ExplainDrawer'
 import { riskColorForScore } from '../utils/riskColors'
+import { RISK_THRESHOLDS } from '../config/risk'
 
 interface GraphNode {
   id: string
@@ -205,7 +206,7 @@ export default function EntityDetail() {
         title: `Investigation: ${entity.name || entity.cin}`,
         description: `Case opened from entity ${entity.cin || entity.id} with risk score ${entity.risk_score ?? 'n/a'}`,
         company_cin: entity.cin,
-        priority: entity.risk_score && entity.risk_score >= 65 ? 2 : entity.risk_score && entity.risk_score >= 40 ? 1 : 0,
+        priority: entity.risk_score && entity.risk_score >= RISK_THRESHOLDS.high ? 2 : entity.risk_score && entity.risk_score >= RISK_THRESHOLDS.medium ? 1 : 0,
       })
       navigate(`/cases?highlight=${res.data.id}`)
     } catch (err) {

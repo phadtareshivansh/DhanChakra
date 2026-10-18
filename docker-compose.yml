@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   neo4j:
     image: neo4j:5.23-community
@@ -8,11 +6,11 @@ services:
       - "7474:7474"
       - "7687:7687"
     environment:
-      - NEO4J_AUTH=neo4j/dhanchakra123
+      - NEO4J_AUTH=${NEO4J_USER:-neo4j}/${NEO4J_PASSWORD}
       - NEO4J_PLUGINS=["graph-data-science"]
-      - NEO4J_dbms_memory_heap_initial__size=512m
-      - NEO4J_dbms_memory_heap_max__size=1G
-      - NEO4J_dbms_memory_pagecache_size=512m
+      - NEO4J_dbms_memory_heap_initial__size=${NEO4J_HEAP_INITIAL:-512m}
+      - NEO4J_dbms_memory_heap_max__size=${NEO4J_HEAP_MAX:-1G}
+      - NEO4J_dbms_memory_pagecache_size=${NEO4J_PAGECACHE:-512m}
     volumes:
       - neo4j-data:/data
       - neo4j-logs:/logs
@@ -33,14 +31,14 @@ services:
     ports:
       - "5432:5432"
     environment:
-      - POSTGRES_USER=dhanchakra
-      - POSTGRES_PASSWORD=dhanchakra123
-      - POSTGRES_DB=dhanchakra
+      - POSTGRES_USER=${POSTGRES_USER:-dhanchakra}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB:-dhanchakra}
     volumes:
       - postgres-data:/var/lib/postgresql/data
       - ./api/migrations:/docker-entrypoint-initdb.d
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U dhanchakra -d dhanchakra"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-dhanchakra} -d ${POSTGRES_DB:-dhanchakra}"]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -54,15 +52,14 @@ services:
     container_name: dhanchakra-api
     ports:
       - "8000:8000"
+    env_file:
+      - .env
     environment:
+      # Container-internal service discovery (overrides the host-oriented
+      # values in .env; all secrets/weights come from env_file above)
       - NEO4J_URI=bolt://neo4j:7687
-      - NEO4J_USER=neo4j
-      - NEO4J_PASSWORD=dhanchakra123
       - POSTGRES_HOST=postgres
       - POSTGRES_PORT=5432
-      - POSTGRES_USER=dhanchakra
-      - POSTGRES_PASSWORD=dhanchakra123
-      - POSTGRES_DB=dhanchakra
       - PYTHONPATH=/app
     volumes:
       - ./api/app:/app/app:ro
@@ -83,7 +80,13 @@ services:
     ports:
       - "5173:5173"
     environment:
-      - VITE_API_URL=http://localhost:8000/api/v1
+      - VITE_API_URL=${VITE_API_URL}
+      - VITE_PROXY_TARGET=${VITE_PROXY_TARGET:-http://api:8000}
+      - VITE_PORT=${VITE_PORT:-5173}
+      - VITE_RISK_CRITICAL_THRESHOLD=${VITE_RISK_CRITICAL_THRESHOLD:-85}
+      - VITE_RISK_HIGH_THRESHOLD=${VITE_RISK_HIGH_THRESHOLD:-65}
+      - VITE_RISK_MEDIUM_THRESHOLD=${VITE_RISK_MEDIUM_THRESHOLD:-40}
+      - VITE_DEMO_HINT=${VITE_DEMO_HINT}
     volumes:
       - ./frontend/src:/app/src:ro
       - ./frontend/public:/app/public:ro

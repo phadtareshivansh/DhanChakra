@@ -12,6 +12,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from ...config import settings
+
 
 class GraphSAGE(nn.Module):
     def __init__(self, in_dim: int, hidden: int = 16, dropout: float = 0.3):
@@ -74,7 +76,7 @@ def evaluate(
     """F1 / AUC-PR / recall@k (TRD §9). Pure torch, no sklearn."""
     y = labels.float()
     p = torch.sigmoid(scores)
-    preds = (p >= 0.5).float()
+    preds = (p >= settings.gnn_decision_threshold).float()
 
     tp = float((preds * y).sum())
     fp = float((preds * (1 - y)).sum())

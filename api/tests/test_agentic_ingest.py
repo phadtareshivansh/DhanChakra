@@ -3,18 +3,19 @@ Phase 5). Unit tests cover the rules extractor + confidence routing; live
 tests run the endpoint flow (upload → extract → confirm → node exists) and
 clean up after themselves.
 
-Usage: docker exec dhanchakra-api pytest /tmp/tests/test_agentic_ingest.py -q
+Usage: docker compose exec api pytest tests -q
 """
 
 import asyncio
 import io
+import os
 import sys
 
 import pytest
 
-sys.path.insert(0, "/app/app")
+from app.services import agentic_ingest
 
-from services import agentic_ingest
+API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8000/api/v1")
 
 APOLLO_TEXT = "\n".join([
     "FORM - MGT-7 / AOC-4 EXTRACT",
@@ -108,11 +109,17 @@ def test_live_document_flow():
     import httpx
 
     sys.path.insert(0, "/tmp")
-    from make_sample_filings import build_pdf
+    try:
+        from make_sample_filings import build_pdf
+    except ImportError:
+        pytest.skip(
+            "make_sample_filings.py unavailable; copy ingestion/scripts to /tmp "
+            "(docker cp ingestion/scripts/make_sample_filings.py <api>:<container>:/tmp)"
+        )
 
     pdf = build_pdf(APOLLO_TEXT.splitlines())
 
-    r = httpx.post("http://localhost:8000/api/v1/ingest/document",
+    r = httpx.post(f"{API_BASE_URL}/ingest/document",
                    files={"file": ("filing_apollo_test.pdf", pdf, "application/pdf")},
                    timeout=60)
     assert r.status_code == 200, r.text
@@ -122,7 +129,7 @@ def test_live_document_flow():
     job_id = body["job_id"]
 
     confirmed = {k: v["value"] for k, v in body["extraction"].items()}
-    rc = httpx.post("http://localhost:8000/api/v1/ingest/document/confirm",
+    rc = httpx.post(f"{API_BASE_URL}/ingest/document/confirm",
                     json={"job_id": job_id, "extraction": body["extraction"], "confirmed": confirmed},
                     timeout=60)
     assert rc.status_code == 200, rc.text
@@ -162,7 +169,7 @@ def test_live_document_flow():
 def test_live_document_bad_pdf_fails_gracefully():
     import httpx
 
-    r = httpx.post("http://localhost:8000/api/v1/ingest/document",
+    r = httpx.post(f"{API_BASE_URL}/ingest/document",
                    files={"file": ("garbage.pdf", b"not a pdf at all", "application/pdf")},
                    timeout=60)
     assert r.status_code == 200

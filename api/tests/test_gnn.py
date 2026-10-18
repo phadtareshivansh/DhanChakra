@@ -2,18 +2,14 @@
 Pure-torch units run anywhere; the live test runs the predict write-back
 against the running Neo4j stack.
 
-Usage: docker exec dhanchakra-api pytest /tmp/tests/test_gnn.py -q
+Usage: docker compose exec api pytest tests -q
 """
 
 import asyncio
-import os
-import sys
 
 import pytest
 
-sys.path.insert(0, "/app/app")
-
-from services.gnn import features, model as gnn_model, synthetic
+from app.services.gnn import features, model as gnn_model, synthetic
 
 
 @pytest.fixture
@@ -103,7 +99,7 @@ def test_weak_labels_threshold():
 
 def test_predict_writeback_live():
     from app.deps import get_neo4j_session
-    from services.gnn import predict as gnn_predict
+    from app.services.gnn import predict as gnn_predict
 
     assert gnn_predict.is_available(), "checkpoint must exist (run python -m app.services.gnn.train)"
 
@@ -128,7 +124,7 @@ def test_ensure_scored_idempotent_live():
     """ensure_scored must never error and must short-circuit once every
     company carries a gnn_v1 score (no double scoring)."""
     from app.deps import get_neo4j_session
-    from services.gnn import predict as gnn_predict
+    from app.services.gnn import predict as gnn_predict
 
     async def _check():
         async with get_neo4j_session() as session:

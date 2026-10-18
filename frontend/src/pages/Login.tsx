@@ -9,6 +9,7 @@ export default function Login() {
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const demoHint = import.meta.env.VITE_DEMO_HINT as string | undefined
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -52,7 +53,7 @@ export default function Login() {
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="officer@dggi.gov.in"
+              placeholder="you@example.gov.in"
             />
           </div>
           <div>
@@ -71,10 +72,13 @@ export default function Login() {
           </button>
         </form>
 
-        <div className="mt-6 pt-4 border-t border-border text-xs text-text-secondary space-y-1">
-          <p>Demo officer: <span className="mono-id">officer@dggi.gov.in</span> / <span className="mono-id">officer123</span></p>
-          <p>Demo analyst: <span className="mono-id">analyst@dggi.gov.in</span> / <span className="mono-id">analyst123</span></p>
-        </div>
+        {demoHint && (
+          <div className="mt-6 pt-4 border-t border-border text-xs text-text-secondary space-y-1">
+            {demoHint.split('|').map((line, i) => (
+              <p key={i}><span className="mono-id">{line.trim()}</span></p>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   )

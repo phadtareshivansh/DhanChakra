@@ -6,9 +6,30 @@ import uuid
 import pandas as pd
 from neo4j import GraphDatabase
 
+
+def _load_dotenv(path: str) -> None:
+    """Best-effort load of a .env file so secrets never need hardcoding."""
+    if not os.path.exists(path):
+        return
+    with open(path, encoding="utf-8") as fh:
+        for line in fh:
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, value = line.split("=", 1)
+            os.environ.setdefault(key.strip(), value.strip())
+
+
+_load_dotenv(os.path.join(os.path.dirname(__file__), "..", "..", ".env"))
+
 NEO4J_URI = os.getenv("NEO4J_URI", "bolt://localhost:7687")
 NEO4J_USER = os.getenv("NEO4J_USER", "neo4j")
-NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "dhanchakra123")
+NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD")
+
+if not NEO4J_PASSWORD:
+    raise SystemExit(
+        "NEO4J_PASSWORD is not set. Define it in .env (see .env.example)."
+    )
 
 
 def _uid(key: str) -> str:
