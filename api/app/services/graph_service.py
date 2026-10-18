@@ -166,9 +166,9 @@ async def _flagged_cycle_edges(session, entity_id: str) -> Set[Tuple[str, str, s
         MATCH path = (c1:Company {{id: $id}}) ((:Company)-[:BILLED]->(:Transaction)-[:BILLED_TO]->(:Company)){{2,{settings.max_cycle_hops}}} (c1)
         WITH [n IN nodes(path) WHERE n:Company] AS comps
         RETURN comps
-        LIMIT 50
+        LIMIT $limit
         """
-        result = await session.run(ring_query, id=entity_id)
+        result = await session.run(ring_query, id=entity_id, limit=settings.max_ring_paths)
         ring_ids: Set[str] = set()
         for rec in await result.data():
             for c in rec["comps"]:
@@ -228,26 +228,31 @@ def _canonical_cycle(path_ids: List[str]) -> tuple:
 
 
 async def get_loops(session, max_length: int, cin: Optional[str] = None) -> Dict[str, Any]:
-    if not (2 <= max_length <= settings.max_cycle_hops):
+    # Each repetition of the company hop adds one company, so the smallest
+    # closed ring needs (min_cycle_length - 1) repetitions.
+    min_repeats = settings.min_cycle_length - 1
+    if not (min_repeats <= max_length <= settings.max_cycle_hops):
         max_length = settings.loops_default_max_length
     company_hop = "((:Company)-[:BILLED]->(:Transaction)-[:BILLED_TO]->(:Company))"
     if cin:
         query = f"""
-        MATCH path = (c1:Company {{cin: $cin}}) {company_hop}{{2,{max_length}}} (c1)
+        MATCH path = (c1:Company {{cin: $cin}}) {company_hop}{{{min_repeats},{max_length}}} (c1)
         WITH [n IN nodes(path) WHERE n:Company] AS comps,
              [n IN nodes(path) WHERE n:Transaction | coalesce(n.amount, 0)] AS amounts
         RETURN comps, amounts
-        LIMIT 50
+        LIMIT $limit
         """
+        limit = settings.max_entity_loop_paths
     else:
         query = f"""
-        MATCH path = (c1:Company) {company_hop}{{2,{max_length}}} (c1)
+        MATCH path = (c1:Company) {company_hop}{{{min_repeats},{max_length}}} (c1)
         WITH [n IN nodes(path) WHERE n:Company] AS comps,
              [n IN nodes(path) WHERE n:Transaction | coalesce(n.amount, 0)] AS amounts
         RETURN comps, amounts
-        LIMIT 100
+        LIMIT $limit
         """
-    result = await session.run(query, cin=cin)
+        limit = settings.max_global_loop_paths
+    result = await session.run(query, cin=cin, limit=limit)
     records = await result.data()
 
     loops = []
@@ -268,11 +273,12 @@ async def get_loops(session, max_length: int, cin: Optional[str] = None) -> Dict
             "companies": [dict(c) for c in comps],
         }))
 
-    loops = [l for l in loops if l["length"] >= 2]
+    loops = [l for l in loops if l["length"] >= settings.min_cycle_length - 1]
     return {"loops": loops, "total": len(loops)}
 
 
-async def _ensure_invoice_graph(session, name: str = "company_invoice_graph") -> None:
+async def _ensure_invoice_graph(session, name: Optional[str] = None) -> None:
+    name = name or settings.gds_projection_name
     try:
         await session.run(f"CALL gds.graph.drop('{name}', false) YIELD graphName RETURN graphName")
     except Exception:
@@ -290,10 +296,10 @@ async def _ensure_invoice_graph(session, name: str = "company_invoice_graph") ->
 async def compute_wcc(session) -> Dict[str, Any]:
     try:
         await _ensure_invoice_graph(session)
-        result = await session.run("""
-        CALL gds.wcc.write('company_invoice_graph', {
+        result = await session.run(f"""
+        CALL gds.wcc.write('{settings.gds_projection_name}', {{
             writeProperty: 'community_id'
-        })
+        }})
         YIELD componentCount, nodePropertiesWritten
         RETURN componentCount, nodePropertiesWritten
         """)
@@ -310,16 +316,16 @@ async def compute_wcc(session) -> Dict[str, Any]:
 async def compute_centrality(session, cin: str) -> Dict[str, Any]:
     try:
         await _ensure_invoice_graph(session)
-        pr_result = await session.run("""
-        CALL gds.pageRank.stream('company_invoice_graph')
+        pr_result = await session.run(f"""
+        CALL gds.pageRank.stream('{settings.gds_projection_name}')
         YIELD nodeId, score
         WHERE gds.util.asNode(nodeId).cin = $cin
         RETURN score
         """, cin=cin)
         pr_record = await pr_result.single()
 
-        bt_result = await session.run("""
-        CALL gds.betweenness.stream('company_invoice_graph')
+        bt_result = await session.run(f"""
+        CALL gds.betweenness.stream('{settings.gds_projection_name}')
         YIELD nodeId, score
         WHERE gds.util.asNode(nodeId).cin = $cin
         RETURN score
@@ -357,8 +363,8 @@ async def run_structural_analytics(session) -> Dict[str, Any]:
         WHERE size(cins) >= {settings.min_cycle_length}
         RETURN DISTINCT cins,
                reduce(s = 0.0, a IN amounts | s + a) AS total_amount
-        LIMIT 1000
-        """)
+        LIMIT $limit
+        """, limit=settings.max_cycle_paths)
         records = await result.data()
         seen_sets = set()
         for r in records:
@@ -388,11 +394,11 @@ async def run_structural_analytics(session) -> Dict[str, Any]:
 
     # --- 2. Louvain communities, write back community_id ---
     try:
-        result = await session.run("""
-        CALL gds.louvain.write('company_invoice_graph', {
+        result = await session.run(f"""
+        CALL gds.louvain.write('{settings.gds_projection_name}', {{
             writeProperty: 'community_id',
-            maxIterations: 20
-        })
+            maxIterations: {settings.gds_louvain_max_iterations}
+        }})
         YIELD communityCount, nodePropertiesWritten
         RETURN communityCount, nodePropertiesWritten
         """)
@@ -400,8 +406,8 @@ async def run_structural_analytics(session) -> Dict[str, Any]:
         summary["communities"] = record["communityCount"] if record else 0
         summary["community_nodes_written"] = record["nodePropertiesWritten"] if record else 0
 
-        comm_result = await session.run("""
-        CALL gds.louvain.stream('company_invoice_graph', {maxIterations: 20})
+        comm_result = await session.run(f"""
+        CALL gds.louvain.stream('{settings.gds_projection_name}', {{maxIterations: {settings.gds_louvain_max_iterations}}})
         YIELD nodeId, communityId
         WITH communityId, collect(gds.util.asNode(nodeId)) AS members
         RETURN communityId, size(members) AS member_count,
@@ -425,8 +431,8 @@ async def run_structural_analytics(session) -> Dict[str, Any]:
 
     # --- 3. Centrality write-back ---
     try:
-        await session.run("""
-        CALL gds.pageRank.write('company_invoice_graph', {writeProperty: 'pagerank'})
+        await session.run(f"""
+        CALL gds.pageRank.write('{settings.gds_projection_name}', {{writeProperty: 'pagerank'}})
         YIELD nodePropertiesWritten
         RETURN nodePropertiesWritten
         """)
@@ -498,7 +504,7 @@ def _heuristic_risk_score(features: Dict[str, Any]) -> float:
             settings.risk_address_cap,
             shared_address * settings.risk_address_weight,
         )
-    if degree >= 2:
+    if degree >= settings.risk_degree_min:
         score += min(
             settings.risk_degree_cap,
             (degree - 1) * settings.risk_degree_weight,
@@ -508,7 +514,7 @@ def _heuristic_risk_score(features: Dict[str, Any]) -> float:
         settings.risk_betweenness_cap,
         betweenness * settings.risk_betweenness_weight,
     )
-    return round(min(score, 100.0), 1)
+    return round(min(score, settings.risk_score_cap), 1)
 
 
 async def trigger_risk_job(session) -> Dict[str, Any]:
@@ -584,8 +590,14 @@ async def explain_entity(session, entity_id: str) -> Dict[str, Any]:
     }
 
 
-def _jaro_winkler(a: str, b: str, prefix_scale: float = 0.1) -> float:
+def _jaro_winkler(a: str, b: str,
+                  prefix_scale: Optional[float] = None,
+                  prefix_max: Optional[int] = None) -> float:
     """Jaro-Winkler similarity, pure-python (no external dep). Returns 0..1."""
+    if prefix_scale is None:
+        prefix_scale = settings.entity_resolution_prefix_scale
+    if prefix_max is None:
+        prefix_max = settings.entity_resolution_prefix_max
     a, b = a.strip().lower(), b.strip().lower()
     if a == b:
         return 1.0
@@ -629,7 +641,7 @@ def _jaro_winkler(a: str, b: str, prefix_scale: float = 0.1) -> float:
         if ca != cb:
             break
         prefix += 1
-        if prefix == 4:
+        if prefix == prefix_max:
             break
     return jaro + prefix * prefix_scale * (1.0 - jaro)
 

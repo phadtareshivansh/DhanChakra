@@ -73,9 +73,10 @@ async def me(db=Depends(get_db_session), authorization: Optional[str] = Header(N
 # ---------------------------------------------------------------------------
 
 @router.get("/entities/search", response_model=EntitySearchResponse)
-async def search_entities(q: str, limit: int = 20, db=Depends(get_db_session)):
+async def search_entities(q: str, limit: Optional[int] = None, db=Depends(get_db_session)):
+    page = min(limit or settings.default_page_size, settings.max_page_size)
     async with get_neo4j_session() as session:
-        results = await graph_service.search_entities(session, q, limit)
+        results = await graph_service.search_entities(session, q, page)
         return EntitySearchResponse(results=[SearchResult(**r) for r in results], total=len(results))
 
 
@@ -236,11 +237,11 @@ async def get_worklist(
     min_score: Optional[float] = None,
     max_score: Optional[float] = None,
     page: int = 1,
-    page_size: int = 20,
+    page_size: Optional[int] = None,
     db=Depends(get_db_session),
 ):
     page = max(1, page)
-    page_size = min(settings.max_page_size, max(1, page_size))
+    page_size = min(settings.max_page_size, max(1, page_size or settings.default_page_size))
     async with get_neo4j_session() as session:
         from app.services.gnn import predict as gnn_predict
 
@@ -449,7 +450,8 @@ async def export_case(case_id: str, include_network: bool = True, db=Depends(get
                 explanation = await graph_service.explain_entity(session, entity["id"])
                 bundle["evidence"] = explanation
                 if include_network:
-                    bundle["subgraph"] = await graph_service.get_network(session, entity["id"], 2)
+                    bundle["subgraph"] = await graph_service.get_network(
+                        session, entity["id"], settings.default_neighborhood_hops)
 
     result = await case_service.record_export(db, case_id, "json", bundle, None)
     await case_service.log_audit(db, None, "exported_case", "case", case_id,
@@ -470,7 +472,8 @@ async def preview_export(case_id: str, db=Depends(get_db_session)):
             if entity:
                 bundle["entity"] = {k: v for k, v in entity.items() if k != "_labels"}
                 bundle["evidence"] = await graph_service.explain_entity(session, entity["id"])
-                bundle["subgraph"] = await graph_service.get_network(session, entity["id"], 2)
+                bundle["subgraph"] = await graph_service.get_network(
+                    session, entity["id"], settings.default_neighborhood_hops)
     return ExportPreviewResponse(payload=bundle)
 
 
@@ -484,10 +487,11 @@ async def list_case_exports(case_id: str, db=Depends(get_db_session)):
 # ---------------------------------------------------------------------------
 
 @router.get("/audit", response_model=List[AuditLogEntry])
-async def list_audit(limit: int = 100, db=Depends(get_db_session)):
+async def list_audit(limit: Optional[int] = None, db=Depends(get_db_session)):
+    page = min(limit or settings.audit_log_max_limit, settings.audit_log_max_limit)
     result = await db.execute(
         text("SELECT id, user_id, action, entity_type, entity_id, details, timestamp FROM audit_log ORDER BY timestamp DESC LIMIT :limit"),
-        {"limit": limit},
+        {"limit": page},
     )
     entries = []
     for r in result.fetchall():

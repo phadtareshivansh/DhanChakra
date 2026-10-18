@@ -204,7 +204,9 @@ class StatsOverview(BaseModel):
 
 class ResolveResponse(BaseModel):
     resolved_edges: int
-    method: str
+    method: str = "deterministic+fuzzy"
+    deterministic: int = 0
+    fuzzy: int = 0
 
 
 class CaseBase(BaseModel):
