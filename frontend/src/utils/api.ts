@@ -1,7 +1,15 @@
 import axios from 'axios'
 
+const baseURL = import.meta.env.VITE_API_URL
+
+if (!baseURL) {
+  throw new Error(
+    'VITE_API_URL is not set. Define it in .env (e.g. http://localhost:8000/api/v1) — see .env.example.'
+  )
+}
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1',
+  baseURL,
   timeout: 60000,
 })
 

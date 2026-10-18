@@ -2,17 +2,14 @@
 Runs against the live Neo4j instance via the API container's environment,
 or directly with pytest against a running stack.
 
-Usage: docker exec dhanchakra-api pytest tests -q
+Usage: docker compose exec api pytest tests -q
 """
 
 import asyncio
 import pytest
-import sys
-import os
 
-sys.path.insert(0, "/app/app")
-
-from services import graph_service
+from app.services import graph_service
+from app.config import settings
 
 
 @pytest.fixture
@@ -31,8 +28,8 @@ def test_heuristic_risk_score_cycle_dominant():
         "cycle_count": 2, "degree": 2, "shared_director_count": 3,
         "shared_address_count": 2, "pagerank": 0.2, "betweenness": 0.1,
     })
-    assert 40 <= score <= 100
-    assert score >= 60
+    assert settings.risk_cycle_base <= score <= 100
+    assert score >= settings.risk_cycle_base + settings.risk_cycle_cap
 
 
 def test_heuristic_risk_score_clean():
@@ -40,7 +37,7 @@ def test_heuristic_risk_score_clean():
         "cycle_count": 0, "degree": 1, "shared_director_count": 0,
         "shared_address_count": 0, "pagerank": 0.01, "betweenness": 0.0,
     })
-    assert score < 40
+    assert score < settings.risk_flag_threshold
 
 
 def test_heuristic_risk_score_always_bounded():

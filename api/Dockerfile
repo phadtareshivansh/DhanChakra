@@ -12,7 +12,8 @@ RUN pip install --no-cache-dir torch==2.4.1 --index-url https://download.pytorch
     && pip install --no-cache-dir -r requirements.txt
 
 COPY app/ ./app/
+COPY tests/ ./tests/
 
 EXPOSE 8000
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+CMD ["sh", "-c", "uvicorn app.main:app --host ${API_HOST:-0.0.0.0} --port ${API_PORT:-8000} --reload"]

@@ -11,11 +11,12 @@ This layer contains Cypher queries and GDS procedures for structural analytics.
 ## Applying Constraints
 
 ```bash
-cypher-shell -u neo4j -p dhanchakra123 -f constraints.cypher
+# Credentials come from .env (NEO4J_USER / NEO4J_PASSWORD), never hardcoded
+cypher-shell -u "$NEO4J_USER" -p "$NEO4J_PASSWORD" -f constraints.cypher
 ```
 
 ## Loading Seed Data
 
 ```bash
-cypher-shell -u neo4j -p dhanchakra123 -f seed.cypher
+cypher-shell -u "$NEO4J_USER" -p "$NEO4J_PASSWORD" -f seed.cypher
 ```

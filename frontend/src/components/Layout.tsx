@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from 'react'
 import api from '../utils/api'
 import { SearchResult } from '../types/api'
 import RiskBadge from './RiskBadge'
+import { RISK_THRESHOLDS } from '../config/risk'
 
 export default function Layout() {
   const location = useLocation()
@@ -168,10 +169,10 @@ export default function Layout() {
           <div className="px-6 pt-4">
             <div className="panel px-4 py-2 flex items-center gap-5 text-[11px] text-text-secondary">
               <span className="micro-label">Risk legend</span>
-              <span><span className="inline-block w-2 h-2 rounded-full bg-risk-critical mr-1" />Critical ≥85</span>
-              <span><span className="inline-block w-2 h-2 rounded-full bg-risk-high mr-1" />High 65–84</span>
-              <span><span className="inline-block w-2 h-2 rounded-full bg-risk-medium mr-1" />Medium 40–64</span>
-              <span><span className="inline-block w-2 h-2 rounded-full bg-risk-low mr-1" />Low &lt;40</span>
+              <span><span className="inline-block w-2 h-2 rounded-full bg-risk-critical mr-1" />Critical ≥{RISK_THRESHOLDS.critical}</span>
+              <span><span className="inline-block w-2 h-2 rounded-full bg-risk-high mr-1" />High {RISK_THRESHOLDS.high}–{RISK_THRESHOLDS.critical - 1}</span>
+              <span><span className="inline-block w-2 h-2 rounded-full bg-risk-medium mr-1" />Medium {RISK_THRESHOLDS.medium}–{RISK_THRESHOLDS.high - 1}</span>
+              <span><span className="inline-block w-2 h-2 rounded-full bg-risk-low mr-1" />Low &lt;{RISK_THRESHOLDS.medium}</span>
               <button onClick={() => setShowLegend(false)} className="ml-auto text-text-disabled hover:text-text-primary">✕</button>
             </div>
           </div>

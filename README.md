@@ -3,30 +3,34 @@
 ## Services Running
 
 - **Neo4j** (bolt://localhost:7687, http://localhost:7474)
-- **PostgreSQL** (postgresql://localhost:5432/dhanchakra)
+- **PostgreSQL** (postgresql://localhost:5432/`${POSTGRES_DB}`)
 - **FastAPI** (http://localhost:8000, docs at /docs)
 - **React Frontend** (http://localhost:5173)
 
 ## Quick Start
 
 ```bash
-cd /Users/shivanshphadtare/Documents/SIH2026
+cd <repo-root>
 cp .env.example .env
-# Edit .env if needed
+# Edit .env: set NEO4J_PASSWORD, POSTGRES_PASSWORD and JWT_SECRET.
+# Optionally set DEMO_* credentials + SEED_DEMO_USERS=true to auto-seed demo logins.
 docker compose up -d
 ```
 
 ## Verification
 
 ```bash
+# Load credentials from .env (never hardcoded in the repo)
+set -a; source .env; set +a
+
 # Check all services healthy
 docker compose ps
 
 # Apply Neo4j constraints
-cat graph/cypher/constraints.cypher | docker exec -i dhanchakra-neo4j cypher-shell -u neo4j -p dhanchakra123
+cat graph/cypher/constraints.cypher | docker exec -i dhanchakra-neo4j cypher-shell -u "$NEO4J_USER" -p "$NEO4J_PASSWORD"
 
 # Load seed data
-cat graph/cypher/seed.cypher | docker exec -i dhanchakra-neo4j cypher-shell -u neo4j -p dhanchakra123
+cat graph/cypher/seed.cypher | docker exec -i dhanchakra-neo4j cypher-shell -u "$NEO4J_USER" -p "$NEO4J_PASSWORD"
 
 # Check API health
 curl http://localhost:8000/health

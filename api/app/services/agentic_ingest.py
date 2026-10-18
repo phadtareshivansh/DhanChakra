@@ -14,15 +14,16 @@ depend on it (PRD NFR reliability).
 """
 
 import logging
-import os
 import re
 import uuid
 from typing import Any, Dict, List, Optional
 
+from ..config import settings
+
 logger = logging.getLogger(__name__)
 
-BACKEND = os.getenv("AGENT_INGEST_BACKEND", "rules")
-CONFIDENCE_THRESHOLD = float(os.getenv("AGENT_INGEST_CONFIDENCE", "0.8"))
+BACKEND = settings.agent_ingest_backend
+CONFIDENCE_THRESHOLD = settings.agent_ingest_confidence
 
 FIELDS = ["company_name", "cin", "gstin", "registered_address", "director_name", "din", "shareholding"]
 
@@ -93,8 +94,8 @@ def _extract_llm(text: str) -> Dict[str, Any]:
     strict JSON. Falls back to rules on any failure."""
     import json
 
-    url = os.getenv("AGENT_LLM_URL")
-    key = os.getenv("AGENT_LLM_KEY")
+    url = settings.agent_llm_url
+    key = settings.agent_llm_key
     if not url or not key:
         logger.info("AGENT_LLM_URL/KEY not set; falling back to rules backend")
         return _extract_rules(text)
@@ -106,12 +107,12 @@ def _extract_llm(text: str) -> Dict[str, Any]:
             "Extract from this MCA filing text: company_name, cin, gstin, "
             "registered_address, director_name, din, shareholding. "
             "Respond ONLY with JSON of {\"fields\": {field: {\"value\": str, "
-            "\"confidence\": 0..1}}}.\n\n---\n" + text[:4000]
+            "\"confidence\": 0..1}}}.\n\n---\n" + text[:settings.agent_llm_max_chars]
         )
         r = httpx.post(
             url,
             headers={"Authorization": f"Bearer {key}"},
-            json={"model": os.getenv("AGENT_LLM_MODEL", "llama-3-70b"), "messages": [{"role": "user", "content": prompt}]},
+            json={"model": settings.agent_llm_model, "messages": [{"role": "user", "content": prompt}]},
             timeout=60,
         )
         r.raise_for_status()

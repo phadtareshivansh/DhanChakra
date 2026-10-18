@@ -1,10 +1,12 @@
+import { RISK_THRESHOLDS } from '../config/risk'
+
 export function riskLevel(score?: number): { label: string; color: string } {
   if (score === undefined || score === null) {
     return { label: 'Insufficient data', color: 'risk-neutral' }
   }
-  if (score >= 85) return { label: 'Critical', color: 'risk-critical' }
-  if (score >= 65) return { label: 'High', color: 'risk-high' }
-  if (score >= 40) return { label: 'Medium', color: 'risk-medium' }
+  if (score >= RISK_THRESHOLDS.critical) return { label: 'Critical', color: 'risk-critical' }
+  if (score >= RISK_THRESHOLDS.high) return { label: 'High', color: 'risk-high' }
+  if (score >= RISK_THRESHOLDS.medium) return { label: 'Medium', color: 'risk-medium' }
   return { label: 'Low', color: 'risk-low' }
 }
 

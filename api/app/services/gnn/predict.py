@@ -11,9 +11,11 @@ import logging
 import os
 from typing import Any, Dict, Optional
 
+from ...config import settings
+
 logger = logging.getLogger(__name__)
 
-CHECKPOINT_PATH = os.getenv("GNN_CHECKPOINT_PATH", "/app/models/gnn_risk_v1.pt")
+CHECKPOINT_PATH = settings.gnn_checkpoint_file
 
 _model: Optional[Any] = None
 _checkpoint: Optional[Dict[str, Any]] = None

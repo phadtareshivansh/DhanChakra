@@ -4,10 +4,24 @@ from contextlib import asynccontextmanager
 import asyncio
 import logging
 
+from .config import settings
 from .routes import entities
 from .deps import close_connections
 
 logger = logging.getLogger(__name__)
+
+
+async def _seed_demo_users() -> None:
+    """Non-blocking startup task: idempotently create demo users from the
+    DEMO_* environment settings (no credentials baked into the code or SQL)."""
+    try:
+        from .deps import get_db_session_cm
+        from .services import auth_service
+
+        async with get_db_session_cm() as db:
+            await auth_service.ensure_demo_users(db)
+    except Exception as e:
+        logger.warning("startup demo-user seeding skipped: %s", e)
 
 
 async def _warmup_scoring() -> None:
@@ -26,6 +40,7 @@ async def _warmup_scoring() -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    asyncio.create_task(_seed_demo_users())
     asyncio.create_task(_warmup_scoring())
     yield
     await close_connections()
@@ -39,7 +54,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=settings.cors_origin_list,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

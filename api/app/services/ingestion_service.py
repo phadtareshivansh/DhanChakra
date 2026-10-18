@@ -76,15 +76,18 @@ async def ingest_gst_csv(session, rows: List[Dict[str, str]]) -> Tuple[int, int]
             SET seller.name = coalesce(seller.name, $seller)
             MERGE (buyer:Company {gstin: $buyer})
             SET buyer.name = coalesce(buyer.name, $buyer)
-            CREATE (seller)-[:TRANSACTS_WITH {
+            CREATE (t:Transaction {
                 id: $id,
+                invoice_no: $id,
+                amount: toFloat($amount),
+                date: CASE WHEN $inv_date <> '' THEN date($inv_date) ELSE date() END,
                 gstin_seller: $seller,
                 gstin_buyer: $buyer,
-                amount: toFloat($amount),
-                invoice_date: CASE WHEN $inv_date <> '' THEN date($inv_date) ELSE date() END,
                 return_period: $ret_period,
                 created_at: datetime()
-            }]->(buyer)
+            })
+            CREATE (seller)-[:BILLED]->(t)
+            CREATE (t)-[:BILLED_TO]->(buyer)
             """,
                 id=str(uuid.uuid4()),
                 seller=seller,
