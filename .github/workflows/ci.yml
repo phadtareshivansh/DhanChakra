@@ -1,0 +1,73 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  api:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Prepare CI environment
+        run: |
+          python3 scripts/init_env.py --force \
+            --admin-email officer@dggi.gov.in \
+            --analyst-email analyst@dggi.gov.in
+          # Ensure APP_ENV is development and demo seeding is on
+          sed -i 's/^APP_ENV=.*/APP_ENV=development/' .env
+          sed -i 's/^SEED_DEMO_USERS=.*/SEED_DEMO_USERS=true/' .env
+          sed -i 's/^ALLOW_DEMO_SEED=.*/ALLOW_DEMO_SEED=false/' .env
+
+      - name: Build and start stack
+        run: docker compose up -d --build
+
+      - name: Wait for API health
+        run: |
+          for i in $(seq 1 60); do
+            if curl -fsS http://localhost:8000/health >/dev/null 2>&1; then exit 0; fi
+            sleep 3
+          done
+          echo "API failed to become healthy" >&2
+          docker compose logs api postgres neo4j frontend >&2
+          exit 1
+
+      - name: Bootstrap sample data and analytics
+        run: bash scripts/bootstrap_demo_data.sh
+
+      - name: Run API tests
+        run: docker compose exec -T api pytest tests -q
+
+  frontend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package.json
+
+      - name: Install frontend deps
+        working-directory: frontend
+        run: npm install --no-audit --no-fund
+
+      - name: Build frontend
+        working-directory: frontend
+        run: npx vite build
+
+      - name: Type-check (eslint --max-warnings 0 not enforced)
+        working-directory: frontend
+        run: npx tsc --noEmit

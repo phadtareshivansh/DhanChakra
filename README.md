@@ -7,15 +7,24 @@
 - **FastAPI** (http://localhost:8000, docs at /docs)
 - **React Frontend** (http://localhost:5173)
 
-## Quick Start
+## Quick Start (Fresh Mac)
 
 ```bash
+# Prerequisites: Homebrew, Docker Desktop, Node (20+) and common CLI tools.
+# Note: if `docker-credential-desktop` is missing, prefix commands with
+# export PATH="/Applications/Docker.app/Contents/Resources/bin:/opt/homebrew/bin:$PATH"
+
 cd <repo-root>
-cp .env.example .env
-# Edit .env: set NEO4J_PASSWORD, POSTGRES_PASSWORD and JWT_SECRET.
-# Optionally set DEMO_* credentials + SEED_DEMO_USERS=true to auto-seed demo logins.
-docker compose up -d
+make env        # generates .env with strong random secrets + demo logins
+make up         # build/start all services
+make bootstrap  # load sample data, structural + GNN analytics
+make smoke      # verify API (/health) and frontend (:5173)
 ```
+
+All knobs stay in `.env` (gitignored). For deployment, set `APP_ENV=production`,
+use strong secrets (JWT_SECRET ≥ 48 chars generated here), and review
+`ALLOW_DEMO_SEED` and CORS.
+
 
 ## Verification
 
