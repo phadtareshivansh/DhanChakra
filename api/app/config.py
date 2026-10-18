@@ -1,6 +1,14 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Optional
 
+# Values that obviously are not real secrets. Used by the production gate so a
+# deployment cannot silently boot with the placeholders from .env.example.
+PLACEHOLDER_SECRETS = frozenset({
+    "", "change-me", "changeme", "change_me", "change-this", "changethis",
+    "secret", "password", "dev", "dev-secret", "test", "example",
+})
+MIN_JWT_SECRET_LENGTH = 32
+
 
 class Settings(BaseSettings):
     """Application settings. Non-secret operational defaults are provided;
@@ -30,6 +38,14 @@ class Settings(BaseSettings):
     api_port: int = 8000
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
     max_page_size: int = 100
+    default_page_size: int = 20
+
+    # --- Deployment ---
+    # "development" | "staging" | "production". Production turns on the safety
+    # gates below: placeholder secrets refuse to boot and demo seeding is off
+    # unless explicitly allowed with ALLOW_DEMO_SEED=true.
+    app_env: str = "development"
+    allow_demo_seed: bool = False
 
     # --- Auth ---
     jwt_secret: str
@@ -60,6 +76,10 @@ class Settings(BaseSettings):
     risk_betweenness_weight: float = 100
     risk_betweenness_cap: float = 10
     risk_flag_threshold: float = 40
+    # Minimum distinct counterparties before the degree term contributes
+    risk_degree_min: int = 2
+    # Heuristic score is clamped to this maximum
+    risk_score_cap: float = 100.0
 
     # --- Graph analytics ---
     max_cycle_hops: int = 8
@@ -69,6 +89,20 @@ class Settings(BaseSettings):
     loops_default_max_length: int = 6
     weak_label_threshold: float = 40
     entity_resolution_fuzzy_threshold: float = 0.92
+    # Jaro-Winkler internals: longest common prefix considered and its weight
+    entity_resolution_prefix_max: int = 4
+    entity_resolution_prefix_scale: float = 0.1
+
+    # --- Query result guards (defensive caps on path-enumeration queries) ---
+    max_ring_paths: int = 50
+    max_entity_loop_paths: int = 50
+    max_global_loop_paths: int = 100
+    max_cycle_paths: int = 1000
+    audit_log_max_limit: int = 100
+
+    # --- GDS (Neo4j Graph Data Science) ---
+    gds_projection_name: str = "company_invoice_graph"
+    gds_louvain_max_iterations: int = 20
 
     # --- GNN training defaults ---
     gnn_default_epochs: int = 60
@@ -99,6 +133,27 @@ class Settings(BaseSettings):
     @property
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
+
+    @property
+    def is_production(self) -> bool:
+        return self.app_env.strip().lower() in {"prod", "production"}
+
+    @property
+    def weak_secrets(self) -> list[str]:
+        """Names of secret settings still set to a placeholder/weak value.
+
+        Used by the production startup gate; empty in a sane deployment.
+        """
+        weak: list[str] = []
+        jwt_secret = self.jwt_secret.strip()
+        if (jwt_secret.lower() in PLACEHOLDER_SECRETS
+                or len(jwt_secret) < MIN_JWT_SECRET_LENGTH):
+            weak.append("JWT_SECRET")
+        for name, value in (("NEO4J_PASSWORD", self.neo4j_password),
+                            ("POSTGRES_PASSWORD", self.postgres_password)):
+            if value.strip().lower() in PLACEHOLDER_SECRETS:
+                weak.append(name)
+        return weak
 
 
 settings = Settings()

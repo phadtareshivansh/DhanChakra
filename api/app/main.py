@@ -8,7 +8,26 @@ from .config import settings
 from .routes import entities
 from .deps import close_connections
 
+# uvicorn configures its own loggers but leaves the root logger without a
+# handler at WARNING, so application loggers would be silent. Install a root
+# handler so "--log-level info" style output includes our startup messages.
+logging.basicConfig(level=logging.INFO, format="%(levelname)s:     %(name)s: %(message)s")
+
 logger = logging.getLogger(__name__)
+
+
+def _validate_runtime_config() -> None:
+    """Fail fast rather than boot a production instance with placeholder
+    secrets or weak defaults (see Settings.weak_secrets)."""
+    if not settings.is_production:
+        return
+    weak = settings.weak_secrets
+    if weak:
+        raise RuntimeError(
+            "Refusing to start with APP_ENV=%s: placeholder/weak secrets %s. "
+            "Set strong values in the environment (see .env.example)."
+            % (settings.app_env, ", ".join(weak))
+        )
 
 
 async def _seed_demo_users() -> None:
@@ -40,6 +59,8 @@ async def _warmup_scoring() -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    _validate_runtime_config()
+    logger.info("Dhan-Chakra API starting (APP_ENV=%s)", settings.app_env)
     asyncio.create_task(_seed_demo_users())
     asyncio.create_task(_warmup_scoring())
     yield

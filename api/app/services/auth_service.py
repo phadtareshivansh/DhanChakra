@@ -89,8 +89,16 @@ async def ensure_demo_users(db) -> None:
 
     No credentials live in the codebase or migrations: seeding only happens
     when SEED_DEMO_USERS=true and the corresponding DEMO_* variables are set.
+    Seeding is additionally refused in production unless ALLOW_DEMO_SEED=true.
     """
     if not settings.seed_demo_users:
+        return
+    if settings.is_production and not settings.allow_demo_seed:
+        logger.warning(
+            "Demo-user seeding refused: APP_ENV=%s is production. "
+            "Set ALLOW_DEMO_SEED=true only if this is intentional.",
+            settings.app_env,
+        )
         return
 
     demos = [
