@@ -156,6 +156,20 @@ class RiskResult(BaseModel):
     scores: Optional[dict] = None
 
 
+class GNNModelInfo(BaseModel):
+    """Active model_versions row (Backend Schema §3), enriched with the
+    runtime state of the loaded GNN checkpoint."""
+    id: str
+    version_tag: str
+    trained_on: str
+    metrics: Dict[str, Any] = {}
+    checkpoint_path: str
+    deployed_at: Optional[datetime] = None
+    is_active: bool
+    checkpoint_available: bool
+    runtime: Optional[Dict[str, Any]] = None
+
+
 class ExplainEvidence(BaseModel):
     cycles: List[dict] = []
     shared_directors: List[dict] = []

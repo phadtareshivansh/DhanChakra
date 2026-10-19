@@ -12,7 +12,7 @@ from ..models.schemas import (
     RiskJobResponse, RiskResult, Case, CaseCreate, CaseUpdate,
     IngestionJobResponse, IngestionJobStatus, User, UserCreate, LoginRequest, TokenResponse,
     ExplainResponse, WorklistResponse, StatsOverview, ResolveResponse, CaseExportResponse,
-    ExportPreviewResponse, AuditLogEntry
+    ExportPreviewResponse, AuditLogEntry, GNNModelInfo
 )
 
 router = APIRouter(prefix="/api/v1", tags=["entities"])
@@ -209,6 +209,30 @@ async def gnn_predict(db=Depends(get_db_session)):
         summary = await gnn.predict_and_writeback(session)
     await case_service.log_audit(db, None, "ran_gnn_predict", None, None, summary)
     return summary
+
+
+@router.get("/analytics/gnn/model", response_model=GNNModelInfo)
+async def gnn_model(db=Depends(get_db_session)):
+    """Phase 3: the currently active model_versions row (which checkpoint
+    produced the scores), enriched with the loaded checkpoint's runtime
+    metadata (feature columns + metrics)."""
+    from app.services.gnn import predict as gnn
+
+    result = await db.execute(text("""
+        SELECT id::text AS id, version_tag, trained_on, metrics, checkpoint_path,
+               deployed_at, is_active
+        FROM model_versions
+        WHERE is_active = true
+        ORDER BY deployed_at DESC
+        LIMIT 1
+    """))
+    row = result.mappings().first()
+    if not row:
+        raise HTTPException(
+            status_code=404,
+            detail={"code": "no_active_model", "message": "No active row in model_versions"},
+        )
+    return {**dict(row), "checkpoint_available": gnn.is_available(), "runtime": gnn.model_meta()}
 
 
 @router.post("/analytics/gnn/train")

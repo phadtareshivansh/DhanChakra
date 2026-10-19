@@ -141,3 +141,34 @@ def test_ensure_scored_idempotent_live():
             assert second["reason"] == "up_to_date"
 
     _run(_check())
+
+
+# --- Live: GET /analytics/gnn/model (active model_versions row) ---
+
+def test_get_gnn_model_live():
+    """The endpoint must report the currently active model_versions row,
+    matching the registry in Postgres exactly."""
+    import httpx
+    from sqlalchemy import text as _text
+
+    from app.deps import async_session_maker
+
+    async def _active_row():
+        async with async_session_maker() as db:
+            res = await db.execute(_text(
+                "SELECT id::text AS id, version_tag, is_active FROM model_versions "
+                "WHERE is_active = true ORDER BY deployed_at DESC LIMIT 1"
+            ))
+            return res.mappings().first()
+
+    row = _run(_active_row())
+    assert row is not None, "seed migration 010 must provide an active model_versions row"
+
+    r = httpx.get("http://localhost:8000/api/v1/analytics/gnn/model", timeout=30)
+    assert r.status_code == 200
+    body = r.json()
+    assert body["is_active"] is True
+    assert body["id"] == row["id"]
+    assert body["version_tag"] == row["version_tag"]
+    assert "checkpoint_path" in body
+    assert "checkpoint_available" in body
