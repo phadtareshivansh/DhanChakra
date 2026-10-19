@@ -39,7 +39,13 @@ def _load():
     if _model is None:
         from .model import GraphSAGE
 
-        _checkpoint = torch.load(CHECKPOINT_PATH, map_location="cpu")
+        # weights_only=True is safe here: train.py saves a dict holding the
+        # model's tensor state_dict plus plain primitives (feature_cols /
+        # version / trained_at), all of which the restricted unpickler allows.
+        # Passing it explicitly drops torch's FutureWarning (the default flips
+        # to True in a future release) and fails closed if a checkpoint ever
+        # starts carrying arbitrary pickled objects.
+        _checkpoint = torch.load(CHECKPOINT_PATH, map_location="cpu", weights_only=True)
         _model = GraphSAGE(in_dim=len(_checkpoint["feature_cols"]))
         _model.load_state_dict(_checkpoint["model_state"])
         _model.eval()
