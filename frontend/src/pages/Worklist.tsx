@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import api from '../utils/api'
-import { WorklistItem, WorklistResponse } from '../types/api'
+import { WorklistResponse } from '../types/api'
 import RiskBadge from '../components/RiskBadge'
 
 type SortKey = 'risk_score' | 'name' | 'paid_up_capital'
