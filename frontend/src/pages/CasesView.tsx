@@ -17,7 +17,7 @@ export default function CasesView() {
   const [showCreate, setShowCreate] = useState(false)
   const [newCase, setNewCase] = useState({ title: '', description: '', company_cin: '', priority: 0 })
   const [statusFilter, setStatusFilter] = useState('')
-  const [highlight, setHighlight] = useState(params.get('highlight') || null)
+  const [highlight] = useState(params.get('highlight') || null)
   const [exporting, setExporting] = useState<string | null>(null)
   const [done, setDone] = useState<string | null>(null)
 

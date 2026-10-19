@@ -8,16 +8,16 @@ import ExplainDrawer from '../components/ExplainDrawer'
 import { riskColorForScore } from '../utils/riskColors'
 import { RISK_THRESHOLDS } from '../config/risk'
 
-interface GraphNode {
+interface GraphNode extends d3.SimulationNodeDatum {
   id: string
   label: string
   type: string
   properties: Record<string, any>
 }
 
-interface GraphEdge {
-  source: string
-  target: string
+interface GraphEdge extends d3.SimulationLinkDatum<GraphNode> {
+  source: string | GraphNode
+  target: string | GraphNode
   type: string
   properties: Record<string, any>
   flagged?: boolean
@@ -94,8 +94,8 @@ export default function EntityDetail() {
       .on('zoom', (event) => container.attr('transform', event.transform))
     svg.call(zoom as any)
 
-    const simulation = d3.forceSimulation(nodes as any)
-      .force('link', d3.forceLink(edges as any).id((d: any) => d.id).distance(110))
+    const simulation = d3.forceSimulation<GraphNode>(nodes)
+      .force('link', d3.forceLink<GraphNode, GraphEdge>(edges).id((d) => d.id).distance(110))
       .force('charge', d3.forceManyBody().strength(-350))
       .force('center', d3.forceCenter(width / 2, height / 2))
       .force('collision', d3.forceCollide().radius(45))
@@ -177,7 +177,9 @@ export default function EntityDetail() {
       return d3.drag<any, any>().on('start', dragstarted).on('drag', dragged).on('end', dragended)
     }
 
-    return () => simulation.stop()
+    return () => {
+      simulation.stop()
+    }
   }, [nodes, edges, tab])
 
   const fitView = () => {

@@ -1,19 +1,18 @@
 import { useEffect, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import * as d3 from 'd3'
-import { NetworkResponse } from '../types/api'
 import api from '../utils/api'
 
-interface NetworkNode {
+interface NetworkNode extends d3.SimulationNodeDatum {
   id: string
   label: string
   type: string
   properties: Record<string, any>
 }
 
-interface NetworkEdge {
-  source: string
-  target: string
+interface NetworkEdge extends d3.SimulationLinkDatum<NetworkNode> {
+  source: string | NetworkNode
+  target: string | NetworkNode
   type: string
   properties: Record<string, any>
 }
@@ -56,8 +55,8 @@ export default function EntityNetwork() {
 
     svg.selectAll('*').remove()
 
-    const simulation = d3.forceSimulation(nodes)
-      .force('link', d3.forceLink(edges).id((d: any) => d.id).distance(100))
+    const simulation = d3.forceSimulation<NetworkNode>(nodes)
+      .force('link', d3.forceLink<NetworkNode, NetworkEdge>(edges).id((d) => d.id).distance(100))
       .force('charge', d3.forceManyBody().strength(-300))
       .force('center', d3.forceCenter(width / 2, height / 2))
       .force('collision', d3.forceCollide().radius(40))
@@ -86,7 +85,7 @@ export default function EntityNetwork() {
       })
       .attr('stroke', '#fff')
       .attr('stroke-width', 2)
-      .call(drag(simulation))
+      .call(drag(simulation) as any)
       .on('click', (event, d) => {
         setSelectedNode(d)
         event.stopPropagation()
@@ -111,12 +110,12 @@ export default function EntityNetwork() {
         .attr('y2', (d: any) => d.target.y)
 
       node
-        .attr('cx', (d: any) => d.x)
-        .attr('cy', (d: any) => d.y)
+        .attr('cx', (d) => d.x ?? 0)
+        .attr('cy', (d) => d.y ?? 0)
 
       label
-        .attr('x', (d: any) => d.x)
-        .attr('y', (d: any) => d.y)
+        .attr('x', (d) => d.x ?? 0)
+        .attr('y', (d) => d.y ?? 0)
     })
 
     function drag(simulation: d3.Simulation<NetworkNode, NetworkEdge>) {
@@ -137,7 +136,9 @@ export default function EntityNetwork() {
       return d3.drag<SVGCircleElement, NetworkNode>().on('start', dragstarted).on('drag', dragged).on('end', dragended)
     }
 
-    return () => simulation.stop()
+    return () => {
+      simulation.stop()
+    }
   }, [nodes, edges])
 
   if (loading) {
