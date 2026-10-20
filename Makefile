@@ -43,12 +43,11 @@ test-all: ## Seed the sample data, then run the full suite (no skips)
 	@bash scripts/bootstrap_demo_data.sh
 	$(COMPOSE) exec -T $(API_SERVICE) pytest tests -q
 
-benchmark: ## Run the model benchmark and copy results back to the host
-	$(COMPOSE) exec -T $(API_SERVICE) sh -c 'rm -rf /tmp/benchmark_out && python /benchmarks/run_benchmark.py --out-dir /tmp/benchmark_out'
+benchmark: ## Run the model benchmark; refresh results.json, PR curve and the docs block
+	$(COMPOSE) exec -T $(API_SERVICE) sh -c 'rm -rf /tmp/benchmark_out && python /benchmarks/run_benchmark.py --out-dir /tmp/benchmark_out --doc /docs/benchmarks.md'
 	$(COMPOSE) cp $(API_SERVICE):/tmp/benchmark_out/results.json api/benchmarks/results.json
 	$(COMPOSE) cp $(API_SERVICE):/tmp/benchmark_out/pr_curve.png api/benchmarks/pr_curve.png
-	$(COMPOSE) cp $(API_SERVICE):/tmp/benchmark_out/benchmarks.md docs/benchmarks.md
-	@echo "wrote api/benchmarks/results.json, api/benchmarks/pr_curve.png, docs/benchmarks.md"
+	@echo "updated api/benchmarks/results.json, api/benchmarks/pr_curve.png and the generated block in docs/benchmarks.md"
 
 smoke: ## Health-check the API and the frontend
 	@curl -fsS http://localhost:8000/health; echo
