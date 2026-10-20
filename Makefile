@@ -44,7 +44,7 @@ test-all: ## Seed the sample data, then run the full suite (no skips)
 	$(COMPOSE) exec -T $(API_SERVICE) pytest tests -q
 
 benchmark: ## Run the model benchmark; refresh results.json, PR curve and the docs block
-	$(COMPOSE) exec -T $(API_SERVICE) sh -c 'rm -rf /tmp/benchmark_out && python /benchmarks/run_benchmark.py --out-dir /tmp/benchmark_out --doc /docs/benchmarks.md'
+	$(COMPOSE) exec -T $(API_SERVICE) sh -c 'rm -rf /tmp/benchmark_out && python /benchmarks/run_benchmark.py --out-dir /tmp/benchmark_out --doc /docs/benchmarks.md --commit-hash "$(shell git describe --always --dirty)"'
 	$(COMPOSE) cp $(API_SERVICE):/tmp/benchmark_out/results.json api/benchmarks/results.json
 	$(COMPOSE) cp $(API_SERVICE):/tmp/benchmark_out/pr_curve.png api/benchmarks/pr_curve.png
 	@echo "updated api/benchmarks/results.json, api/benchmarks/pr_curve.png and the generated block in docs/benchmarks.md"
