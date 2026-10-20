@@ -294,11 +294,6 @@ class UserBase(BaseModel):
     role: str = "analyst"
 
 
-class UserCreate(UserBase):
-    display_name: Optional[str] = None
-    password: str
-
-
 class User(UserBase):
     id: str
     display_name: Optional[str] = None
@@ -317,6 +312,34 @@ class TokenResponse(BaseModel):
     access_token: str
     token_type: str
     user: dict
+
+
+# --- Admin user management (Super Admin only) --------------------------------
+# The role is fixed by the 3-slot model (1 admin, 2 analysts), so no admin
+# request schema accepts a role: PUT can only change email/display_name/password.
+
+class AdminUserOut(BaseModel):
+    id: str
+    email: str
+    display_name: Optional[str] = None
+    role: str
+    created_at: Optional[datetime] = None
+
+
+class AdminUserList(BaseModel):
+    users: List[AdminUserOut]
+
+
+class AdminUserUpdate(BaseModel):
+    """Change a standard user's identity or password. Role is not accepted."""
+    email: Optional[str] = None
+    display_name: Optional[str] = None
+    password: Optional[str] = None
+
+
+class PasswordReset(BaseModel):
+    """Optional explicit password; when omitted a strong one is generated."""
+    password: Optional[str] = None
 
 
 class AuditLogEntry(BaseModel):

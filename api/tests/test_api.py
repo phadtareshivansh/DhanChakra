@@ -11,8 +11,8 @@ import httpx
 API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8000/api/v1")
 API_ROOT_URL = API_BASE_URL.split("/api/")[0]
 
-ADMIN_EMAIL = os.getenv("DEMO_ADMIN_EMAIL")
-ADMIN_PASSWORD = os.getenv("DEMO_ADMIN_PASSWORD")
+ADMIN_EMAIL = os.getenv("SUPER_ADMIN_EMAIL")
+ADMIN_PASSWORD = os.getenv("SUPER_ADMIN_PASSWORD")
 
 
 @pytest.fixture
@@ -26,7 +26,7 @@ def test_health(client):
     assert r.json()["status"] == "healthy"
 
 
-@pytest.mark.skipif(not (ADMIN_EMAIL and ADMIN_PASSWORD), reason="DEMO_ADMIN_* not configured")
+@pytest.mark.skipif(not (ADMIN_EMAIL and ADMIN_PASSWORD), reason="SUPER_ADMIN_* not configured")
 def test_login_flow(client):
     r = client.post("/auth/login", json={"email": ADMIN_EMAIL, "password": ADMIN_PASSWORD})
     assert r.status_code == 200
@@ -34,7 +34,7 @@ def test_login_flow(client):
     assert data["access_token"]
 
 
-@pytest.mark.skipif(not (ADMIN_EMAIL and ADMIN_PASSWORD), reason="DEMO_ADMIN_* not configured")
+@pytest.mark.skipif(not (ADMIN_EMAIL and ADMIN_PASSWORD), reason="SUPER_ADMIN_* not configured")
 def test_login_wrong_password(client):
     r = client.post("/auth/login", json={"email": ADMIN_EMAIL, "password": "wrong"})
     assert r.status_code == 401

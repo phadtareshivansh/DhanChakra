@@ -8,6 +8,7 @@ import CasesView from './pages/CasesView'
 import Worklist from './pages/Worklist'
 import Ingest from './pages/Ingest'
 import Settings from './pages/Settings'
+import AdminUsers from './pages/AdminUsers'
 import CaseExport from './pages/CaseExport'
 import Login from './pages/Login'
 import Layout from './components/Layout'
@@ -48,6 +49,7 @@ function App() {
         <Route path="/case/:id/export" element={<CaseExport />} />
         <Route path="/ingest" element={<Ingest />} />
         <Route path="/settings" element={<Settings />} />
+        <Route path="/admin/users" element={<AdminUsers />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

@@ -6,6 +6,7 @@ import logging
 
 from .config import settings
 from .routes import entities
+from .routes import admin as admin_routes
 from .deps import close_connections
 
 # uvicorn configures its own loggers but leaves the root logger without a
@@ -36,27 +37,34 @@ def _validate_runtime_config() -> None:
         problems.append(
             "local/development CORS_ORIGINS %s" % ", ".join(dev_origins)
         )
+    missing_slots = settings.missing_slot_credentials
+    if missing_slots:
+        problems.append(
+            "seeded user slots not configured %s" % ", ".join(missing_slots)
+        )
 
     if problems:
         raise RuntimeError(
             "Refusing to start with APP_ENV=%s: %s. "
             "Set strong values and production origins in the environment "
             "(see .env.example: JWT_SECRET, NEO4J_PASSWORD, POSTGRES_PASSWORD, "
-            "CORS_ORIGINS)." % (settings.app_env, "; ".join(problems))
+            "CORS_ORIGINS, SUPER_ADMIN_*, USER1_*, USER2_*)."
+            % (settings.app_env, "; ".join(problems))
         )
 
 
 async def _seed_demo_users() -> None:
-    """Non-blocking startup task: idempotently create demo users from the
-    DEMO_* environment settings (no credentials baked into the code or SQL)."""
+    """Non-blocking startup task: seed/refresh the fixed 3 user slots from the
+    environment (no credentials baked into the code or SQL). Existing rows are
+    updated in place so user IDs stay stable."""
     try:
         from .deps import get_db_session_cm
         from .services import auth_service
 
         async with get_db_session_cm() as db:
-            await auth_service.ensure_demo_users(db)
+            await auth_service.ensure_seeded_users(db)
     except Exception as e:
-        logger.warning("startup demo-user seeding skipped: %s", e)
+        logger.warning("startup user seeding skipped: %s", e)
 
 
 async def _warmup_scoring() -> None:
@@ -98,6 +106,7 @@ app.add_middleware(
 )
 
 app.include_router(entities.router)
+app.include_router(admin_routes.router)
 
 @app.get("/health")
 async def health():

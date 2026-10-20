@@ -5,26 +5,17 @@ import uuid
 
 from sqlalchemy import text
 from ..config import settings
-from ..deps import get_neo4j_session, get_db_session
+from ..deps import get_neo4j_session, get_db_session, get_current_user
 from ..services import graph_service, ingestion_service, auth_service, case_service
 from ..models.schemas import (
     Company, EntitySearchResponse, SearchResult, NetworkResponse, LoopResult, LoopsResponse,
     RiskJobResponse, RiskResult, Case, CaseCreate, CaseUpdate,
-    IngestionJobResponse, IngestionJobStatus, User, UserCreate, LoginRequest, TokenResponse,
+    IngestionJobResponse, IngestionJobStatus, User, LoginRequest, TokenResponse,
     ExplainResponse, WorklistResponse, StatsOverview, ResolveResponse, CaseExportResponse,
     ExportPreviewResponse, AuditLogEntry, GNNModelInfo
 )
 
 router = APIRouter(prefix="/api/v1", tags=["entities"])
-
-
-async def _current_user(db, authorization: Optional[str] = Header(None)):
-    if not authorization or not authorization.startswith("Bearer "):
-        return None
-    payload = auth_service.decode_token(authorization[7:])
-    if not payload:
-        return None
-    return await auth_service.get_user_by_id(db, payload.get("sub", ""))
 
 
 # ---------------------------------------------------------------------------
@@ -49,23 +40,11 @@ async def login(body: LoginRequest, db=Depends(get_db_session)):
     )
 
 
-@router.post("/auth/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
-async def register(body: UserCreate, db=Depends(get_db_session)):
-    existing = await auth_service.get_user_by_email(db, body.email)
-    if existing:
-        raise HTTPException(status_code=409, detail={"code": "email_taken", "message": "Email already registered"})
-    user = await auth_service.create_user(db, body.email, body.display_name, body.password, body.role)
-    token = auth_service.create_access_token(user["id"], user["role"])
-    return TokenResponse(access_token=token, token_type="bearer", user=user)
-
-
 @router.get("/auth/me", response_model=User)
-async def me(db=Depends(get_db_session), authorization: Optional[str] = Header(None)):
-    user = await _current_user(db, authorization)
-    if not user:
-        raise HTTPException(status_code=401, detail={"code": "unauthorized", "message": "Not authenticated"})
+async def me(user=Depends(get_current_user)):
+    # get_current_user raises 401 when the token is missing or invalid.
     return User(id=user["id"], email=user["email"], display_name=user["display_name"], role=user["role"],
-                created_at=datetime.utcnow())
+                created_at=user.get("created_at") or datetime.utcnow())
 
 
 # ---------------------------------------------------------------------------
