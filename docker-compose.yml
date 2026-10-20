@@ -68,6 +68,10 @@ services:
       # (api/tests/test_privacy_samples.py), which scan it for real PAN/Aadhaar
       # shapes. Mounted so the suite can see it from inside the container.
       - ./ingestion:/ingestion:ro
+      # Operator scripts (e.g. break-glass Super Admin recovery) are read-only
+      # in the container so they can be run with the API's env + deps:
+      #   docker compose exec api python /scripts/reset_super_admin.py
+      - ./scripts:/scripts:ro
     depends_on:
       neo4j:
         condition: service_healthy
