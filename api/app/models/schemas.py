@@ -171,10 +171,14 @@ class GNNModelInfo(BaseModel):
 
 
 class ExplainEvidence(BaseModel):
+    method: str = "subgraph_attribution"
     cycles: List[dict] = []
+    communities: List[dict] = []
     shared_directors: List[dict] = []
     shared_addresses: List[dict] = []
+    shared_bank_accounts: List[dict] = []
     risk: Optional[float] = None
+    risk_decomposition: Optional[dict] = None
 
 
 class ExplainResponse(BaseModel):

@@ -56,14 +56,71 @@ export interface RiskResult {
   scores?: Record<string, any>
 }
 
+export interface ExplainCycleCompany {
+  cin: string
+  name: string
+  gstin?: string
+}
+
+export interface ExplainInvoice {
+  invoice_no?: string
+  seller_cin?: string
+  seller_name?: string
+  buyer_cin?: string
+  buyer_name?: string
+  amount?: number
+  invoice_date?: string | null
+}
+
+export interface ExplainCycle {
+  cycle_id?: string
+  hop_count: number
+  company_count: number
+  total_invoice_amount: number
+  date_span?: {
+    first: string
+    last: string
+    span_days?: number | null
+    invoice_dates?: number
+  } | null
+  companies: ExplainCycleCompany[]
+  invoices: ExplainInvoice[]
+}
+
+export interface ExplainCommunity {
+  community_id?: string
+  member_count?: number
+  member_cins?: string[]
+}
+
+export interface ExplainSharedDirector {
+  director: string
+  din?: string
+  companies: string[]
+  cins?: string[]
+}
+
+export interface ExplainSharedAddress {
+  address: string
+  state?: string
+  companies: string[]
+}
+
 export interface ExplainResponse {
   entity: Record<string, any>
   reasons: string[]
   evidence: {
-    cycles: Record<string, any>[]
-    shared_directors: Record<string, any>[]
-    shared_addresses: Record<string, any>[]
+    /** Attribution method actually used. Structural evidence (subgraph
+     *  attribution from detected cycle/community/shared links), NOT learned
+     *  GNNExplainer. */
+    method?: string
+    cycles: ExplainCycle[]
+    communities?: ExplainCommunity[]
+    shared_directors: ExplainSharedDirector[]
+    shared_addresses: ExplainSharedAddress[]
+    shared_bank_accounts?: Record<string, any>[]
     risk?: number
+    risk_decomposition?: Record<string, any> | null
   }
 }
 
