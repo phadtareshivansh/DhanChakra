@@ -72,6 +72,10 @@ services:
       # in the container so they can be run with the API's env + deps:
       #   docker compose exec api python /scripts/reset_super_admin.py
       - ./scripts:/scripts:ro
+      # Model benchmark harness (read-only; it writes to /tmp/benchmark_out,
+      # which `make benchmark` copies back to the host):
+      #   docker compose exec api python /benchmarks/run_benchmark.py
+      - ./api/benchmarks:/benchmarks:ro
     depends_on:
       neo4j:
         condition: service_healthy
