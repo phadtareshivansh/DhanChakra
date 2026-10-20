@@ -23,6 +23,7 @@ class CompanyCreate(CompanyBase):
 class Company(CompanyBase):
     id: str
     risk_score: Optional[float] = None
+    risk_source: Optional[str] = None
     community_id: Optional[Any] = None
     pagerank: Optional[float] = None
     betweenness: Optional[float] = None
