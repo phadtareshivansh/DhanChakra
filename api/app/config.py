@@ -36,6 +36,9 @@ class Settings(BaseSettings):
     # --- API ---
     api_host: str = "0.0.0.0"
     api_port: int = 8000
+    # Comma-separated browser origins allowed to call the API. Override with
+    # the CORS_ORIGINS environment variable; production refuses to start if
+    # any origin is a local/dev origin (see dev_cors_origins).
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
     max_page_size: int = 100
     default_page_size: int = 20
@@ -154,6 +157,17 @@ class Settings(BaseSettings):
             if value.strip().lower() in PLACEHOLDER_SECRETS:
                 weak.append(name)
         return weak
+
+    @property
+    def dev_cors_origins(self) -> list[str]:
+        """Allowed origins that are only appropriate for local development.
+
+        A production boot must not serve CORS for these; the startup gate
+        refuses to start if any are present (see _validate_runtime_config).
+        """
+        dev_markers = ("localhost", "127.0.0.1", "0.0.0.0", "::1")
+        return [o for o in self.cors_origin_list
+                if any(m in o.lower() for m in dev_markers)]
 
 
 settings = Settings()
