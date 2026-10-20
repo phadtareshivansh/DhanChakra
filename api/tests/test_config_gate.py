@@ -24,6 +24,13 @@ def _mk(**overrides) -> Settings:
         neo4j_password="strong-neo4j-password",
         postgres_password="strong-postgres-password",
         cors_origins="https://app.dhanchakra.example",
+        # Fixed 3-slot seeded credentials, required by the production gate.
+        super_admin_email="owner@dhanchakra.example",
+        super_admin_password="a" * (MIN_JWT_SECRET_LENGTH + 8),
+        user1_email="analyst1@dhanchakra.example",
+        user1_password="b" * (MIN_JWT_SECRET_LENGTH + 8),
+        user2_email="analyst2@dhanchakra.example",
+        user2_password="c" * (MIN_JWT_SECRET_LENGTH + 8),
     )
     base.update(overrides)
     return Settings(_env_file=None, **base)
@@ -162,6 +169,42 @@ def test_gate_reports_all_problems(monkeypatch):
 def test_gate_allows_good_production_config(monkeypatch):
     _set_settings(monkeypatch, _mk(app_env="production"))
     app_main._validate_runtime_config()  # must not raise
+
+
+# --- seeded 3-slot credential gate -----------------------------------------
+
+def test_gate_refuses_missing_slot_credentials_in_production(monkeypatch):
+    _set_settings(monkeypatch, _mk(app_env="production", user2_password=""))
+    with pytest.raises(RuntimeError) as ei:
+        app_main._validate_runtime_config()
+    assert "USER2_PASSWORD" in str(ei.value)
+
+
+def test_gate_refuses_placeholder_slot_password_in_production(monkeypatch):
+    _set_settings(monkeypatch, _mk(app_env="production", super_admin_password="change-me"))
+    with pytest.raises(RuntimeError) as ei:
+        app_main._validate_runtime_config()
+    assert "SUPER_ADMIN_PASSWORD" in str(ei.value)
+
+
+def test_missing_slot_credentials_property_lists_all(monkeypatch):
+    s = _mk(super_admin_email="", user1_password="changeme", user2_email="")
+    problems = s.missing_slot_credentials
+    assert any("SUPER_ADMIN_EMAIL" in p for p in problems)
+    assert any("USER1_PASSWORD" in p for p in problems)
+    assert any("USER2_EMAIL" in p for p in problems)
+
+
+def test_slot_credentials_property_clean_when_all_set():
+    assert _mk().missing_slot_credentials == []
+
+
+def test_short_login_passwords_are_not_flagged():
+    # init_env.py generates ~12-char login passwords; only placeholders and
+    # missing values are rejected, not short-but-real passwords.
+    s = _mk(super_admin_password="short12chars", user1_password="also12chars!",
+            user2_password="third12chars")
+    assert s.missing_slot_credentials == []
 
 
 # --- demo seeding gate ------------------------------------------------------

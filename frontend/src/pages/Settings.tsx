@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import api from '../utils/api'
 import { RISK_THRESHOLDS } from '../config/risk'
 
@@ -8,11 +9,17 @@ export default function Settings() {
   const [thresholds, setThresholds] = useState({ ...RISK_THRESHOLDS })
   const [saved, setSaved] = useState(false)
   const [apiHealth, setApiHealth] = useState<string | null>(null)
+  const [isAdmin, setIsAdmin] = useState(false)
 
   useEffect(() => {
     const stored = localStorage.getItem(THRESHOLDS_KEY)
     if (stored) setThresholds(JSON.parse(stored))
     api.get('/health').then((r) => setApiHealth(r.data.status)).catch(() => setApiHealth('unreachable'))
+    // The Users admin page is only meaningful for the Super Admin.
+    try {
+      const stored = localStorage.getItem('dhanchakra_user')
+      if (stored) setIsAdmin(JSON.parse(stored).role === 'admin')
+    } catch { /* ignore malformed stored user */ }
   }, [])
 
   const save = () => {
@@ -51,6 +58,16 @@ export default function Settings() {
           <button className="btn-secondary" onClick={() => setThresholds({ ...RISK_THRESHOLDS })}>Reset defaults</button>
         </div>
       </div>
+
+      {isAdmin && (
+        <div className="panel p-5 space-y-2">
+          <h2 className="text-lg font-semibold">User management</h2>
+          <p className="text-sm text-text-secondary">
+            Manage the two standard user slots. Visible to the Super Admin only.
+          </p>
+          <Link to="/admin/users" className="btn-secondary inline-block">Manage users →</Link>
+        </div>
+      )}
 
       <div className="panel p-5 space-y-2">
         <h2 className="text-lg font-semibold">System status</h2>

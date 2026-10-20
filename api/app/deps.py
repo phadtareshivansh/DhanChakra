@@ -30,3 +30,50 @@ async def get_db_session():
 async def close_connections():
     await neo4j_driver.close()
     await engine.dispose()
+
+
+# ---------------------------------------------------------------------------
+# Auth dependencies (token -> current user -> role checks)
+# ---------------------------------------------------------------------------
+# These wrap auth_service so routes depend on a single, testable surface.
+# get_current_user: 401 when the token is missing/invalid/unknown.
+# require_admin:    built on get_current_user; 403 when role != 'admin'.
+
+from typing import Optional
+
+from fastapi import Header, HTTPException, Depends  # noqa: E402
+
+from .services import auth_service  # noqa: E402
+
+
+async def get_current_user(
+    db=Depends(get_db_session),
+    authorization: Optional[str] = Header(None),
+):
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(
+            status_code=401,
+            detail={"code": "unauthorized", "message": "Not authenticated"},
+        )
+    payload = auth_service.decode_token(authorization[7:])
+    if not payload:
+        raise HTTPException(
+            status_code=401,
+            detail={"code": "invalid_token", "message": "Invalid or expired token"},
+        )
+    user = await auth_service.get_user_by_id(db, payload.get("sub", ""))
+    if not user:
+        raise HTTPException(
+            status_code=401,
+            detail={"code": "unauthorized", "message": "Unknown user"},
+        )
+    return user
+
+
+async def require_admin(user=Depends(get_current_user)):
+    if user.get("role") != auth_service.ADMIN_ROLE:
+        raise HTTPException(
+            status_code=403,
+            detail={"code": "forbidden", "message": "Super Admin privileges required"},
+        )
+    return user
