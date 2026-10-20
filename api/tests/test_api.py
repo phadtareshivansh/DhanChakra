@@ -95,7 +95,7 @@ def test_cases_crud(client):
     create = client.post("/cases", json={
         "title": "Test case",
         "description": "automated test",
-        "company_cin": "L12345DL2024PLC777111",
+        "company_cin": "L12345KA2024PLC888999",
         "priority": 1,
     })
     assert create.status_code == 201
@@ -110,7 +110,7 @@ def test_cases_crud(client):
 
     export = client.post(f"/cases/{case_id}/export")
     assert export.status_code == 200
-    assert export.json()["payload"]["entity"]["cin"] == "L12345DL2024PLC777111"
+    assert export.json()["payload"]["entity"]["cin"] == "L12345KA2024PLC888999"
 
     delete = client.delete(f"/cases/{case_id}")
     assert delete.status_code == 204

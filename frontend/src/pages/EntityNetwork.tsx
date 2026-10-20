@@ -15,6 +15,7 @@ interface NetworkEdge extends d3.SimulationLinkDatum<NetworkNode> {
   target: string | NetworkNode
   type: string
   properties: Record<string, any>
+  flagged?: boolean
 }
 
 export default function EntityNetwork() {
@@ -62,12 +63,12 @@ export default function EntityNetwork() {
       .force('collision', d3.forceCollide().radius(40))
 
     const link = svg.append('g')
-      .attr('stroke', '#94a3b8')
       .attr('stroke-opacity', 0.6)
       .selectAll('line')
       .data(edges)
       .join('line')
-      .attr('stroke-width', 2)
+      .attr('stroke', (d) => (d.flagged ? '#e5484d' : '#94a3b8'))
+      .attr('stroke-width', (d) => (d.flagged ? 3 : 2))
 
     const node = svg.append('g')
       .selectAll('circle')
@@ -160,6 +161,13 @@ export default function EntityNetwork() {
   return (
     <div className="h-[600px] bg-white rounded-lg border border-gray-200 relative">
       <svg ref={svgRef} className="w-full h-full" />
+      <div className="absolute top-3 left-3 flex flex-wrap gap-3 text-[11px] text-gray-500 pointer-events-none">
+        <span><span className="inline-block w-2.5 h-2.5 rounded-full bg-sky-500 mr-1" />Company</span>
+        <span><span className="inline-block w-2.5 h-2.5 rounded-full bg-green-500 mr-1" />Director</span>
+        <span><span className="inline-block w-2.5 h-2.5 rounded-full bg-amber-500 mr-1" />Address</span>
+        <span><span className="inline-block w-2.5 h-2.5 rounded-full bg-violet-500 mr-1" />Bank</span>
+        <span className="text-red-600">red edges = flagged cycle</span>
+      </div>
       {selectedNode && (
         <div className="absolute bottom-4 right-4 bg-white p-4 rounded-lg shadow-lg border border-gray-200 max-w-xs">
           <h3 className="font-semibold text-gray-900">{selectedNode.label}</h3>
