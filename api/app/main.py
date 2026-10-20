@@ -18,15 +18,31 @@ logger = logging.getLogger(__name__)
 
 def _validate_runtime_config() -> None:
     """Fail fast rather than boot a production instance with placeholder
-    secrets or weak defaults (see Settings.weak_secrets)."""
+    secrets, weak defaults, or localhost CORS origins.
+
+    In development/staging this is a no-op, so dev/CI behaviour is unchanged.
+    """
     if not settings.is_production:
         return
+
+    problems: list[str] = []
     weak = settings.weak_secrets
     if weak:
+        problems.append(
+            "placeholder/weak secrets %s" % ", ".join(weak)
+        )
+    dev_origins = settings.dev_cors_origins
+    if dev_origins:
+        problems.append(
+            "local/development CORS_ORIGINS %s" % ", ".join(dev_origins)
+        )
+
+    if problems:
         raise RuntimeError(
-            "Refusing to start with APP_ENV=%s: placeholder/weak secrets %s. "
-            "Set strong values in the environment (see .env.example)."
-            % (settings.app_env, ", ".join(weak))
+            "Refusing to start with APP_ENV=%s: %s. "
+            "Set strong values and production origins in the environment "
+            "(see .env.example: JWT_SECRET, NEO4J_PASSWORD, POSTGRES_PASSWORD, "
+            "CORS_ORIGINS)." % (settings.app_env, "; ".join(problems))
         )
 
 

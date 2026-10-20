@@ -64,6 +64,10 @@ services:
     volumes:
       - ./api/app:/app/app:ro
       - ./api/models:/app/models
+      # Sample data is read-only and only used by the privacy guard tests
+      # (api/tests/test_privacy_samples.py), which scan it for real PAN/Aadhaar
+      # shapes. Mounted so the suite can see it from inside the container.
+      - ./ingestion:/ingestion:ro
     depends_on:
       neo4j:
         condition: service_healthy

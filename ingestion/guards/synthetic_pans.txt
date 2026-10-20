@@ -1,0 +1,46 @@
+# Allowlist of synthetic PAN values permitted in the sample data.
+#
+# WHY THIS FILE EXISTS
+# --------------------
+# A GSTIN is 2-digit state code + 10-character PAN + entity digit + "Z" +
+# checksum, so every GSTIN in ingestion/samples/ structurally embeds a PAN in
+# characters 3-12. The privacy guard (api/tests/test_privacy_samples.py)
+# cannot tell a synthetic embedded PAN from a real one on shape alone, so
+# each embedded PAN used by the demo samples must be listed here.
+#
+# THIS FILE IS DELIBERATELY NOT UNDER ingestion/samples/
+# ------------------------------------------------------
+# The guard walks ingestion/samples/ and scans every file. This file contains
+# bare PAN-shaped tokens by design, so if it lived inside that tree it would
+# trip the guard on its own contents. It lives in ingestion/guards/ instead,
+# and the guard's scan root is pinned to ingestion/samples/ (see
+# test_allowlist_is_outside_scan_roots in the test module, which fails if this
+# file is ever moved back under a walked root).
+#
+# EVERY ENTRY BELOW IS SYNTHETIC
+# ------------------------------
+# Each PAN here was invented for the demo dataset: the 4th character (holder
+# type) is deliberately an invalid PAN type letter ("O", which is not one of
+# P/C/H/F/A/T/B/L/J/G) or an obviously fake sequence. None of these belong to
+# a real person or company. DO NOT add a real PAN to this file.
+#
+# HOW TO ADD A NEW SYNTHETIC GSTIN
+# --------------------------------
+# If the guard fails with "GSTIN embeds non-allowlisted PAN <PAN>", confirm
+# the PAN is invented and append it below. That is the entire fix.
+#
+# Format: one 10-character token per line; "#" comments and blank lines ignored.
+
+# --- Hero fraud ring (Maya *) GSTINs: 27HEROA0000{1..6} ---
+HEROA0000A
+HEROA0000B
+HEROA0000C
+HEROA0000D
+HEROA0000E
+HEROA0000F
+
+# --- Clean control companies (filing samples) ---
+AADCA1234M   # Apollo Roadways (filing_apollo_transport.pdf)
+AABCB5678N   # Bluewave Logistics (filing_bluewave_logistics.pdf)
+AACKT7788P   # Kite Builders (filing_kite_builders.pdf)
+AABCS3214N   # Sunrise Agro (filing_sunrise_agro.pdf)
