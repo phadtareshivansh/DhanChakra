@@ -9,7 +9,7 @@ export PATH := /Applications/Docker.app/Contents/Resources/bin:$(PATH)
 COMPOSE ?= $(shell command -v docker-compose >/dev/null 2>&1 && echo docker-compose || echo "docker compose")
 API_SERVICE ?= api
 
-.PHONY: help env up down restart logs ps bootstrap test test-all smoke reset
+.PHONY: help env up down restart logs ps bootstrap test test-all benchmark smoke reset
 
 help: ## Show this list of targets
 	@grep -hE "^[a-z-]+:.*?## " $(MAKEFILE_LIST) | sort | awk -F":.*?## " "{printf \"  %-11s %s\\n\", \$$1, \$$2}"
@@ -42,6 +42,13 @@ test: ## Run the API test suite
 test-all: ## Seed the sample data, then run the full suite (no skips)
 	@bash scripts/bootstrap_demo_data.sh
 	$(COMPOSE) exec -T $(API_SERVICE) pytest tests -q
+
+benchmark: ## Run the model benchmark and copy results back to the host
+	$(COMPOSE) exec -T $(API_SERVICE) sh -c 'rm -rf /tmp/benchmark_out && python /benchmarks/run_benchmark.py --out-dir /tmp/benchmark_out'
+	$(COMPOSE) cp $(API_SERVICE):/tmp/benchmark_out/results.json api/benchmarks/results.json
+	$(COMPOSE) cp $(API_SERVICE):/tmp/benchmark_out/pr_curve.png api/benchmarks/pr_curve.png
+	$(COMPOSE) cp $(API_SERVICE):/tmp/benchmark_out/benchmarks.md docs/benchmarks.md
+	@echo "wrote api/benchmarks/results.json, api/benchmarks/pr_curve.png, docs/benchmarks.md"
 
 smoke: ## Health-check the API and the frontend
 	@curl -fsS http://localhost:8000/health; echo
