@@ -26,6 +26,35 @@ A 3–5 minute run-through for judges. The bootstrap already loaded the curated 
 ## 4. Structural analytics
 - **Analytics → Loops**: browse closed invoice loops (min length 3 by default).
   "Hops" correspond to invoice steps; the UI mirrors `MAX_CYCLE_HOPS`.
+
+  The demo dataset contains exactly **one** flagged fraud ring — the six
+  **Maya** companies, wired into a closed 5-hop invoice loop (6 companies):
+
+  | Company | CIN | GSTIN |
+  |---|---|---|
+  | Maya Infra Projects Pvt Ltd | L12345MH2023PLC900001 | 27HEROA0000A1Z1 |
+  | Maya Trading Co Pvt Ltd | L12345MH2023PLC900002 | 27HEROA0000B2Z2 |
+  | Maya Logistics Pvt Ltd | L12345MH2023PLC900003 | 27HEROA0000C3Z3 |
+  | Maya Exports Pvt Ltd | L12345MH2023PLC900004 | 27HEROA0000D4Z4 |
+  | Maya Chemicals Pvt Ltd | L12345MH2023PLC900005 | 27HEROA0000E5Z5 |
+  | Maya Steel Pvt Ltd | L12345MH2023PLC900006 | 27HEROA0000F6Z6 |
+
+  Loop shape: `Infra → Trading → Logistics → Exports → Chemicals → Steel → Infra`
+  (invoices `INV-HERO-001..006`). `/analytics/loops` reports **hop_count = 5**
+  and **total_invoice_amount = ₹5,300,000**. The companies keep a low
+  paid-up capital (₹100,000) against these disproportionate invoices, so the
+  GNN scores all six at **100.0** (`risk_source = gnn_v1`).
+
+  Three directors each sit on **two** ring companies (three shared-director
+  pairs for entity resolution to catch):
+  - Rakesh Malhotra — Maya Infra Projects ↔ Maya Trading Co
+  - Sunita Rao — Maya Logistics ↔ Maya Exports
+  - Deepak Nair — Maya Chemicals ↔ Maya Steel
+
+  Two registered addresses are each shared by **three** companies:
+  - 12 Vasant Vihar Lane — Infra, Trading, Logistics
+  - 45 Sector 9 Industrial Area — Exports, Chemicals, Steel
+
 - **Analytics → Structural** (if called): cycles, communities, centrality,
   heuristic risk, and entity resolution all run together. The Makefile's
   `bootstrap` and `test-all` both do this.
