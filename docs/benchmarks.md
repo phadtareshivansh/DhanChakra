@@ -165,7 +165,7 @@ and then copies `results.json`, `pr_curve.png` and `benchmarks.md` back to
 
 **Provenance**
 
-- Code commit: `A1_COMMIT_HASH`
+- Code commit: `2f84445` — `bench(a1): reproducible four-model fraud-risk benchmark harness`
 - Data: fully synthetic, generated on the fly by `app/services/gnn/synthetic.py`
   (`generate_graph`, seeds derived from the run seeds). No dataset is committed.
 - The tables in this file were verified cell-by-cell against
