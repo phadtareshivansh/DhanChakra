@@ -71,10 +71,57 @@ def test_explain_flagged(client):
     assert len(body["reasons"]) >= 1
 
 
+def test_explain_hero_ring_evidence(client):
+    """The hero ring's /explain must return REAL evidence derived from the
+    detected FraudCycle: 6 hops, 6 companies, the 6 invoices, the shared
+    director/address, and the attribution method label."""
+    r = client.get("/entities/search", params={"q": "Maya Infra"})
+    entity_id = r.json()["results"][0]["id"]
+    body = client.get(f"/entities/{entity_id}/explain").json()
+    ev = body["evidence"]
+    assert ev["method"] == "subgraph_attribution"  # not GNNExplainer
+    assert len(ev["cycles"]) >= 1
+    cycle = ev["cycles"][0]
+    assert cycle["hop_count"] == 6
+    assert cycle["company_count"] == 6
+    assert cycle["total_invoice_amount"] == 5300000.0
+    assert len(cycle["invoices"]) == 6
+    assert cycle["date_span"]["span_days"] == 10
+    assert {c["cin"] for c in cycle["companies"]} == {
+        "L12345MH2023PLC900001", "L12345MH2023PLC900002", "L12345MH2023PLC900003",
+        "L12345MH2023PLC900004", "L12345MH2023PLC900005", "L12345MH2023PLC900006",
+    }
+    assert any(sd["director"] == "Rakesh Malhotra" for sd in ev["shared_directors"])
+    assert any(sa["address"] == "12 Vasant Vihar Lane" for sa in ev["shared_addresses"])
+    assert len(ev["communities"]) >= 1
+    assert ev["risk_decomposition"]["cycle"] > 0
+    # reason is generated from real values, not a placeholder
+    joined = " ".join(body["reasons"])
+    assert "6-hop" in joined and "5,300,000" in joined
+
+
+def test_explain_no_evidence_is_honest(client):
+    """A clean control company must report honestly, with empty evidence
+    arrays and no invented cycle."""
+    r = client.get("/entities/search", params={"q": "Harbor"})
+    results = r.json()["results"]
+    if not results:
+        pytest.skip("clean control company not present")
+    body = client.get(f"/entities/{results[0]['id']}/explain").json()
+    assert body["evidence"]["cycles"] == []
+    assert body["reasons"]
+
+
 def test_loops(client):
     r = client.get("/analytics/loops", params={"max_length": 6})
     assert r.status_code == 200
-    assert r.json()["total"] >= 1
+    body = r.json()
+    assert body["total"] >= 1
+    # Hero ring: 6 companies in a closed loop => 6 invoice edges / hops.
+    hero = next((l for l in body["loops"] if "Maya Infra Projects Pvt Ltd" in [c.get("name") for c in l["companies"]]), None)
+    assert hero is not None, "hero ring not found in /analytics/loops"
+    assert hero["length"] == 6, f"expected hop_count 6, got {hero['length']}"
+    assert hero["total_amount"] == 5300000.0
 
 
 def test_worklist(client):

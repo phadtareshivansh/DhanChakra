@@ -374,10 +374,10 @@ export default function EntityDetail() {
                   {explanation.evidence.cycles.map((cycle, i) => (
                     <div key={i} className="panel p-3 mb-2">
                       <div className="text-xs text-risk-critical font-semibold mb-1">
-                        {cycle.hop_count}-hop cycle · ₹{Number(cycle.total_amount || 0).toLocaleString('en-IN')}
+                        {cycle.hop_count}-hop invoice cycle across {cycle.company_count} companies · ₹{Number(cycle.total_invoice_amount || 0).toLocaleString('en-IN')}
                       </div>
                       <div className="font-mono text-[11px] text-text-secondary">
-                        {cycle.members?.map((m: any) => m.name).join(' → ')}
+                        {cycle.companies?.map((m: any) => m.name).join(' → ')}
                       </div>
                     </div>
                   ))}

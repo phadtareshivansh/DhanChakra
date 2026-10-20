@@ -16,10 +16,17 @@ A 3–5 minute run-through for judges. The bootstrap already loaded the curated 
 3. Sort by **Risk Score (desc)** and open the highest-risk company.
 
 ## 3. Entity Detail — explainability first
-1. Read the **Risk decomposition** (cycles, director/address links, degree,
-   pagerank, betweenness) — each number is explicitly attributed.
-2. **Explain** panel: see the exact Cypher/logic trace that drove the score.
-3. **Network** tab: inspect the transaction graph (invoice edges
+1. Open the **Explain** slide-in drawer (from any risk badge). It shows the
+   score, a **mini-subgraph of just the evidence** (the invoice loop), the
+   2–3 line plain-language reason, and a **View full network** link.
+2. Read the **Risk decomposition** — cycle membership, shared director,
+   shared address, degree, PageRank, betweenness. Each number is the actual
+   contribution of that signal to the heuristic score (feature attribution),
+   and a `View full network` link jumps back to the canvas.
+3. The explanation is **structural evidence** (subgraph attribution from the
+   detected cycle / community / shared links), labelled `method =
+   "subgraph_attribution"` in the API — it is **not** learned GNNExplainer.
+4. **Network** tab: inspect the transaction graph (invoice edges
    `BILLED`/`BILLED_TO` as in the schema). Cycle edges are surfaced for the
    relevant path set.
 
@@ -28,7 +35,7 @@ A 3–5 minute run-through for judges. The bootstrap already loaded the curated 
   "Hops" correspond to invoice steps; the UI mirrors `MAX_CYCLE_HOPS`.
 
   The demo dataset contains exactly **one** flagged fraud ring — the six
-  **Maya** companies, wired into a closed 5-hop invoice loop (6 companies):
+  **Maya** companies, wired into a closed **6-hop** invoice loop (6 companies):
 
   | Company | CIN | GSTIN |
   |---|---|---|
@@ -40,10 +47,10 @@ A 3–5 minute run-through for judges. The bootstrap already loaded the curated 
   | Maya Steel Pvt Ltd | L12345MH2023PLC900006 | 27HEROA0000F6Z6 |
 
   Loop shape: `Infra → Trading → Logistics → Exports → Chemicals → Steel → Infra`
-  (invoices `INV-HERO-001..006`). `/analytics/loops` reports **hop_count = 5**
-  and **total_invoice_amount = ₹5,300,000**. The companies keep a low
-  paid-up capital (₹100,000) against these disproportionate invoices, so the
-  GNN scores all six at **100.0** (`risk_source = gnn_v1`).
+  (invoices `INV-HERO-001..006`). `/analytics/loops` reports **hop_count = 6**
+  (one hop = one invoice edge) and **total_invoice_amount = ₹5,300,000**. The
+  companies keep a low paid-up capital (₹100,000) against these disproportionate
+  invoices, so the GNN scores all six at **100.0** (`risk_source = gnn_v1`).
 
   Three directors each sit on **two** ring companies (three shared-director
   pairs for entity resolution to catch):

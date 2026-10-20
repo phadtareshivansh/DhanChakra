@@ -230,6 +230,12 @@ def _canonical_cycle(path_ids: List[str]) -> tuple:
 async def get_loops(session, max_length: int, cin: Optional[str] = None) -> Dict[str, Any]:
     # Each repetition of the company hop adds one company, so the smallest
     # closed ring needs (min_cycle_length - 1) repetitions.
+    #
+    # NOTE on hop_count: the returned ``length`` is the number of *invoice
+    # edges* in the closed cycle. For a simple ring (each company appearing
+    # once) that equals the number of distinct companies. The Cypher path
+    # below re-ends on its start company, so ``comps`` contains the start
+    # twice; we dedup to distinct companies and use that count directly.
     min_repeats = settings.min_cycle_length - 1
     if not (min_repeats <= max_length <= settings.max_cycle_hops):
         max_length = settings.loops_default_max_length
@@ -268,12 +274,14 @@ async def get_loops(session, max_length: int, cin: Optional[str] = None) -> Dict
         total_amount = sum(r.get("amounts") or [])
         loops.append(_sanitize({
             "path": path_ids,
-            "length": len(path_ids) - 1,
+            # hop_count = number of invoice edges = distinct companies in a
+            # simple closed ring. ``path_ids`` is already deduped, so no -1.
+            "length": len(path_ids),
             "total_amount": total_amount,
             "companies": [dict(c) for c in comps],
         }))
 
-    loops = [l for l in loops if l["length"] >= settings.min_cycle_length - 1]
+    loops = [l for l in loops if l["length"] >= settings.min_cycle_length]
     return {"loops": loops, "total": len(loops)}
 
 
@@ -380,6 +388,7 @@ async def run_structural_analytics(session) -> Dict[str, Any]:
             await session.run("""
             MERGE (cy: FraudCycle {id: $key})
             SET cy.hop_count = $hop_count,
+                cy.company_count = $company_count,
                 cy.total_amount = $total_amount,
                 cy.member_cins = $cins,
                 cy.detected_at = datetime(),
@@ -387,7 +396,8 @@ async def run_structural_analytics(session) -> Dict[str, Any]:
             WITH cy
             MATCH (c:Company) WHERE c.cin IN $cins
             MERGE (c)-[:MEMBER_OF_CYCLE]->(cy)
-            """, key=key, hop_count=len(dedup), total_amount=r["total_amount"], cins=dedup)
+            """, key=key, hop_count=len(dedup), company_count=len(dedup),
+                 total_amount=r["total_amount"], cins=dedup)
             summary["cycles_created"] += 1
     except Exception as e:
         summary["cycles_error"] = str(e)
@@ -521,15 +531,78 @@ async def trigger_risk_job(session) -> Dict[str, Any]:
     return await run_structural_analytics(session)
 
 
+async def _cycle_invoices(session, cins: List[str]) -> Dict[str, Any]:
+    """Return the real invoice edges among a set of ring companies, plus the
+    date span. These are the BILLED->Transaction->BILLED_TO edges that make up
+    the loop — not a template. Ordered by invoice_date."""
+    if not cins:
+        return {"invoices": [], "date_span": None}
+    result = await session.run("""
+    MATCH (a:Company)-[:BILLED]->(t:Transaction)-[:BILLED_TO]->(b:Company)
+    WHERE a.cin IN $cins AND b.cin IN $cins
+    RETURN t.invoice_no AS invoice_no,
+           a.cin AS seller_cin, a.name AS seller_name, a.gstin AS seller_gstin,
+           b.cin AS buyer_cin, b.name AS buyer_name, b.gstin AS buyer_gstin,
+           t.amount AS amount,
+           coalesce(t.invoice_date, t.date) AS invoice_date
+    ORDER BY coalesce(t.invoice_date, t.date)
+    """, cins=cins)
+    rows = await result.data()
+    invoices = []
+    dates = []
+    for r in rows:
+        d = _sanitize(dict(r))
+        invoices.append(d)
+        if d.get("invoice_date") is not None:
+            dates.append(str(d["invoice_date"])[:10])
+    date_span = None
+    if dates:
+        first, last = dates[0], dates[-1]
+        span_days = None
+        try:
+            from datetime import date as _date
+            y1, m1, d1 = (int(x) for x in first.split("-")[:3])
+            y2, m2, d2 = (int(x) for x in last.split("-")[:3])
+            span_days = (_date(y2, m2, d2) - _date(y1, m1, d1)).days
+        except Exception:
+            span_days = None
+        date_span = {
+            "first": first,
+            "last": last,
+            "span_days": span_days,
+            "invoice_dates": len(set(dates)),
+        }
+    return {"invoices": invoices, "date_span": date_span}
+
+
 async def explain_entity(session, entity_id: str) -> Dict[str, Any]:
-    """Return the evidence subgraph + plain-language reason (TRD §4.6, FR7)."""
+    """Return the evidence subgraph + plain-language reason for the flag
+    (TRD §4.6, FR7).
+
+    METHOD LABEL: the explanation is *structural subgraph attribution* — it is
+    assembled from the detected structures that drove the score (the FraudCycle
+    the entity belongs to, its Louvain FraudCommunity, shared directors /
+    addresses / bank accounts, and the entity's centrality/risk feature
+    values). It is NOT PyG ``GNNExplainer`` (learned attribution). This is
+    surfaced to clients as ``evidence.method == "subgraph_attribution"``.
+    """
     entity = await get_entity(session, entity_id)
     if not entity:
         return None
     cin = entity.get("cin")
     reasons = []
-    evidence = {"cycles": [], "shared_directors": [], "shared_addresses": [], "risk": entity.get("risk_score")}
+    evidence = {
+        "method": "subgraph_attribution",
+        "cycles": [],
+        "communities": [],
+        "shared_directors": [],
+        "shared_addresses": [],
+        "shared_bank_accounts": [],
+        "risk": entity.get("risk_score"),
+        "risk_decomposition": None,
+    }
 
+    # --- FraudCycle(s) the entity is a member of (the loop that drove the score)
     cyc = await session.run("""
     MATCH (c:Company {id: $id})-[:MEMBER_OF_CYCLE]->(cy: FraudCycle)
     RETURN cy
@@ -539,26 +612,51 @@ async def explain_entity(session, entity_id: str) -> Dict[str, Any]:
         cins = cy.get("member_cins") or []
         members = []
         mres = await session.run(
-            "MATCH (c:Company) WHERE c.cin IN $cins RETURN c.cin AS cin, c.name AS name, c.gstin AS gstin",
+            "MATCH (c:Company) WHERE c.cin IN $cins "
+            "RETURN c.cin AS cin, c.name AS name, c.gstin AS gstin ORDER BY c.cin",
             cins=cins
         )
         for m in await mres.data():
             members.append(_sanitize(dict(m)))
+        inv_block = await _cycle_invoices(session, cins)
+        company_count = cy.get("company_count") or len(cins)
+        hop_count = cy.get("hop_count") or company_count
+        total = cy.get("total_amount") or 0
         evidence["cycles"].append(_sanitize({
-            "id": cy.get("id"),
-            "hop_count": cy.get("hop_count"),
-            "total_amount": cy.get("total_amount"),
-            "members": members,
+            "cycle_id": cy.get("id"),
+            "hop_count": hop_count,
+            "company_count": company_count,
+            "total_invoice_amount": total,
+            "date_span": inv_block["date_span"],
+            "companies": members,
+            "invoices": inv_block["invoices"],
         }))
+        span = inv_block["date_span"]
+        span_str = f", over {span['span_days']} days" if span and span.get("span_days") is not None else ""
         reasons.append(
-            f"Forms a {cy.get('hop_count', 'multi')}-company circular invoice loop "
-            f"totaling ₹{cy.get('total_amount', 0):,.0f}"
+            f"Flagged because it forms a {hop_count}-hop invoice cycle across "
+            f"{company_count} companies, totaling ₹{total:,.0f}{span_str}"
+            + (f" ({inv_block['invoices'][0]['invoice_no']}…{inv_block['invoices'][-1]['invoice_no']})"
+               if inv_block["invoices"] and inv_block["invoices"][0].get("invoice_no") else "")
         )
 
+    # --- Louvain FraudCommunity membership (may be more than one per entity)
+    comm = await session.run("""
+    MATCH (c:Company {id: $id})-[:MEMBER_OF_COMMUNITY]->(fc: FraudCommunity)
+    OPTIONAL MATCH (m:Company)-[:MEMBER_OF_COMMUNITY]->(fc)
+    RETURN fc.id AS community_id, fc.member_count AS member_count,
+           collect(DISTINCT m.cin) AS member_cins
+    """, id=entity_id)
+    for r in await comm.data():
+        evidence["communities"].append(_sanitize(dict(r)))
+
+    # --- Shared directors
     sd = await session.run("""
     MATCH (c:Company {id: $id})<-[:DIRECTOR_OF]-(d:Director)-[:DIRECTOR_OF]->(other:Company)
     WHERE other <> c
-    RETURN DISTINCT d.name AS director, collect(DISTINCT other.name) AS companies
+    RETURN DISTINCT d.name AS director, d.din AS din,
+           collect(DISTINCT other.name) AS companies,
+           collect(DISTINCT other.cin) AS cins
     """, id=entity_id)
     for r in await sd.data():
         evidence["shared_directors"].append(_sanitize(dict(r)))
@@ -566,10 +664,12 @@ async def explain_entity(session, entity_id: str) -> Dict[str, Any]:
             f"Shares director '{r['director']}' with {len(r['companies'])} other company(ies)"
         )
 
+    # --- Shared addresses
     sa = await session.run("""
     MATCH (c:Company {id: $id})-[:REGISTERED_AT]->(a:Address)<-[:REGISTERED_AT]-(other:Company)
     WHERE other <> c
-    RETURN DISTINCT a.raw_address AS address, a.state AS state, collect(DISTINCT other.name) AS companies
+    RETURN DISTINCT a.raw_address AS address, a.state AS state,
+           collect(DISTINCT other.name) AS companies
     """, id=entity_id)
     for r in await sa.data():
         evidence["shared_addresses"].append(_sanitize(dict(r)))
@@ -577,8 +677,60 @@ async def explain_entity(session, entity_id: str) -> Dict[str, Any]:
             f"Shares registered address '{r['address']}' with {len(r['companies'])} other company(ies)"
         )
 
-    if entity.get("pagerank") is not None and float(entity.get("pagerank") or 0) > 0.05:
-        reasons.append(f"Elevated network centrality (PageRank {float(entity['pagerank']):.3f})")
+    # --- Shared bank accounts (OPERATES_ACCOUNT + BankAccount)
+    sba = await session.run("""
+    MATCH (c:Company {id: $id})-[:OPERATES_ACCOUNT]->(b:BankAccount)<-[:OPERATES_ACCOUNT]-(other:Company)
+    WHERE other <> c
+    RETURN DISTINCT b.ifsc AS ifsc, b.account_hash AS account_hash,
+           collect(DISTINCT other.name) AS companies
+    """, id=entity_id)
+    for r in await sba.data():
+        evidence["shared_bank_accounts"].append(_sanitize(dict(r)))
+        reasons.append(
+            f"Operates bank account {r['ifsc']} jointly with {len(r['companies'])} other company(ies)"
+        )
+
+    # --- Risk decomposition (feature attribution for the heuristic score).
+    # Mirrors _heuristic_risk_score so every component is the number that
+    # actually contributed to the flag.
+    shared_dir_count = len(evidence["shared_directors"])
+    shared_addr_count = len(evidence["shared_addresses"])
+    pr = float(entity.get("pagerank") or 0)
+    cycle_terms = [c for c in evidence["cycles"]]
+    cycle_component = 0.0
+    if cycle_terms:
+        cycle_component = settings.risk_cycle_base + min(
+            settings.risk_cycle_cap, len(cycle_terms) * settings.risk_cycle_step)
+    dir_component = min(settings.risk_director_cap,
+                        shared_dir_count * settings.risk_director_weight) if shared_dir_count else 0.0
+    addr_component = min(settings.risk_address_cap,
+                         shared_addr_count * settings.risk_address_weight) if shared_addr_count else 0.0
+    degree = entity.get("degree")
+    if degree is None:
+        deg_res = await session.run("""
+        MATCH (c:Company {id: $id})-[:BILLED]->(:Transaction)-[:BILLED_TO]->(nei:Company)
+        RETURN count(DISTINCT nei) AS degree
+        """, id=entity_id)
+        deg_rec = await deg_res.single()
+        degree = deg_rec["degree"] if deg_rec else 0
+    degree_component = min(settings.risk_degree_cap,
+                           (degree - 1) * settings.risk_degree_weight) if degree >= settings.risk_degree_min else 0.0
+    pr_component = min(settings.risk_pagerank_cap, pr * settings.risk_pagerank_weight)
+    bt = float(entity.get("betweenness") or 0.0)
+    bt_component = min(settings.risk_betweenness_cap, bt * settings.risk_betweenness_weight)
+    evidence["risk_decomposition"] = _sanitize({
+        "cycle": cycle_component,
+        "shared_director": dir_component,
+        "shared_address": addr_component,
+        "degree": degree_component,
+        "degree_value": degree,
+        "pagerank": round(pr_component, 2),
+        "betweenness": round(bt_component, 2),
+        "source": entity.get("risk_source"),
+    })
+
+    if pr > 0.05:
+        reasons.append(f"Elevated network centrality (PageRank {pr:.3f})")
 
     if not reasons:
         reasons.append("No structural red flags detected in the current graph snapshot.")
