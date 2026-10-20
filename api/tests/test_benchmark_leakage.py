@@ -168,7 +168,14 @@ def test_write_markdown_fails_when_file_missing(tmp_path):
     assert "does not exist" in str(exc.value)
 
 
-def test_git_hash_helper_never_raises():
-    h = rb._git_commit_hash()
-    assert isinstance(h, str) and h
+def test_commit_hash_defaults_to_unknown():
+    assert rb._git_commit_hash() == "unknown"
+    assert rb._git_commit_hash(None) == "unknown"
+    assert rb._git_commit_hash("") == "unknown"
+    assert rb._git_commit_hash("  ") == "unknown"
+
+
+def test_commit_hash_uses_supplied_value():
+    assert rb._git_commit_hash("a1b2c3d") == "a1b2c3d"
+    assert rb._git_commit_hash(" a1b2c3d-dirty ") == "a1b2c3d-dirty"
 
