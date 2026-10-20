@@ -1,6 +1,9 @@
+import { useState } from 'react'
 import { ExplainResponse } from '../types/api'
 import RiskBadge from './RiskBadge'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
+import api from '../utils/api'
+import { RISK_THRESHOLDS } from '../config/risk'
 
 /** Mini-subgraph of ONLY the evidence: the invoice loop rendered as a ring of
  *  companies with directed edges, plus a marker on edges that are part of the
@@ -50,9 +53,33 @@ export default function ExplainDrawer({ data, entityId, onClose }: {
   entityId: string
   onClose: () => void
 }) {
+  const navigate = useNavigate()
+  const [exporting, setExporting] = useState(false)
   const evidence = data.evidence
   const cycle = evidence.cycles[0]
   const decom = evidence.risk_decomposition || {}
+
+  // Journey A step 8: from the explainability drawer, open a case for this
+  // entity and go straight to the print-ready export preview.
+  const exportCase = async () => {
+    setExporting(true)
+    try {
+      const score = data.entity?.risk_score
+      const res = await api.post('/cases', {
+        title: `Investigation: ${data.entity?.name || data.entity?.cin || entityId}`,
+        description: `Case opened from the explainability drawer for entity ${data.entity?.cin || entityId} with risk score ${score ?? 'n/a'}`,
+        company_cin: data.entity?.cin,
+        priority: score && score >= RISK_THRESHOLDS.high ? 2 : score && score >= RISK_THRESHOLDS.medium ? 1 : 0,
+      })
+      onClose()
+      navigate(`/case/${res.data.id}/export`)
+    } catch (err) {
+      console.error(err)
+      alert('Failed to open case')
+    } finally {
+      setExporting(false)
+    }
+  }
   const decomRows: Array<[string, number | null | undefined]> = [
     ['Cycle membership', decom.cycle],
     ['Shared director', decom.shared_director],
@@ -202,13 +229,22 @@ export default function ExplainDrawer({ data, entityId, onClose }: {
             </div>
           </div>
 
-          <Link
-            to={`/entity/${entityId}/network`}
-            onClick={onClose}
-            className="btn-secondary w-full"
-          >
-            View full network →
-          </Link>
+          <div className="grid grid-cols-2 gap-2">
+            <Link
+              to={`/entity/${entityId}/network`}
+              onClick={onClose}
+              className="btn-secondary w-full"
+            >
+              View full network →
+            </Link>
+            <button
+              onClick={exportCase}
+              disabled={exporting}
+              className="btn-primary w-full"
+            >
+              {exporting ? 'Opening…' : 'Export case →'}
+            </button>
+          </div>
         </div>
       </div>
     </div>

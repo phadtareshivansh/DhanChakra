@@ -942,8 +942,12 @@ async def get_worklist(session, sort: str, direction: str, state: Optional[str],
 
     where = []
     params = {}
+    # NOTE: predicates must be evaluated in a WHERE that is NOT part of the
+    # OPTIONAL MATCH below — a WHERE directly after OPTIONAL MATCH becomes part
+    # of that optional pattern and only nulls the binding instead of filtering
+    # rows. Bind the filters on the Company match (EXISTS subquery for address).
     if state:
-        where.append("a.state = $state")
+        where.append("EXISTS { MATCH (c)-[:REGISTERED_AT]->(:Address {state: $state}) }")
         params["state"] = state
     if sector:
         where.append("c.nic_code = $sector")
@@ -960,7 +964,6 @@ async def get_worklist(session, sort: str, direction: str, state: Optional[str],
 
     count_query = f"""
     MATCH (c:Company)
-    OPTIONAL MATCH (c)-[:REGISTERED_AT]->(a:Address)
     {where_clause}
     RETURN count(DISTINCT c) AS total
     """
@@ -969,8 +972,9 @@ async def get_worklist(session, sort: str, direction: str, state: Optional[str],
 
     query = f"""
     MATCH (c:Company)
-    OPTIONAL MATCH (c)-[:REGISTERED_AT]->(a:Address)
     {where_clause}
+    WITH c
+    OPTIONAL MATCH (c)-[:REGISTERED_AT]->(a:Address)
     WITH c, a
     OPTIONAL MATCH (c)-[:MEMBER_OF_CYCLE]->(cy: FraudCycle)
     WITH c, a, count(cy) AS cycle_count
