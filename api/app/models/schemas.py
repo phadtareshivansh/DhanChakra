@@ -178,6 +178,7 @@ class ExplainEvidence(BaseModel):
     shared_directors: List[dict] = []
     shared_addresses: List[dict] = []
     shared_bank_accounts: List[dict] = []
+    eway_mismatches: List[dict] = []
     risk: Optional[float] = None
     risk_decomposition: Optional[dict] = None
 

@@ -56,8 +56,9 @@ export default function ExplainDrawer({ data, entityId, onClose }: {
   const navigate = useNavigate()
   const [exporting, setExporting] = useState(false)
   const evidence = data.evidence
-  const cycle = evidence.cycles[0]
+  const cycle = evidence.cycles?.[0]
   const decom = evidence.risk_decomposition || {}
+  const eway = evidence.eway_mismatches || []
 
   // Journey A step 8: from the explainability drawer, open a case for this
   // entity and go straight to the print-ready export preview.
@@ -84,6 +85,7 @@ export default function ExplainDrawer({ data, entityId, onClose }: {
     ['Cycle membership', decom.cycle],
     ['Shared director', decom.shared_director],
     ['Shared address', decom.shared_address],
+    ['e-Way Bill mismatch', decom.eway_mismatch],
     ['Degree', decom.degree],
     ['PageRank', decom.pagerank],
     ['Betweenness', decom.betweenness],
@@ -192,7 +194,7 @@ export default function ExplainDrawer({ data, entityId, onClose }: {
             </div>
           )}
 
-          {evidence.shared_directors.length > 0 && (
+          {(evidence.shared_directors?.length ?? 0) > 0 && (
             <div>
               <div className="micro-label mb-2">Shared directors</div>
               {evidence.shared_directors.map((sd, i) => (
@@ -205,7 +207,7 @@ export default function ExplainDrawer({ data, entityId, onClose }: {
             </div>
           )}
 
-          {evidence.shared_addresses.length > 0 && (
+          {(evidence.shared_addresses?.length ?? 0) > 0 && (
             <div>
               <div className="micro-label mb-2">Shared registered addresses</div>
               {evidence.shared_addresses.map((sa, i) => (
@@ -213,6 +215,20 @@ export default function ExplainDrawer({ data, entityId, onClose }: {
                   <span className="font-mono">{sa.address}</span> ({sa.state}) — {sa.companies?.join(', ')}
                 </div>
               ))}
+            </div>
+          )}
+
+          {eway.length > 0 && (
+            <div>
+              <div className="micro-label mb-2">e-Way Bill mismatch</div>
+              <div className="panel p-3 space-y-1">
+                {eway.map((m, i) => (
+                  <div key={i} className="flex justify-between text-[11px] font-mono">
+                    <span className="text-text-secondary truncate mr-2">{m.invoice_no || '—'}</span>
+                    <span className="text-text-primary">₹{Number(m.amount || 0).toLocaleString('en-IN')}</span>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 

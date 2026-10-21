@@ -85,6 +85,7 @@ class Settings(BaseSettings):
     risk_betweenness_weight: float = 100
     risk_betweenness_cap: float = 10
     risk_flag_threshold: float = 40
+    eway_high_value_threshold: float = 50000.0
     # Minimum distinct counterparties before the degree term contributes
     risk_degree_min: int = 2
     # Heuristic score is clamped to this maximum

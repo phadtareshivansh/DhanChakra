@@ -72,6 +72,12 @@ export interface ExplainInvoice {
   invoice_date?: string | null
 }
 
+export interface ExplainEWayMismatch {
+  invoice_no?: string
+  amount?: number
+  date?: string | null
+}
+
 export interface ExplainCycle {
   cycle_id?: string
   hop_count: number
@@ -119,6 +125,7 @@ export interface ExplainResponse {
     shared_directors: ExplainSharedDirector[]
     shared_addresses: ExplainSharedAddress[]
     shared_bank_accounts?: Record<string, any>[]
+    eway_mismatches?: ExplainEWayMismatch[]
     risk?: number
     risk_decomposition?: Record<string, any> | null
   }

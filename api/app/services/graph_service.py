@@ -460,18 +460,21 @@ async def run_structural_analytics(session) -> Dict[str, Any]:
         WHERE other <> c
         OPTIONAL MATCH (c)-[:REGISTERED_AT]->(a:Address)<-[:REGISTERED_AT]-(sameaddr:Company)
         WHERE sameaddr <> c
+        OPTIONAL MATCH (c)-[:BILLED]->(t:Transaction)
+        WHERE t.amount >= $eway_thresh AND (t.eway_bill_ref IS NULL OR t.eway_bill_ref = '')
         WITH c,
              count(DISTINCT cy) AS cycle_count,
              count(DISTINCT nei) AS degree,
              count(DISTINCT other) AS shared_director_count,
              count(DISTINCT sameaddr) AS shared_address_count,
+             count(DISTINCT t) AS eway_mismatch_count,
              coalesce(c.pagerank, 0.0) AS pagerank,
              coalesce(c.betweenness, 0.0) AS betweenness,
              coalesce(c.paid_up_capital, 0.0) AS puc
         RETURN c.cin AS cin,
                cycle_count, degree, shared_director_count, shared_address_count,
-               pagerank, betweenness, puc
-        """)
+               eway_mismatch_count, pagerank, betweenness, puc
+        """, eway_thresh=settings.eway_high_value_threshold)
         records = await result.data()
         for r in records:
             score = _heuristic_risk_score(r)
@@ -498,6 +501,7 @@ def _heuristic_risk_score(features: Dict[str, Any]) -> float:
     shared_address = features.get("shared_address_count") or 0
     pagerank = features.get("pagerank") or 0.0
     betweenness = features.get("betweenness") or 0.0
+    eway_mismatch_count = features.get("eway_mismatch_count") or 0
 
     if cycle_count > 0:
         score += settings.risk_cycle_base + min(
@@ -524,6 +528,8 @@ def _heuristic_risk_score(features: Dict[str, Any]) -> float:
         settings.risk_betweenness_cap,
         betweenness * settings.risk_betweenness_weight,
     )
+    if eway_mismatch_count > 0:
+        score += min(15.0, eway_mismatch_count * 5.0)
     return round(min(score, settings.risk_score_cap), 1)
 
 
@@ -598,6 +604,7 @@ async def explain_entity(session, entity_id: str) -> Dict[str, Any]:
         "shared_directors": [],
         "shared_addresses": [],
         "shared_bank_accounts": [],
+        "eway_mismatches": [],
         "risk": entity.get("risk_score"),
         "risk_decomposition": None,
     }
@@ -638,6 +645,28 @@ async def explain_entity(session, entity_id: str) -> Dict[str, Any]:
             f"{company_count} companies, totaling ₹{total:,.0f}{span_str}"
             + (f" ({inv_block['invoices'][0]['invoice_no']}…{inv_block['invoices'][-1]['invoice_no']})"
                if inv_block["invoices"] and inv_block["invoices"][0].get("invoice_no") else "")
+        )
+
+    # --- e-Way Bill mismatch (high-value invoices with no movement record)
+    ewb = await session.run("""
+    MATCH (c:Company {id: $id})-[:BILLED]->(t:Transaction)
+    WHERE t.amount >= $thresh AND (t.eway_bill_ref IS NULL OR t.eway_bill_ref = '')
+    RETURN t.invoice_no AS invoice_no, t.amount AS amount, t.date AS date
+    ORDER BY t.amount DESC, t.invoice_no
+    LIMIT 25
+    """, id=entity_id, thresh=settings.eway_high_value_threshold)
+    for r in await ewb.data():
+        evidence["eway_mismatches"].append(_sanitize({
+            "invoice_no": r["invoice_no"],
+            "amount": r["amount"],
+            "date": r["date"].isoformat() if hasattr(r["date"], "isoformat") else r["date"],
+        }))
+    if evidence["eway_mismatches"]:
+        m = evidence["eway_mismatches"]
+        total_m = sum((x.get("amount") or 0) for x in m)
+        reasons.append(
+            f"e-Way Bill mismatch signal: {len(m)} high-value invoice(s) (>= ₹{settings.eway_high_value_threshold:,.0f}) "
+            f"with no matching e-Way Bill movement record, totaling ₹{total_m:,.0f}."
         )
 
     # --- Louvain FraudCommunity membership (may be more than one per entity)
@@ -695,6 +724,7 @@ async def explain_entity(session, entity_id: str) -> Dict[str, Any]:
     # actually contributed to the flag.
     shared_dir_count = len(evidence["shared_directors"])
     shared_addr_count = len(evidence["shared_addresses"])
+    eway_mismatch_count = len(evidence.get("eway_mismatches") or [])
     pr = float(entity.get("pagerank") or 0)
     cycle_terms = [c for c in evidence["cycles"]]
     cycle_component = 0.0
@@ -718,10 +748,13 @@ async def explain_entity(session, entity_id: str) -> Dict[str, Any]:
     pr_component = min(settings.risk_pagerank_cap, pr * settings.risk_pagerank_weight)
     bt = float(entity.get("betweenness") or 0.0)
     bt_component = min(settings.risk_betweenness_cap, bt * settings.risk_betweenness_weight)
+    eway_component = min(15.0, eway_mismatch_count * 5.0) if eway_mismatch_count else 0.0
     evidence["risk_decomposition"] = _sanitize({
         "cycle": cycle_component,
         "shared_director": dir_component,
         "shared_address": addr_component,
+        "eway_mismatch": eway_component,
+        "eway_mismatch_count": eway_mismatch_count,
         "degree": degree_component,
         "degree_value": degree,
         "pagerank": round(pr_component, 2),
