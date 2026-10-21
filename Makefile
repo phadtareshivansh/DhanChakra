@@ -9,7 +9,7 @@ export PATH := /Applications/Docker.app/Contents/Resources/bin:$(PATH)
 COMPOSE ?= $(shell command -v docker-compose >/dev/null 2>&1 && echo docker-compose || echo "docker compose")
 API_SERVICE ?= api
 
-.PHONY: help env up down restart logs ps bootstrap test test-all benchmark benchmark-amlsim benchmark-amlworld smoke reset
+.PHONY: help env up down restart logs ps bootstrap test test-all benchmark benchmark-amlsim benchmark-amlworld scale-test apply-schema smoke reset
 
 help: ## Show this list of targets
 	@grep -hE "^[a-z-]+:.*?## " $(MAKEFILE_LIST) | sort | awk -F":.*?## " "{printf \"  %-11s %s\\n\", \$$1, \$$2}"
@@ -68,8 +68,16 @@ benchmark-amlworld: ## Run the benchmark on the real IBM AMLworld file (set AMLW
 	$(COMPOSE) cp $(API_SERVICE):/tmp/benchmark_aw/fp_stress_amlworld.json api/benchmarks/fp_stress_amlworld.json
 	@echo "updated api/benchmarks/{results,ablation,fp_stress}_amlworld.json"
 
-smoke: ## Health-check the API and the frontend
-	@curl -fsS http://localhost:8000/health; echo
+apply-schema: ## Apply Neo4j constraints/indexes (idempotent; needs a running stack)
+	$(COMPOSE) exec -T $(API_SERVICE) python /benchmarks/apply_schema.py
+
+scale-test: ## Run the A3 scale test (writes api/benchmarks/scale_results.json + docs/performance.md)
+	$(COMPOSE) exec -T $(API_SERVICE) sh -c 'python /benchmarks/run_scale_test.py --sizes 10000 100000 500000 --endpoint-repeats 20 --stage-timeout 300 --profile --out /tmp/scale_results.json --doc /tmp/performance.md --commit-hash "$(shell git describe --always --dirty)"'
+	$(COMPOSE) cp $(API_SERVICE):/tmp/scale_results.json api/benchmarks/scale_results.json
+	$(COMPOSE) cp $(API_SERVICE):/tmp/performance.md docs/performance.md
+	@echo "updated api/benchmarks/scale_results.json and docs/performance.md"
+
+smoke: ## Health-check the API and the frontend	@curl -fsS http://localhost:8000/health; echo
 	@curl -fsS -o /dev/null -w "frontend http %{http_code}\\n" http://localhost:5173
 
 reset: ## Destructive: stop the stack and delete all data volumes
