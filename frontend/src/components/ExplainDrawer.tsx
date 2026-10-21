@@ -59,6 +59,7 @@ export default function ExplainDrawer({ data, entityId, onClose }: {
   const cycle = evidence.cycles?.[0]
   const decom = evidence.risk_decomposition || {}
   const eway = evidence.eway_mismatches || []
+  const bursts = (evidence as any).bursts || []
 
   // Journey A step 8: from the explainability drawer, open a case for this
   // entity and go straight to the print-ready export preview.
@@ -86,6 +87,7 @@ export default function ExplainDrawer({ data, entityId, onClose }: {
     ['Shared director', decom.shared_director],
     ['Shared address', decom.shared_address],
     ['e-Way Bill mismatch', decom.eway_mismatch],
+    ['Burst detection', decom.burst],
     ['Degree', decom.degree],
     ['PageRank', decom.pagerank],
     ['Betweenness', decom.betweenness],
@@ -226,6 +228,19 @@ export default function ExplainDrawer({ data, entityId, onClose }: {
                   <div key={i} className="flex justify-between text-[11px] font-mono">
                     <span className="text-text-secondary truncate mr-2">{m.invoice_no || '—'}</span>
                     <span className="text-text-primary">₹{Number(m.amount || 0).toLocaleString('en-IN')}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {bursts.length > 0 && (
+            <div>
+              <div className="micro-label mb-2">Temporal burst</div>
+              <div className="panel p-3 space-y-1">
+                {(bursts as any[]).map((b: any, i: number) => (
+                  <div key={i} className="text-[11px] text-text-primary">
+                    {b.seller_cin} → {b.buyer_cin}: {b.count} invoices ₹{Number(b.total_amount || 0).toLocaleString('en-IN')} ({b.start_date}–{b.end_date}), z={b.z_score}
                   </div>
                 ))}
               </div>

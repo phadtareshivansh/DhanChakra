@@ -126,6 +126,7 @@ export interface ExplainResponse {
     shared_addresses: ExplainSharedAddress[]
     shared_bank_accounts?: Record<string, any>[]
     eway_mismatches?: ExplainEWayMismatch[]
+    bursts?: any[]
     risk?: number
     risk_decomposition?: Record<string, any> | null
   }

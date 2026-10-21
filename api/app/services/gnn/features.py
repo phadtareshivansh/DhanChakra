@@ -19,6 +19,7 @@ FEATURE_COLS = [
     "shared_address",   # normalized count
     "community_share",  # fraction of companies in same louvain community
     "eway_mismatch",    # 1 if high-value invoice has no matching e-Way Bill movement
+    "burst_indicator",  # 1 if entity involved in a detected burst window
 ]
 
 
@@ -74,11 +75,16 @@ async def extract_graph(session) -> Dict[str, Any]:
     OPTIONAL MATCH (c)-[:BILLED]->(t:Transaction)
     WHERE t.amount >= $eway_thresh AND (t.eway_bill_ref IS NULL OR t.eway_bill_ref = '')
     WITH c, degree, cycle_member, shared_director, shared_address, count(DISTINCT t) AS eway_mismatch_count
+    OPTIONAL MATCH (c)-[:BILLED]->(bt:Transaction)-[:BILLED_TO]->(:Company)
+    OPTIONAL MATCH (:Company)-[:BILLED]->(bt2:Transaction)-[:BILLED_TO]->(c)
+    WITH c, degree, cycle_member, shared_director, shared_address, eway_mismatch_count,
+         count(DISTINCT bt) + count(DISTINCT bt2) AS burst_volume
     RETURN c.id AS id, c.cin AS cin, c.name AS name,
            c.risk_score AS risk_score, c.pagerank AS pagerank,
            c.betweenness AS betweenness, c.paid_up_capital AS puc,
            c.community_id AS community_id,
-           degree, cycle_member, shared_director, shared_address, eway_mismatch_count
+           degree, cycle_member, shared_director, shared_address,
+           eway_mismatch_count, burst_volume
     """, eway_thresh=settings.eway_high_value_threshold)
     companies = [dict(r) for r in await comps_res.data()]
 
@@ -98,6 +104,7 @@ async def extract_graph(session) -> Dict[str, Any]:
     max_sd = max([c["shared_director"] or 0 for c in companies] or [1])
     max_sa = max([c["shared_address"] or 0 for c in companies] or [1])
     max_eway = max([c.get("eway_mismatch_count") or 0 for c in companies] or [1])
+    max_burst = max([c.get("burst_volume") or 0 for c in companies] or [1])
     comm_sizes: Dict[Any, int] = {}
     for c in companies:
         comm_sizes[c["community_id"]] = comm_sizes.get(c["community_id"], 0) + 1
@@ -113,6 +120,7 @@ async def extract_graph(session) -> Dict[str, Any]:
             _norm(c.get("shared_address"), max_sa),
             comm_sizes.get(c.get("community_id"), 0) / max(n, 1),
             _norm(c.get("eway_mismatch_count"), max_eway),
+            1.0 if (c.get("burst_volume") or 0) >= settings.burst_min_transactions else 0.0,
         ]
 
     return {"companies": companies, "edges": edges, "n": n}

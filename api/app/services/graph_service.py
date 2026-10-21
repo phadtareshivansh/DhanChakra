@@ -462,18 +462,21 @@ async def run_structural_analytics(session) -> Dict[str, Any]:
         WHERE sameaddr <> c
         OPTIONAL MATCH (c)-[:BILLED]->(t:Transaction)
         WHERE t.amount >= $eway_thresh AND (t.eway_bill_ref IS NULL OR t.eway_bill_ref = '')
+        OPTIONAL MATCH (c)-[:BILLED]->(bt:Transaction)-[:BILLED_TO]->(:Company)
+        OPTIONAL MATCH (:Company)-[:BILLED]->(bt2:Transaction)-[:BILLED_TO]->(c)
         WITH c,
              count(DISTINCT cy) AS cycle_count,
              count(DISTINCT nei) AS degree,
              count(DISTINCT other) AS shared_director_count,
              count(DISTINCT sameaddr) AS shared_address_count,
              count(DISTINCT t) AS eway_mismatch_count,
+             count(DISTINCT bt) + count(DISTINCT bt2) AS burst_count,
              coalesce(c.pagerank, 0.0) AS pagerank,
              coalesce(c.betweenness, 0.0) AS betweenness,
              coalesce(c.paid_up_capital, 0.0) AS puc
         RETURN c.cin AS cin,
                cycle_count, degree, shared_director_count, shared_address_count,
-               eway_mismatch_count, pagerank, betweenness, puc
+               eway_mismatch_count, burst_count, pagerank, betweenness, puc
         """, eway_thresh=settings.eway_high_value_threshold)
         records = await result.data()
         for r in records:
@@ -502,6 +505,7 @@ def _heuristic_risk_score(features: Dict[str, Any]) -> float:
     pagerank = features.get("pagerank") or 0.0
     betweenness = features.get("betweenness") or 0.0
     eway_mismatch_count = features.get("eway_mismatch_count") or 0
+    burst_count = features.get("burst_count") or 0
 
     if cycle_count > 0:
         score += settings.risk_cycle_base + min(
@@ -530,6 +534,8 @@ def _heuristic_risk_score(features: Dict[str, Any]) -> float:
     )
     if eway_mismatch_count > 0:
         score += min(15.0, eway_mismatch_count * 5.0)
+    if burst_count > 0:
+        score += min(12.0, burst_count * 4.0)
     return round(min(score, settings.risk_score_cap), 1)
 
 
@@ -605,6 +611,7 @@ async def explain_entity(session, entity_id: str) -> Dict[str, Any]:
         "shared_addresses": [],
         "shared_bank_accounts": [],
         "eway_mismatches": [],
+        "bursts": [],
         "risk": entity.get("risk_score"),
         "risk_decomposition": None,
     }
@@ -669,6 +676,34 @@ async def explain_entity(session, entity_id: str) -> Dict[str, Any]:
             f"with no matching e-Way Bill movement record, totaling ₹{total_m:,.0f}."
         )
 
+    # --- Temporal burst detection (z-score over rolling windows)
+    try:
+        from .burst_detector import detect_bursts
+
+        burst_q = await session.run(
+            """
+            MATCH (c:Company {id: $id})-[:BILLED]->(t:Transaction)-[:BILLED_TO]->(o:Company)
+            WHERE t.invoice_date IS NOT NULL
+            RETURN {seller_cin: c.cin, buyer_cin: o.cin, amount: t.amount, date: t.invoice_date} AS inv
+            """,
+            id=entity_id,
+        )
+        bursts = detect_bursts(
+            await burst_q.data(),
+            window_days=settings.burst_window_days,
+            z_threshold=settings.burst_z_threshold,
+            min_txns=settings.burst_min_transactions,
+        )
+        for b in bursts:
+            evidence["bursts"].append(_sanitize(b))
+        if bursts:
+            reasons.append(
+                f"Burst detection: {len(bursts)} sudden high-volume invoice window(s) between the same entities "
+                f"(z >= {settings.burst_z_threshold}, {settings.burst_window_days}-day windows)."
+            )
+    except Exception:
+        pass
+
     # --- Louvain FraudCommunity membership (may be more than one per entity)
     comm = await session.run("""
     MATCH (c:Company {id: $id})-[:MEMBER_OF_COMMUNITY]->(fc: FraudCommunity)
@@ -725,6 +760,7 @@ async def explain_entity(session, entity_id: str) -> Dict[str, Any]:
     shared_dir_count = len(evidence["shared_directors"])
     shared_addr_count = len(evidence["shared_addresses"])
     eway_mismatch_count = len(evidence.get("eway_mismatches") or [])
+    burst_count = len(evidence.get("bursts") or [])
     pr = float(entity.get("pagerank") or 0)
     cycle_terms = [c for c in evidence["cycles"]]
     cycle_component = 0.0
@@ -749,12 +785,15 @@ async def explain_entity(session, entity_id: str) -> Dict[str, Any]:
     bt = float(entity.get("betweenness") or 0.0)
     bt_component = min(settings.risk_betweenness_cap, bt * settings.risk_betweenness_weight)
     eway_component = min(15.0, eway_mismatch_count * 5.0) if eway_mismatch_count else 0.0
+    burst_component = min(12.0, burst_count * 4.0) if burst_count else 0.0
     evidence["risk_decomposition"] = _sanitize({
         "cycle": cycle_component,
         "shared_director": dir_component,
         "shared_address": addr_component,
         "eway_mismatch": eway_component,
         "eway_mismatch_count": eway_mismatch_count,
+        "burst": burst_component,
+        "burst_count": burst_count,
         "degree": degree_component,
         "degree_value": degree,
         "pagerank": round(pr_component, 2),

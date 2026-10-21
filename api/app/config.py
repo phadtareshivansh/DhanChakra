@@ -86,6 +86,9 @@ class Settings(BaseSettings):
     risk_betweenness_cap: float = 10
     risk_flag_threshold: float = 40
     eway_high_value_threshold: float = 50000.0
+    burst_window_days: int = 7
+    burst_z_threshold: float = 2.0
+    burst_min_transactions: int = 3
     # Minimum distinct counterparties before the degree term contributes
     risk_degree_min: int = 2
     # Heuristic score is clamped to this maximum

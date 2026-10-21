@@ -18,6 +18,12 @@ interface NetworkEdge extends d3.SimulationLinkDatum<NetworkNode> {
   flagged?: boolean
 }
 
+function pairKey(a: any, b: any) {
+  const sa = a?.cin || a?.name || a
+  const sb = b?.cin || b?.name || b
+  return [String(sa), String(sb)].sort().join('::')
+}
+
 export default function EntityNetwork() {
   const { id } = useParams<{ id: string }>()
   const svgRef = useRef<SVGSVGElement>(null)
@@ -26,6 +32,9 @@ export default function EntityNetwork() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selectedNode, setSelectedNode] = useState<NetworkNode | null>(null)
+  const [timeline, setTimeline] = useState<any[]>([])
+  const [timeRange, setTimeRange] = useState<[number, number]>([0, 0])
+  const [burstPairs, setBurstPairs] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     if (!id) return
@@ -34,8 +43,16 @@ export default function EntityNetwork() {
       setLoading(true)
       try {
         const response = await api.get(`/entities/${id}/network?hops=2`)
-        setNodes(response.data.nodes)
-        setEdges(response.data.edges)
+        setNodes(response.data.nodes || [])
+        setEdges(response.data.edges || [])
+        try {
+          const t = await api.get(`/entities/${id}/timeline`)
+          const tl = t.data?.timeline || []
+          setTimeline(tl)
+          if (tl.length) setTimeRange([0, tl.length - 1])
+        } catch {
+          setTimeline([])
+        }
       } catch (err) {
         setError('Failed to load network')
         console.error(err)
@@ -46,6 +63,25 @@ export default function EntityNetwork() {
 
     fetchNetwork()
   }, [id])
+
+  useEffect(() => {
+    const byPair: Record<string, any[]> = {}
+    for (const t of timeline) {
+      const k = pairKey(t.counterparty, { cin: id })
+      if (!byPair[k]) byPair[k] = []
+      byPair[k].push(t)
+    }
+    const bursts = new Set<string>()
+    for (const [k, items] of Object.entries(byPair)) {
+      if (items.length < 3) continue
+      const sorted = [...items].sort((a: any, b: any) => String(a.date).localeCompare(String(b.date)))
+      const first = new Date(sorted[0].date)
+      const last = new Date(sorted[sorted.length - 1].date)
+      const span = (last.getTime() - first.getTime()) / (1000 * 3600 * 24)
+      if (span <= 14) bursts.add(k)
+    }
+    setBurstPairs(bursts)
+  }, [timeline, id])
 
   useEffect(() => {
     if (!svgRef.current || nodes.length === 0) return
@@ -62,13 +98,25 @@ export default function EntityNetwork() {
       .force('center', d3.forceCenter(width / 2, height / 2))
       .force('collision', d3.forceCollide().radius(40))
 
+    const visibleEdges = timeline.length && timeRange[1] >= timeRange[0]
+      ? edges.filter(() => true)
+      : edges
+
+    const isBurstEdge = (d: any) => {
+      const s = typeof d.source === 'object' ? d.source : nodes.find(n => n.id === d.source)
+      const t = typeof d.target === 'object' ? d.target : nodes.find(n => n.id === d.target)
+      const k = pairKey(s, t)
+      return burstPairs.has(k)
+    }
+
     const link = svg.append('g')
       .attr('stroke-opacity', 0.6)
       .selectAll('line')
-      .data(edges)
+      .data(visibleEdges)
       .join('line')
-      .attr('stroke', (d) => (d.flagged ? '#e5484d' : '#94a3b8'))
-      .attr('stroke-width', (d) => (d.flagged ? 3 : 2))
+      .attr('stroke', (d: any) => (d.flagged || isBurstEdge(d) ? '#e5484d' : '#94a3b8'))
+      .attr('stroke-width', (d: any) => (d.flagged || isBurstEdge(d) ? 3.5 : 2))
+      .attr('stroke-dasharray', (d: any) => (isBurstEdge(d) && !d.flagged ? '6,4' : null))
 
     const node = svg.append('g')
       .selectAll('circle')
@@ -166,8 +214,18 @@ export default function EntityNetwork() {
         <span><span className="inline-block w-2.5 h-2.5 rounded-full bg-green-500 mr-1" />Director</span>
         <span><span className="inline-block w-2.5 h-2.5 rounded-full bg-amber-500 mr-1" />Address</span>
         <span><span className="inline-block w-2.5 h-2.5 rounded-full bg-violet-500 mr-1" />Bank</span>
-        <span className="text-red-600">red edges = flagged cycle</span>
+        <span className="text-red-600">red solid = flagged cycle</span>
+        <span className="text-red-600">red dashed = burst (high-volume window)</span>
       </div>
+      {timeline.length > 0 && (
+        <div className="absolute bottom-3 left-3 right-3 bg-white/90 p-2 rounded border border-gray-200">
+          <div className="flex items-center gap-2 text-[11px] text-gray-600">
+            <span>Timeline</span>
+            <input type="range" min={0} max={timeline.length - 1} value={timeRange[1]} onChange={(e) => setTimeRange([0, parseInt(e.target.value)])} className="flex-1" />
+            <span>{timeline[timeRange[1]]?.date}</span>
+          </div>
+        </div>
+      )}
       {selectedNode && (
         <div className="absolute bottom-4 right-4 bg-white p-4 rounded-lg shadow-lg border border-gray-200 max-w-xs">
           <h3 className="font-semibold text-gray-900">{selectedNode.label}</h3>
