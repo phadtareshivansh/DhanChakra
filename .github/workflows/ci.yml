@@ -20,8 +20,8 @@ jobs:
       - name: Prepare CI environment
         run: |
           python3 scripts/init_env.py --force \
-            --admin-email officer@dggi.gov.in \
-            --analyst-email analyst@dggi.gov.in
+            --super-admin-email officer@dggi.gov.in \
+            --user1-email analyst@dggi.gov.in
           # Ensure APP_ENV is development and demo seeding is on
           sed -i 's/^APP_ENV=.*/APP_ENV=development/' .env
           sed -i 's/^SEED_DEMO_USERS=.*/SEED_DEMO_USERS=true/' .env
