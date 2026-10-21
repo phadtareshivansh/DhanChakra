@@ -24,7 +24,7 @@ This file is the single source of truth for the remaining build work. Read this 
 
 - [x] TASK 0: Baseline audit
 - [x] TASK A1: Benchmark harness
-- [ ] TASK A2: Public benchmark, ablation, false-positive stress test
+- [x] TASK A2: Public benchmark, ablation, false-positive stress test
 - [ ] TASK A3: Scale test
 - [ ] TASK B1: e-Way Bill mismatch signal
 - [ ] TASK B2: Temporal view and burst detection
