@@ -1,3 +1,5 @@
+name: dhanchakra
+
 services:
   neo4j:
     image: neo4j:5.23-community

@@ -1,45 +1,88 @@
 # Dhan-Chakra
 
-**Graph-AI engine for shell-company invoice loops and GST fraud detection.**
+**Graph-AI engine for shell-company networks, circular trading and fraudulent ITC claims.**
 
 Dhan-Chakra turns company, director, address and invoice records into a graph,
 scores every company for fraud risk with a GNN, detects closed invoice rings,
 explains *why* an entity is flagged in plain language, and gives an investigator
 a case workflow with a full audit trail — end to end in one browser session.
 
-> **Status: functional demo build (Phases 0–5 implemented).** The pipeline is
-> real and exercised by the test suite against live Neo4j/PostgreSQL. It is
-> **demo-scope**, not production-hardened: see
-> [Demo scope vs. production scope](#demo-scope-vs-production-scope).
+- **Primary customer:** bank / NBFC — MSME lending fraud and AML.
+  **Secondary:** audit / CA firms. Tax authorities are a later segment.
+  GST/ITC-specific analysis is the differentiator, not a user segment.
+- **Delivery:** one codebase, multi-tenant **ready** (`org_id` on every business
+  table and graph node, per Phase 3.1) and fully containerized. SaaS is the
+  first target; on-prem / private-cloud packaging ships later in P7.1 from the
+  same images and code. No customer-specific code branches.
+- **Residency:** designed for India-only data residency.
+
+> **Status: functional v1 build (Phases 0–5 implemented).** The pipeline is real
+> and exercised by the test suite against live Neo4j/PostgreSQL. It is
+> **pre-production**, not hardened for real customer data — see
+> [Module status](#module-status) and
+> [v1 scope vs. production scope](#v1-scope-vs-production-scope).
 
 ---
 
-## What's implemented
+## Purpose
 
-| Area | What it does | Where |
-|---|---|---|
-| **Structural analytics** | Invoice **cycle (ring) detection**, weakly-connected components, communities, PageRank / betweenness / degree centrality, heuristic risk scoring with per-signal caps | `api/app/services/graph_service.py`, `graph/cypher/analytics.cypher` |
-| **GNN risk scoring** | GraphSAGE-style model (plain PyTorch: two mean-aggregation SAGE layers) trained on the graph; scores every company 0–100, persisted back to the graph and surfaced as `risk_source=gnn_v1` | `api/app/services/gnn/` |
-| **Entity resolution** | Normalises and links directors / addresses / bank accounts across companies (shared-director and shared-address signals) | `api/app/services/graph_service.py` (`/analytics/resolve`) |
-| **Agentic ingestion** | Extracts `{company_name, cin, gstin, registered_address, director_name, din, shareholding}` from MCA-style **PDF filings** with **per-field confidence**; low-confidence fields are routed to manual review instead of auto-committed, then confirmed into the graph as `source=agentic` | `api/app/services/agentic_ingest.py`, `POST /ingest/document`, `/ingest/document/confirm` |
-| **Case workflow** | Create / open / update / delete cases on a flagged entity, attach evidence, and **export a print-ready bundle** (preview + stored export records) | `api/app/services/case_service.py`, `frontend/src/pages/CasesView.tsx`, `CaseExport.tsx` |
-| **Audit log** | Every consequential action is recorded (`ran_structural_analytics`, `ran_entity_resolution`, `ran_gnn_train`, `ran_gnn_predict`, `exported_case`, logins, …) and readable via `GET /audit` | `api/migrations/004_audit_log.sql`, `GET /api/v1/audit` |
-| **Explainability** | `GET /entities/{id}/explain` returns a plain-language **reason** list plus **subgraph attribution** (`method="subgraph_attribution"`): the cycle, its member companies, total amount, invoice dates, shared directors/addresses, and a risk decomposition | `frontend/src/components/ExplainDrawer.tsx` |
-| **Role-based auth** | Fixed 3-slot model: **one Super Admin** (`admin`) + **two standard users** (`analyst`). No self-registration. Super Admin manages the two slots; caps enforced at DB *and* service level | `api/app/services/auth_service.py`, `api/app/routes/admin.py`, migration `012_user_role_limits.sql` |
+Investigators face more flagged entities than they can review. Dhan-Chakra's job
+is to **prioritise** that caseload: rank entities by fraud risk, show the
+supporting evidence subgraph for every score, and let an officer record a
+decision. It prioritises cases for **human review**; it never decides guilt.
 
-### The demo dataset: one flagged ring
+What the product does today:
 
-The curated sample data contains exactly **one** fraud ring — six **Maya**
-companies wired into a closed **6-hop** invoice loop (₹5,300,000 across
-`INV-HERO-001..006`). All six score **100.0** with `risk_source=gnn_v1`.
+1. **Ingest** structured company / GSTIN / transaction data (CSV, and agentic
+   extraction from MCA-style PDF filings).
+2. **Model** it as a property graph (Neo4j) with a Postgres app-layer for users,
+   cases, labels and audit.
+3. **Analyse** structure: invoice cycle (ring) detection, weakly-connected
+   components, communities, centrality.
+4. **Score** with a GNN (GraphSAGE-style) trained on the graph, blended with
+   heuristic signals.
+5. **Explain** every score with a plain-language reason list and a subgraph.
+6. **Work it**: ranked worklist, entity network view, case workflow, export,
+   audit trail.
+
+---
+
+## Architecture
 
 ```
-Maya Infra → Trading → Logistics → Exports → Chemicals → Steel → Infra
+                    ┌──────────────────────────────┐
+  CSV / PDF  ──────▶│  Ingestion (CSV, agentic PDF) │
+                    └───────────────┬──────────────┘
+                                    │
+              ┌─────────────────────▼─────────────────────┐
+              │              Property graph (Neo4j)        │
+              │   Company · Director · Address ·           │
+              │   BankAccount · Transaction · GSTINFiling  │
+              └───────┬─────────────────────────┬──────────┘
+                      │                         │
+         ┌────────────▼──────────┐   ┌──────────▼───────────┐
+         │  Structural analytics │   │   GNN risk scoring    │
+         │  cycles · WCC · comms │   │   (GraphSAGE, PyTorch)│
+         │  centrality · risk    │   │   risk 0–100, gnn_v1  │
+         └────────────┬──────────┘   └──────────┬───────────┘
+                      │                         │
+              ┌───────▼─────────────────────────▼──────────┐
+              │   Explainability (evidence subgraph)        │
+              └───────────────────┬────────────────────────┘
+                                  │
+              ┌───────────────────▼────────────────────────┐
+              │  Frontend (React) — dashboard, worklist,    │
+              │  entity network, cases, export              │
+              └───────────────────┬────────────────────────┘
+                                  │
+              ┌───────────────────▼────────────────────────┐
+              │  Postgres app-layer — users, cases, labels, │
+              │  exports, audit log                         │
+              └─────────────────────────────────────────────┘
 ```
 
-The ring is *not* the whole dataset: it sits alongside clean companies so the
-worklist, filters and the "outside the ring" explain path all behave honestly
-(a company outside the ring returns `cycles: []`, no ring evidence).
+Service diagram and layer notes: `docs/Architecture_Diagram.md`. Technical
+reference: `docs/02_TRD.md`. Product requirements: `docs/01_PRD.md`.
 
 ---
 
@@ -75,6 +118,8 @@ All configuration lives in `.env` (gitignored; see `.env.example`).
 ```bash
 make test       # run the API test suite in the container
 make test-all   # seed the sample data, then run the full suite (no skips)
+make benchmark       # reproducible four-model fraud-risk benchmark (A1)
+make benchmark-amlsim    # AML-shape benchmark, ablation + false-positive stress (A2)
 make restart    # reload the API after editing api/app/*.py (mounted read-only)
 make logs       # tail all service logs
 make reset      # DESTRUCTIVE: stop the stack and delete all data volumes
@@ -87,7 +132,44 @@ make reset      # DESTRUCTIVE: stop the stack and delete all data volumes
 
 ---
 
-## Roles and demo logins
+## Module status
+
+Every row below is **measured** by the test suite against live Neo4j/Postgres
+(`pytest tests` → 149 passed after `make bootstrap`; `tsc --noEmit` → clean).
+
+| Module | Status | What works | Where |
+|---|---|---|---|
+| Structural analytics | **Working** | Invoice **cycle (ring) detection**, WCC, communities, PageRank / betweenness / degree centrality, heuristic risk scoring with per-signal caps | `api/app/services/graph_service.py`, `graph/cypher/analytics.cypher` |
+| GNN risk scoring | **Working** | GraphSAGE-style model (plain PyTorch), trained on the graph; scores every company 0–100, persisted and surfaced as `risk_source=gnn_v1` | `api/app/services/gnn/` |
+| Entity resolution | **Working** | Normalises and links directors / addresses / bank accounts (shared-director, shared-address signals) | `api/app/services/graph_service.py` (`/analytics/resolve`) |
+| Agentic ingestion | **Working** | Extracts fields from MCA-style **PDF filings** with **per-field confidence**; low-confidence fields go to manual review, then confirm into the graph as `source=agentic` | `api/app/services/agentic_ingest.py`, `POST /ingest/document` |
+| Case workflow | **Working** | Create / open / update / delete cases, attach evidence, **export a print-ready bundle** (preview + stored exports) | `api/app/services/case_service.py`, `frontend/src/pages/CasesView.tsx` |
+| Audit log | **Working** | Every consequential action recorded and readable via `GET /audit` | `api/migrations/004_audit_log.sql`, `GET /api/v1/audit` |
+| Explainability | **Working** | Plain-language **reason** list + **subgraph attribution** (`method="subgraph_attribution"`): cycle, members, amount, dates, shared links, risk decomposition | `frontend/src/components/ExplainDrawer.tsx` |
+| Auth & roles | **Working (v1 scope)** | Fixed 3-slot model: **one Super Admin** + **two analysts**. No self-registration; caps enforced at DB *and* service level | `api/app/services/auth_service.py`, `api/migrations/012_user_role_limits.sql` |
+| Benchmark harness | **Working** | Reproducible 4-model comparison, ablation, false-positive stress; real measured numbers | `api/benchmarks/`, `docs/benchmarks.md` |
+| Multi-tenancy | **Planned (P3.1)** | `org_id` to be added to every business table and graph node; org-scoped RBAC | Phase 3.1 |
+| SSO / MFA | **Planned (P3.2)** | OIDC + TOTP | Phase 3.2 |
+| Async jobs | **Planned (P4.2)** | Move heavy work off the request path | Phase 4.2 |
+| Billing | **Out of scope for now** | — | — |
+
+### The sample dataset: one flagged ring
+
+The curated sample data contains exactly **one** fraud ring — six **Maya**
+companies wired into a closed **6-hop** invoice loop (₹5,300,000 across
+`INV-HERO-001..006`). All six score **100.0** with `risk_source=gnn_v1`.
+
+```
+Maya Infra → Trading → Logistics → Exports → Chemicals → Steel → Infra
+```
+
+The ring is *not* the whole dataset: it sits alongside clean companies so the
+worklist, filters and the "outside the ring" explain path all behave honestly
+(a company outside the ring returns `cycles: []`, no ring evidence).
+
+---
+
+## Roles and logins
 
 There is **no sign-up**. The system ships with three fixed slots, seeded from the
 environment at API startup (rows are updated in place so user IDs stay stable):
@@ -108,6 +190,9 @@ environment at API startup (rows are updated in place so user IDs stay stable):
 - In production (`APP_ENV=production`) the API **refuses to boot** if any
   `SUPER_ADMIN_*` / `USER1_*` / `USER2_*` value is missing or a placeholder,
   if `JWT_SECRET` is weak, or if CORS is pointed at localhost.
+
+> **Note.** The 3-slot cap is a deliberate v1 constraint. Organizations,
+> many users and an invitation flow arrive in Phase 3.1.
 
 ---
 
@@ -180,20 +265,22 @@ Health          GET  /health
 
 ---
 
-## Demo scope vs. production scope
+## v1 scope vs. production scope
 
-**Built and working (demo-scope)**
+**Built and working (v1)**
 
 - Real graph analytics, a real (small) GNN, real entity resolution, real
   agentic PDF extraction with confidence gating.
 - Real auth with fixed roles and DB-enforced caps; real audit trail.
 - Deterministic curated dataset with a single, explainable fraud ring.
 - Explainability is structural (subgraph attribution) — honest about what it is.
+- Reproducible, honestly reported benchmark harness with an AML-shape dataset.
 
 **Deliberately not production-grade (yet)**
 
 - **Data scale.** The sample set is small (single-digit companies/edges by
-  design, for a 3-minute demo). Not tuned or load-tested for lakhs of invoices.
+  design). Not tuned or load-tested for lakhs of invoices — see Phase A3 / P7.5.
+- **Tenancy.** Single-tenant today; `org_id` isolation is Phase 3.1.
 - **Explainability.** `method="subgraph_attribution"` is rule/structure-based
   feature attribution, **not** learned GNNExplainer.
 - **Ingestion.** The default `AGENT_INGEST_BACKEND=rules` is deterministic
@@ -202,12 +289,13 @@ Health          GET  /health
   `rules` when unconfigured.
 - **Risk scoring.** The heuristic score is a weighted sum with per-signal caps;
   the GNN adds a learned signal. Neither is a calibrated fraud probability.
-- **Ops/security.** Fixed 3 user slots and a single JWT signing key suit a
-  demo; production needs an IdP, key rotation, rate limiting, and secret
-  management. Seeding is off in production unless `ALLOW_DEMO_SEED=true`.
+- **Ops/security.** Fixed 3 user slots and a single JWT signing key suit v1;
+  production needs an IdP, key rotation, rate limiting, and secret management.
+  Seeding is off in production unless `ALLOW_DEMO_SEED=true`.
 - **Migrations.** SQL files are applied by Postgres `docker-entrypoint-initdb.d`
   on a **fresh volume**; there is no migration-tracking table. Schema changes to
   a live DB are applied manually (see `api/migrations/`).
+- **i18n.** English only today; English + Hindi is planned for Phase 2.4.
 
 ---
 
@@ -216,7 +304,7 @@ Health          GET  /health
 ```
 project-root/
 ├── docker-compose.yml          # neo4j + postgres + api + frontend
-├── Makefile                    # env / up / bootstrap / test / smoke / reset …
+├── Makefile                    # env / up / bootstrap / test / benchmark / smoke / reset …
 ├── .env.example                # every knob, placeholders only (no secrets)
 ├── api/
 │   ├── app/
@@ -227,6 +315,7 @@ project-root/
 │   │   ├── routes/             # entities.py, admin.py
 │   │   └── services/           # graph_service, auth_service, case_service,
 │   │       └── gnn/            # ingestion_service, agentic_ingest; GNN pkg
+│   ├── benchmarks/             # A1/A2 harness, AML loader + synthetic generator
 │   ├── migrations/             # 001…012 (users, cases, audit, jobs, roles…)
 │   └── tests/                  # API + live-graph + auth + privacy + config suites
 ├── graph/cypher/               # constraints, seed, analytics
@@ -245,7 +334,7 @@ project-root/
 │   └── types/api.ts
 ├── scripts/                    # init_env.py, bootstrap_demo_data.sh
 ├── shared/types/
-└── docs/                       # demo.md (+ design docs, kept in repo)
+└── docs/                       # PRD, TRD, UI/UX, app flow, benchmarks, demo…
 ```
 
 ---
@@ -263,7 +352,14 @@ make test-all                   # seed first, then run everything (no skips)
 
 The suite covers the API surface, live graph analytics, entity resolution, the
 GNN write-back, the agentic document flow, auth/roles, the production startup
-gate, and a privacy guard that scans sample data for real PAN/Aadhaar shapes.
+gate, the benchmark loader/leakage guards, and a privacy guard that scans sample
+data for real PAN/Aadhaar shapes.
+
+### Benchmarks
+
+Measured, not estimated — see `docs/benchmarks.md`. Two AML-shape datasets are
+reported in separate tables (a self-written generator and, when downloaded, the
+real IBM AMLworld), alongside the product's own synthetic graph.
 
 ## Notes for deployment
 
