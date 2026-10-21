@@ -1,0 +1,181 @@
+{
+  "task": "A3 scale test",
+  "versions": {
+    "python": "3.11.17",
+    "platform": "Linux aarch64",
+    "neo4j_driver": "5.19.0"
+  },
+  "container": {
+    "cgroup_cpu_max": "max 100000",
+    "torch": "2.4.1",
+    "torch_threads": 10
+  },
+  "sizes": [
+    {
+      "size": 10000,
+      "seed": 1,
+      "stages": {
+        "apply_schema": {
+          "ok": true,
+          "seconds": 0.019617916999777663
+        },
+        "generate": {
+          "ok": true,
+          "seconds": 0.0625243340000452
+        },
+        "bulk_load": {
+          "ok": true,
+          "seconds": 1.4366273340001499
+        },
+        "wcc": {
+          "ok": true,
+          "seconds": 0.087692834000336
+        },
+        "louvain_project": {
+          "ok": true,
+          "seconds": 0.0011285000000498258
+        },
+        "louvain_write": {
+          "ok": true,
+          "seconds": 3.926527167999666
+        },
+        "cycle_detection": {
+          "ok": true,
+          "seconds": 0.4140387089992146
+        },
+        "centrality": {
+          "ok": true,
+          "seconds": 3.489962210000158
+        },
+        "gnn_train": {
+          "ok": true,
+          "seconds": 17.69039996599895
+        },
+        "gnn_inference": {
+          "ok": true,
+          "seconds": 4.285315293998792
+        }
+      },
+      "graph_stats": {
+        "companies": 10000,
+        "directors": 9978,
+        "addresses": 10000,
+        "transactions": 25044,
+        "rings": 5,
+        "ring_members": 32
+      },
+      "load_breakdown": {
+        "companies": 0.26258912500088627,
+        "directors": 0.24817662499845028,
+        "addresses": 0.1998700829990412,
+        "transactions": 0.7181315840007301,
+        "total": 1.4287674169991078
+      },
+      "endpoints": {
+        "search": {
+          "p50_ms": 2.56,
+          "p95_ms": 9.44,
+          "min_ms": 2.33,
+          "max_ms": 9.44,
+          "n": 20
+        },
+        "network": {
+          "p50_ms": 16.53,
+          "p95_ms": 22.07,
+          "min_ms": 12.05,
+          "max_ms": 22.07,
+          "n": 20
+        },
+        "worklist": {
+          "p50_ms": 10.88,
+          "p95_ms": 35.09,
+          "min_ms": 10.71,
+          "max_ms": 35.09,
+          "n": 20
+        }
+      }
+    },
+    {
+      "size": 100000,
+      "seed": 1,
+      "aborted": true,
+      "reason": "OOM killed (SIGKILL) during GNN training / memory exhaustion; Neo4j also hit MemoryPoolOutOfMemoryError on 500K load attempt",
+      "graph_stats": {
+        "companies": 100000,
+        "directors": 99739,
+        "addresses": 100000,
+        "transactions": 248937,
+        "rings": 50,
+        "ring_members": 299
+      },
+      "load_breakdown": {
+        "companies": 3.84,
+        "directors": 2.96,
+        "addresses": 2.27,
+        "transactions": 7.38,
+        "total": 16.45
+      },
+      "stages": {
+        "apply_schema": {
+          "ok": true,
+          "seconds": 0.01
+        },
+        "generate": {
+          "ok": true,
+          "seconds": 0.5
+        },
+        "bulk_load": {
+          "ok": true,
+          "seconds": 15.37
+        },
+        "wcc": {
+          "ok": true,
+          "seconds": 0.26
+        },
+        "louvain_project": {
+          "ok": true,
+          "seconds": 0.0
+        },
+        "louvain_write": {
+          "ok": true,
+          "seconds": 9.42
+        },
+        "cycle_detection": {
+          "ok": true,
+          "seconds": 7.99
+        },
+        "centrality": {
+          "ok": false,
+          "timed_out": true,
+          "timeout_s": 300.0,
+          "seconds": 300.0,
+          "error": "TimeoutError: exceeded 300.0s"
+        }
+      },
+      "centrality_terminated": 2,
+      "note": "Measured from child stdout (partial persistence lost due to parent/container OOM)."
+    },
+    {
+      "size": 500000,
+      "aborted": true,
+      "reason": "exit code 1"
+    }
+  ],
+  "profile": {},
+  "notes": [
+    "All numbers measured on the host running this command; nothing estimated.",
+    "Scale-test data is tagged scale_tag=scale_a3 and removable via scale_gen.wipe_scale_data().",
+    "Each size runs in its own child process so an OOM kill is recorded rather than aborting the whole run.",
+    "100K and 500K exceeded available memory on this machine (heap 3G/1G; Docker VM ~7.7GB). 100K: all pre-GNN stages measured, betweenness timed out at 300s and was terminated, then OOM-killed in GNN training. 500K: Neo4j MemoryPoolOutOfMemoryError during bulk load/wipe. See docs/performance.md findings."
+  ],
+  "cleanup": {
+    "ok": true,
+    "counts": {
+      "Company": 8,
+      "Director": 6,
+      "Address": 4,
+      "Transaction": 7
+    }
+  },
+  "largest_completed": 10000
+}

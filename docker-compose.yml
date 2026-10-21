@@ -83,6 +83,10 @@ services:
       # AMLworld benchmark can read data/amlworld/<file>.csv from the host:
       #   make benchmark-amlworld AMLWORLD_PATH=/data/amlworld/HI-Small_Trans.csv
       - ./data:/data:ro
+      # Neo4j schema (constraints/indexes), applied idempotently at start and
+      # on demand by the scale test:
+      #   docker compose exec api python /benchmarks/apply_schema.py
+      - ./graph/cypher:/cypher:ro
     depends_on:
       neo4j:
         condition: service_healthy
