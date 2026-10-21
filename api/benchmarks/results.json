@@ -1,0 +1,1713 @@
+{
+  "dataset": "synthetic",
+  "dataset_label": "self-generated synthetic",
+  "seeds": [
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
+  "n_graphs": 60,
+  "k": [
+    50,
+    100
+  ],
+  "results": [
+    {
+      "seed": 1,
+      "n_graphs": 60,
+      "split": {
+        "train": [
+          1,
+          2,
+          3,
+          5,
+          6,
+          10,
+          11,
+          12,
+          13,
+          15,
+          16,
+          18,
+          19,
+          20,
+          21,
+          22,
+          24,
+          25,
+          26,
+          27,
+          28,
+          29,
+          30,
+          31,
+          32,
+          33,
+          34,
+          35,
+          36,
+          38,
+          39,
+          40,
+          41,
+          44,
+          45,
+          46,
+          48,
+          50,
+          51,
+          52,
+          55,
+          56,
+          57,
+          59
+        ],
+        "val": [
+          0,
+          7,
+          14,
+          17,
+          37,
+          42,
+          43,
+          49
+        ],
+        "test": [
+          4,
+          8,
+          9,
+          23,
+          47,
+          53,
+          54,
+          58
+        ]
+      },
+      "split_level": "graph",
+      "test_nodes": 192,
+      "test_positives": 64,
+      "k": {
+        "50": {
+          "k_used": 50,
+          "clamped": false
+        },
+        "100": {
+          "k_used": 100,
+          "clamped": false
+        }
+      },
+      "views": {
+        "edge": {
+          "columns": [
+            "in_degree",
+            "out_degree",
+            "total_degree",
+            "pagerank",
+            "betweenness",
+            "clustering",
+            "reciprocity",
+            "shared_neighbors",
+            "puc_log"
+          ],
+          "models": {
+            "logistic_regression": {
+              "metrics": {
+                "f1": 0.9846153846153847,
+                "auc_pr": 1.0,
+                "auc_roc": 1.0,
+                "precision@50": 1.0,
+                "recall@50": 0.78125,
+                "precision@100": 0.64,
+                "recall@100": 1.0,
+                "threshold": 0.35000000000000003
+              }
+            },
+            "gradient_boosting": {
+              "metrics": {
+                "f1": 0.9922480620155039,
+                "auc_pr": 0.9997596153846153,
+                "auc_roc": 0.9998779296875,
+                "precision@50": 1.0,
+                "recall@50": 0.78125,
+                "precision@100": 0.64,
+                "recall@100": 1.0,
+                "threshold": 0.35000000000000003
+              }
+            },
+            "graphsage": {
+              "metrics": {
+                "f1": 0.9922480620155039,
+                "auc_pr": 0.9997596153846153,
+                "auc_roc": 0.9998779296875,
+                "precision@50": 1.0,
+                "recall@50": 0.78125,
+                "precision@100": 0.64,
+                "recall@100": 1.0,
+                "threshold": 0.7000000000000001
+              }
+            },
+            "rule_only": {
+              "metrics": {
+                "f1": 0.6701570680628273,
+                "auc_pr": 0.5039370078740157,
+                "auc_roc": 0.75390625,
+                "precision@50": 0.38,
+                "recall@50": 0.296875,
+                "precision@100": 0.49,
+                "recall@100": 0.765625,
+                "threshold": 0.5
+              }
+            }
+          }
+        },
+        "edge_cycle": {
+          "columns": [
+            "in_degree",
+            "out_degree",
+            "total_degree",
+            "pagerank",
+            "betweenness",
+            "clustering",
+            "reciprocity",
+            "shared_neighbors",
+            "puc_log",
+            "recomputed_cycle_member"
+          ],
+          "models": {
+            "logistic_regression": {
+              "metrics": {
+                "f1": 0.9846153846153847,
+                "auc_pr": 1.0,
+                "auc_roc": 1.0,
+                "precision@50": 1.0,
+                "recall@50": 0.78125,
+                "precision@100": 0.64,
+                "recall@100": 1.0,
+                "threshold": 0.4
+              }
+            },
+            "gradient_boosting": {
+              "metrics": {
+                "f1": 0.9922480620155039,
+                "auc_pr": 0.9997596153846153,
+                "auc_roc": 0.9998779296875,
+                "precision@50": 1.0,
+                "recall@50": 0.78125,
+                "precision@100": 0.64,
+                "recall@100": 1.0,
+                "threshold": 0.05
+              }
+            },
+            "graphsage": {
+              "metrics": {
+                "f1": 0.976,
+                "auc_pr": 1.0,
+                "auc_roc": 1.0,
+                "precision@50": 1.0,
+                "recall@50": 0.78125,
+                "precision@100": 0.64,
+                "recall@100": 1.0,
+                "threshold": 0.05
+              }
+            },
+            "rule_only": {
+              "metrics": {
+                "f1": 0.6701570680628273,
+                "auc_pr": 0.5039370078740157,
+                "auc_roc": 0.75390625,
+                "precision@50": 0.38,
+                "recall@50": 0.296875,
+                "precision@100": 0.49,
+                "recall@100": 0.765625,
+                "threshold": 0.5
+              }
+            }
+          }
+        },
+        "floor": {
+          "columns": [
+            "total_degree",
+            "puc_log"
+          ],
+          "models": {
+            "logistic_regression": {
+              "metrics": {
+                "f1": 0.5080645161290323,
+                "auc_pr": 0.39143762012094835,
+                "auc_roc": 0.56048583984375,
+                "precision@50": 0.34,
+                "recall@50": 0.265625,
+                "precision@100": 0.34,
+                "recall@100": 0.53125,
+                "threshold": 0.35000000000000003
+              }
+            },
+            "gradient_boosting": {
+              "metrics": {
+                "f1": 0.5163934426229508,
+                "auc_pr": 0.3873010880856982,
+                "auc_roc": 0.59637451171875,
+                "precision@50": 0.38,
+                "recall@50": 0.296875,
+                "precision@100": 0.37,
+                "recall@100": 0.578125,
+                "threshold": 0.2
+              }
+            },
+            "graphsage": {
+              "metrics": {
+                "f1": 0.5380116959064327,
+                "auc_pr": 0.5159306780887618,
+                "auc_roc": 0.670654296875,
+                "precision@50": 0.52,
+                "recall@50": 0.40625,
+                "precision@100": 0.44,
+                "recall@100": 0.6875,
+                "threshold": 0.55
+              }
+            },
+            "rule_only": {
+              "metrics": {
+                "f1": 0.6701570680628273,
+                "auc_pr": 0.5039370078740157,
+                "auc_roc": 0.75390625,
+                "precision@50": 0.38,
+                "recall@50": 0.296875,
+                "precision@100": 0.49,
+                "recall@100": 0.765625,
+                "threshold": 0.5
+              }
+            }
+          }
+        },
+        "leak": {
+          "columns": [
+            "degree",
+            "pagerank",
+            "betweenness",
+            "puc_log",
+            "cycle_member",
+            "shared_director",
+            "shared_address",
+            "community_share"
+          ],
+          "models": {
+            "logistic_regression": {
+              "metrics": {
+                "f1": 1.0,
+                "auc_pr": 1.0,
+                "auc_roc": 1.0,
+                "precision@50": 1.0,
+                "recall@50": 0.78125,
+                "precision@100": 0.64,
+                "recall@100": 1.0,
+                "threshold": 0.05
+              }
+            },
+            "gradient_boosting": {
+              "metrics": {
+                "f1": 1.0,
+                "auc_pr": 1.0,
+                "auc_roc": 1.0,
+                "precision@50": 1.0,
+                "recall@50": 0.78125,
+                "precision@100": 0.64,
+                "recall@100": 1.0,
+                "threshold": 0.05
+              }
+            },
+            "graphsage": {
+              "metrics": {
+                "f1": 1.0,
+                "auc_pr": 1.0,
+                "auc_roc": 1.0,
+                "precision@50": 1.0,
+                "recall@50": 0.78125,
+                "precision@100": 0.64,
+                "recall@100": 1.0,
+                "threshold": 0.05
+              }
+            },
+            "rule_only": {
+              "metrics": {
+                "f1": 0.6701570680628273,
+                "auc_pr": 0.5039370078740157,
+                "auc_roc": 0.75390625,
+                "precision@50": 0.38,
+                "recall@50": 0.296875,
+                "precision@100": 0.49,
+                "recall@100": 0.765625,
+                "threshold": 0.5
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "seed": 2,
+      "n_graphs": 60,
+      "split": {
+        "train": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          15,
+          16,
+          18,
+          20,
+          22,
+          23,
+          25,
+          26,
+          27,
+          28,
+          30,
+          33,
+          34,
+          35,
+          36,
+          38,
+          39,
+          40,
+          41,
+          42,
+          43,
+          44,
+          45,
+          46,
+          47,
+          48,
+          49,
+          50,
+          54,
+          55,
+          56,
+          58,
+          59
+        ],
+        "val": [
+          13,
+          19,
+          31,
+          32,
+          51,
+          52,
+          53
+        ],
+        "test": [
+          12,
+          14,
+          17,
+          21,
+          24,
+          29,
+          37,
+          57
+        ]
+      },
+      "split_level": "graph",
+      "test_nodes": 192,
+      "test_positives": 65,
+      "k": {
+        "50": {
+          "k_used": 50,
+          "clamped": false
+        },
+        "100": {
+          "k_used": 100,
+          "clamped": false
+        }
+      },
+      "views": {
+        "edge": {
+          "columns": [
+            "in_degree",
+            "out_degree",
+            "total_degree",
+            "pagerank",
+            "betweenness",
+            "clustering",
+            "reciprocity",
+            "shared_neighbors",
+            "puc_log"
+          ],
+          "models": {
+            "logistic_regression": {
+              "metrics": {
+                "f1": 0.9848484848484849,
+                "auc_pr": 0.9975367222934353,
+                "auc_roc": 0.9987886129618414,
+                "precision@50": 1.0,
+                "recall@50": 0.7692307692307693,
+                "precision@100": 0.65,
+                "recall@100": 1.0,
+                "threshold": 0.6000000000000001
+              }
+            },
+            "gradient_boosting": {
+              "metrics": {
+                "f1": 0.9774436090225563,
+                "auc_pr": 0.9973072082177676,
+                "auc_roc": 0.9986674742580255,
+                "precision@50": 1.0,
+                "recall@50": 0.7692307692307693,
+                "precision@100": 0.65,
+                "recall@100": 1.0,
+                "threshold": 0.2
+              }
+            },
+            "graphsage": {
+              "metrics": {
+                "f1": 0.9923664122137404,
+                "auc_pr": 0.9997668997668997,
+                "auc_roc": 0.9998788612961842,
+                "precision@50": 1.0,
+                "recall@50": 0.7692307692307693,
+                "precision@100": 0.65,
+                "recall@100": 1.0,
+                "threshold": 0.7500000000000001
+              }
+            },
+            "rule_only": {
+              "metrics": {
+                "f1": 0.6878306878306878,
+                "auc_pr": 0.5241935483870968,
+                "auc_roc": 0.7677165354330708,
+                "precision@50": 0.58,
+                "recall@50": 0.4461538461538462,
+                "precision@100": 0.5,
+                "recall@100": 0.7692307692307693,
+                "threshold": 0.5
+              }
+            }
+          }
+        },
+        "edge_cycle": {
+          "columns": [
+            "in_degree",
+            "out_degree",
+            "total_degree",
+            "pagerank",
+            "betweenness",
+            "clustering",
+            "reciprocity",
+            "shared_neighbors",
+            "puc_log",
+            "recomputed_cycle_member"
+          ],
+          "models": {
+            "logistic_regression": {
+              "metrics": {
+                "f1": 0.9629629629629629,
+                "auc_pr": 0.9985713475417788,
+                "auc_roc": 0.9992731677771048,
+                "precision@50": 1.0,
+                "recall@50": 0.7692307692307693,
+                "precision@100": 0.65,
+                "recall@100": 1.0,
+                "threshold": 0.5
+              }
+            },
+            "gradient_boosting": {
+              "metrics": {
+                "f1": 0.9774436090225563,
+                "auc_pr": 0.9973072082177676,
+                "auc_roc": 0.9986674742580255,
+                "precision@50": 1.0,
+                "recall@50": 0.7692307692307693,
+                "precision@100": 0.65,
+                "recall@100": 1.0,
+                "threshold": 0.15000000000000002
+              }
+            },
+            "graphsage": {
+              "metrics": {
+                "f1": 0.9701492537313433,
+                "auc_pr": 0.9997668997668997,
+                "auc_roc": 0.9998788612961842,
+                "precision@50": 1.0,
+                "recall@50": 0.7692307692307693,
+                "precision@100": 0.65,
+                "recall@100": 1.0,
+                "threshold": 0.05
+              }
+            },
+            "rule_only": {
+              "metrics": {
+                "f1": 0.6878306878306878,
+                "auc_pr": 0.5241935483870968,
+                "auc_roc": 0.7677165354330708,
+                "precision@50": 0.58,
+                "recall@50": 0.4461538461538462,
+                "precision@100": 0.5,
+                "recall@100": 0.7692307692307693,
+                "threshold": 0.5
+              }
+            }
+          }
+        },
+        "floor": {
+          "columns": [
+            "total_degree",
+            "puc_log"
+          ],
+          "models": {
+            "logistic_regression": {
+              "metrics": {
+                "f1": 0.5384615384615384,
+                "auc_pr": 0.3839642144342389,
+                "auc_roc": 0.56480920654149,
+                "precision@50": 0.4,
+                "recall@50": 0.3076923076923077,
+                "precision@100": 0.38,
+                "recall@100": 0.5846153846153846,
+                "threshold": 0.4
+              }
+            },
+            "gradient_boosting": {
+              "metrics": {
+                "f1": 0.5394190871369294,
+                "auc_pr": 0.3760478417249987,
+                "auc_roc": 0.5580860084797092,
+                "precision@50": 0.36,
+                "recall@50": 0.27692307692307694,
+                "precision@100": 0.38,
+                "recall@100": 0.5846153846153846,
+                "threshold": 0.2
+              }
+            },
+            "graphsage": {
+              "metrics": {
+                "f1": 0.6794871794871795,
+                "auc_pr": 0.6376119343984431,
+                "auc_roc": 0.8115081768625075,
+                "precision@50": 0.7,
+                "recall@50": 0.5384615384615384,
+                "precision@100": 0.55,
+                "recall@100": 0.8461538461538461,
+                "threshold": 0.6000000000000001
+              }
+            },
+            "rule_only": {
+              "metrics": {
+                "f1": 0.6878306878306878,
+                "auc_pr": 0.5241935483870968,
+                "auc_roc": 0.7677165354330708,
+                "precision@50": 0.58,
+                "recall@50": 0.4461538461538462,
+                "precision@100": 0.5,
+                "recall@100": 0.7692307692307693,
+                "threshold": 0.5
+              }
+            }
+          }
+        },
+        "leak": {
+          "columns": [
+            "degree",
+            "pagerank",
+            "betweenness",
+            "puc_log",
+            "cycle_member",
+            "shared_director",
+            "shared_address",
+            "community_share"
+          ],
+          "models": {
+            "logistic_regression": {
+              "metrics": {
+                "f1": 1.0,
+                "auc_pr": 1.0,
+                "auc_roc": 1.0,
+                "precision@50": 1.0,
+                "recall@50": 0.7692307692307693,
+                "precision@100": 0.65,
+                "recall@100": 1.0,
+                "threshold": 0.05
+              }
+            },
+            "gradient_boosting": {
+              "metrics": {
+                "f1": 1.0,
+                "auc_pr": 1.0,
+                "auc_roc": 1.0,
+                "precision@50": 1.0,
+                "recall@50": 0.7692307692307693,
+                "precision@100": 0.65,
+                "recall@100": 1.0,
+                "threshold": 0.05
+              }
+            },
+            "graphsage": {
+              "metrics": {
+                "f1": 1.0,
+                "auc_pr": 1.0,
+                "auc_roc": 1.0,
+                "precision@50": 1.0,
+                "recall@50": 0.7692307692307693,
+                "precision@100": 0.65,
+                "recall@100": 1.0,
+                "threshold": 0.05
+              }
+            },
+            "rule_only": {
+              "metrics": {
+                "f1": 0.6878306878306878,
+                "auc_pr": 0.5241935483870968,
+                "auc_roc": 0.7677165354330708,
+                "precision@50": 0.58,
+                "recall@50": 0.4461538461538462,
+                "precision@100": 0.5,
+                "recall@100": 0.7692307692307693,
+                "threshold": 0.5
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "seed": 3,
+      "n_graphs": 60,
+      "split": {
+        "train": [
+          2,
+          4,
+          5,
+          8,
+          9,
+          10,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          24,
+          26,
+          27,
+          29,
+          30,
+          31,
+          32,
+          33,
+          34,
+          35,
+          36,
+          37,
+          39,
+          40,
+          41,
+          42,
+          43,
+          44,
+          45,
+          46,
+          49,
+          50,
+          52,
+          53,
+          54,
+          55,
+          57,
+          58
+        ],
+        "val": [
+          1,
+          3,
+          6,
+          25,
+          28,
+          48,
+          59
+        ],
+        "test": [
+          0,
+          7,
+          11,
+          23,
+          38,
+          47,
+          51,
+          56
+        ]
+      },
+      "split_level": "graph",
+      "test_nodes": 192,
+      "test_positives": 65,
+      "k": {
+        "50": {
+          "k_used": 50,
+          "clamped": false
+        },
+        "100": {
+          "k_used": 100,
+          "clamped": false
+        }
+      },
+      "views": {
+        "edge": {
+          "columns": [
+            "in_degree",
+            "out_degree",
+            "total_degree",
+            "pagerank",
+            "betweenness",
+            "clustering",
+            "reciprocity",
+            "shared_neighbors",
+            "puc_log"
+          ],
+          "models": {
+            "logistic_regression": {
+              "metrics": {
+                "f1": 0.9154929577464789,
+                "auc_pr": 0.9923768712229155,
+                "auc_roc": 0.9961235614778923,
+                "precision@50": 1.0,
+                "recall@50": 0.7692307692307693,
+                "precision@100": 0.65,
+                "recall@100": 1.0,
+                "threshold": 0.25
+              }
+            },
+            "gradient_boosting": {
+              "metrics": {
+                "f1": 0.9343065693430657,
+                "auc_pr": 0.9919151158648862,
+                "auc_roc": 0.9958812840702604,
+                "precision@50": 1.0,
+                "recall@50": 0.7692307692307693,
+                "precision@100": 0.65,
+                "recall@100": 1.0,
+                "threshold": 0.25
+              }
+            },
+            "graphsage": {
+              "metrics": {
+                "f1": 0.9090909090909091,
+                "auc_pr": 0.9908056329132959,
+                "auc_roc": 0.9958812840702604,
+                "precision@50": 0.98,
+                "recall@50": 0.7538461538461538,
+                "precision@100": 0.65,
+                "recall@100": 1.0,
+                "threshold": 0.15000000000000002
+              }
+            },
+            "rule_only": {
+              "metrics": {
+                "f1": 0.6878306878306878,
+                "auc_pr": 0.5241935483870968,
+                "auc_roc": 0.7677165354330708,
+                "precision@50": 0.48,
+                "recall@50": 0.36923076923076925,
+                "precision@100": 0.5,
+                "recall@100": 0.7692307692307693,
+                "threshold": 0.5
+              }
+            }
+          }
+        },
+        "edge_cycle": {
+          "columns": [
+            "in_degree",
+            "out_degree",
+            "total_degree",
+            "pagerank",
+            "betweenness",
+            "clustering",
+            "reciprocity",
+            "shared_neighbors",
+            "puc_log",
+            "recomputed_cycle_member"
+          ],
+          "models": {
+            "logistic_regression": {
+              "metrics": {
+                "f1": 0.948905109489051,
+                "auc_pr": 0.9971029030549081,
+                "auc_roc": 0.9985463355542096,
+                "precision@50": 1.0,
+                "recall@50": 0.7692307692307693,
+                "precision@100": 0.65,
+                "recall@100": 1.0,
+                "threshold": 0.3
+              }
+            },
+            "gradient_boosting": {
+              "metrics": {
+                "f1": 0.9420289855072463,
+                "auc_pr": 0.997011190898548,
+                "auc_roc": 0.9984251968503937,
+                "precision@50": 1.0,
+                "recall@50": 0.7692307692307693,
+                "precision@100": 0.65,
+                "recall@100": 1.0,
+                "threshold": 0.2
+              }
+            },
+            "graphsage": {
+              "metrics": {
+                "f1": 0.9774436090225563,
+                "auc_pr": 0.9995407577497128,
+                "auc_roc": 0.9997577225923683,
+                "precision@50": 1.0,
+                "recall@50": 0.7692307692307693,
+                "precision@100": 0.65,
+                "recall@100": 1.0,
+                "threshold": 0.05
+              }
+            },
+            "rule_only": {
+              "metrics": {
+                "f1": 0.6878306878306878,
+                "auc_pr": 0.5241935483870968,
+                "auc_roc": 0.7677165354330708,
+                "precision@50": 0.48,
+                "recall@50": 0.36923076923076925,
+                "precision@100": 0.5,
+                "recall@100": 0.7692307692307693,
+                "threshold": 0.5
+              }
+            }
+          }
+        },
+        "floor": {
+          "columns": [
+            "total_degree",
+            "puc_log"
+          ],
+          "models": {
+            "logistic_regression": {
+              "metrics": {
+                "f1": 0.5148514851485149,
+                "auc_pr": 0.42990110159742434,
+                "auc_roc": 0.6231980617807389,
+                "precision@50": 0.48,
+                "recall@50": 0.36923076923076925,
+                "precision@100": 0.41,
+                "recall@100": 0.6307692307692307,
+                "threshold": 0.45
+              }
+            },
+            "gradient_boosting": {
+              "metrics": {
+                "f1": 0.5321888412017167,
+                "auc_pr": 0.3852906677243584,
+                "auc_roc": 0.5875832828588734,
+                "precision@50": 0.38,
+                "recall@50": 0.2923076923076923,
+                "precision@100": 0.41,
+                "recall@100": 0.6307692307692307,
+                "threshold": 0.25
+              }
+            },
+            "graphsage": {
+              "metrics": {
+                "f1": 0.55,
+                "auc_pr": 0.4075179756274361,
+                "auc_roc": 0.6348879466989703,
+                "precision@50": 0.42,
+                "recall@50": 0.3230769230769231,
+                "precision@100": 0.44,
+                "recall@100": 0.676923076923077,
+                "threshold": 0.5
+              }
+            },
+            "rule_only": {
+              "metrics": {
+                "f1": 0.6878306878306878,
+                "auc_pr": 0.5241935483870968,
+                "auc_roc": 0.7677165354330708,
+                "precision@50": 0.48,
+                "recall@50": 0.36923076923076925,
+                "precision@100": 0.5,
+                "recall@100": 0.7692307692307693,
+                "threshold": 0.5
+              }
+            }
+          }
+        },
+        "leak": {
+          "columns": [
+            "degree",
+            "pagerank",
+            "betweenness",
+            "puc_log",
+            "cycle_member",
+            "shared_director",
+            "shared_address",
+            "community_share"
+          ],
+          "models": {
+            "logistic_regression": {
+              "metrics": {
+                "f1": 1.0,
+                "auc_pr": 1.0,
+                "auc_roc": 1.0,
+                "precision@50": 1.0,
+                "recall@50": 0.7692307692307693,
+                "precision@100": 0.65,
+                "recall@100": 1.0,
+                "threshold": 0.05
+              }
+            },
+            "gradient_boosting": {
+              "metrics": {
+                "f1": 1.0,
+                "auc_pr": 1.0,
+                "auc_roc": 1.0,
+                "precision@50": 1.0,
+                "recall@50": 0.7692307692307693,
+                "precision@100": 0.65,
+                "recall@100": 1.0,
+                "threshold": 0.05
+              }
+            },
+            "graphsage": {
+              "metrics": {
+                "f1": 1.0,
+                "auc_pr": 0.9999999999999998,
+                "auc_roc": 1.0,
+                "precision@50": 1.0,
+                "recall@50": 0.7692307692307693,
+                "precision@100": 0.65,
+                "recall@100": 1.0,
+                "threshold": 0.05
+              }
+            },
+            "rule_only": {
+              "metrics": {
+                "f1": 0.6878306878306878,
+                "auc_pr": 0.5241935483870968,
+                "auc_roc": 0.7677165354330708,
+                "precision@50": 0.48,
+                "recall@50": 0.36923076923076925,
+                "precision@100": 0.5,
+                "recall@100": 0.7692307692307693,
+                "threshold": 0.5
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "seed": 4,
+      "n_graphs": 60,
+      "split": {
+        "train": [
+          0,
+          1,
+          2,
+          4,
+          7,
+          9,
+          10,
+          11,
+          12,
+          13,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          22,
+          23,
+          27,
+          28,
+          29,
+          31,
+          32,
+          33,
+          34,
+          35,
+          36,
+          37,
+          39,
+          40,
+          41,
+          42,
+          43,
+          44,
+          45,
+          46,
+          47,
+          48,
+          49,
+          52,
+          53,
+          55,
+          56,
+          57,
+          58
+        ],
+        "val": [
+          5,
+          6,
+          21,
+          24,
+          30,
+          51
+        ],
+        "test": [
+          3,
+          8,
+          14,
+          25,
+          26,
+          38,
+          50,
+          54,
+          59
+        ]
+      },
+      "split_level": "graph",
+      "test_nodes": 216,
+      "test_positives": 72,
+      "k": {
+        "50": {
+          "k_used": 50,
+          "clamped": false
+        },
+        "100": {
+          "k_used": 100,
+          "clamped": false
+        }
+      },
+      "views": {
+        "edge": {
+          "columns": [
+            "in_degree",
+            "out_degree",
+            "total_degree",
+            "pagerank",
+            "betweenness",
+            "clustering",
+            "reciprocity",
+            "shared_neighbors",
+            "puc_log"
+          ],
+          "models": {
+            "logistic_regression": {
+              "metrics": {
+                "f1": 0.935251798561151,
+                "auc_pr": 0.9376711903853585,
+                "auc_roc": 0.986304012345679,
+                "precision@50": 0.96,
+                "recall@50": 0.6666666666666666,
+                "precision@100": 0.72,
+                "recall@100": 1.0,
+                "threshold": 0.7000000000000001
+              }
+            },
+            "gradient_boosting": {
+              "metrics": {
+                "f1": 0.9452054794520548,
+                "auc_pr": 0.9803082674803467,
+                "auc_roc": 0.9859664351851852,
+                "precision@50": 1.0,
+                "recall@50": 0.6944444444444444,
+                "precision@100": 0.7,
+                "recall@100": 0.9722222222222222,
+                "threshold": 0.05
+              }
+            },
+            "graphsage": {
+              "metrics": {
+                "f1": 0.9428571428571428,
+                "auc_pr": 0.970032130722954,
+                "auc_roc": 0.9901138117283951,
+                "precision@50": 0.96,
+                "recall@50": 0.6666666666666666,
+                "precision@100": 0.72,
+                "recall@100": 1.0,
+                "threshold": 0.9000000000000001
+              }
+            },
+            "rule_only": {
+              "metrics": {
+                "f1": 0.62882096069869,
+                "auc_pr": 0.4585987261146497,
+                "auc_roc": 0.7048611111111112,
+                "precision@50": 0.48,
+                "recall@50": 0.3333333333333333,
+                "precision@100": 0.39,
+                "recall@100": 0.5416666666666666,
+                "threshold": 0.5
+              }
+            }
+          }
+        },
+        "edge_cycle": {
+          "columns": [
+            "in_degree",
+            "out_degree",
+            "total_degree",
+            "pagerank",
+            "betweenness",
+            "clustering",
+            "reciprocity",
+            "shared_neighbors",
+            "puc_log",
+            "recomputed_cycle_member"
+          ],
+          "models": {
+            "logistic_regression": {
+              "metrics": {
+                "f1": 0.935251798561151,
+                "auc_pr": 0.9835303199395766,
+                "auc_roc": 0.9933449074074073,
+                "precision@50": 0.96,
+                "recall@50": 0.6666666666666666,
+                "precision@100": 0.72,
+                "recall@100": 1.0,
+                "threshold": 0.7000000000000001
+              }
+            },
+            "gradient_boosting": {
+              "metrics": {
+                "f1": 0.9655172413793104,
+                "auc_pr": 0.9927296290127826,
+                "auc_roc": 0.99633487654321,
+                "precision@50": 1.0,
+                "recall@50": 0.6944444444444444,
+                "precision@100": 0.72,
+                "recall@100": 1.0,
+                "threshold": 0.05
+              }
+            },
+            "graphsage": {
+              "metrics": {
+                "f1": 0.972972972972973,
+                "auc_pr": 0.999236105236692,
+                "auc_roc": 0.9996141975308642,
+                "precision@50": 1.0,
+                "recall@50": 0.6944444444444444,
+                "precision@100": 0.72,
+                "recall@100": 1.0,
+                "threshold": 0.9000000000000001
+              }
+            },
+            "rule_only": {
+              "metrics": {
+                "f1": 0.62882096069869,
+                "auc_pr": 0.4585987261146497,
+                "auc_roc": 0.7048611111111112,
+                "precision@50": 0.48,
+                "recall@50": 0.3333333333333333,
+                "precision@100": 0.39,
+                "recall@100": 0.5416666666666666,
+                "threshold": 0.5
+              }
+            }
+          }
+        },
+        "floor": {
+          "columns": [
+            "total_degree",
+            "puc_log"
+          ],
+          "models": {
+            "logistic_regression": {
+              "metrics": {
+                "f1": 0.49242424242424243,
+                "auc_pr": 0.37963983088184333,
+                "auc_roc": 0.538966049382716,
+                "precision@50": 0.4,
+                "recall@50": 0.2777777777777778,
+                "precision@100": 0.37,
+                "recall@100": 0.5138888888888888,
+                "threshold": 0.4
+              }
+            },
+            "gradient_boosting": {
+              "metrics": {
+                "f1": 0.5079365079365079,
+                "auc_pr": 0.37093586462324607,
+                "auc_roc": 0.5824652777777777,
+                "precision@50": 0.38,
+                "recall@50": 0.2638888888888889,
+                "precision@100": 0.39,
+                "recall@100": 0.5416666666666666,
+                "threshold": 0.2
+              }
+            },
+            "graphsage": {
+              "metrics": {
+                "f1": 0.5490196078431373,
+                "auc_pr": 0.6305754380455926,
+                "auc_roc": 0.7180748456790123,
+                "precision@50": 0.64,
+                "recall@50": 0.4444444444444444,
+                "precision@100": 0.48,
+                "recall@100": 0.6666666666666666,
+                "threshold": 0.6000000000000001
+              }
+            },
+            "rule_only": {
+              "metrics": {
+                "f1": 0.62882096069869,
+                "auc_pr": 0.4585987261146497,
+                "auc_roc": 0.7048611111111112,
+                "precision@50": 0.48,
+                "recall@50": 0.3333333333333333,
+                "precision@100": 0.39,
+                "recall@100": 0.5416666666666666,
+                "threshold": 0.5
+              }
+            }
+          }
+        },
+        "leak": {
+          "columns": [
+            "degree",
+            "pagerank",
+            "betweenness",
+            "puc_log",
+            "cycle_member",
+            "shared_director",
+            "shared_address",
+            "community_share"
+          ],
+          "models": {
+            "logistic_regression": {
+              "metrics": {
+                "f1": 1.0,
+                "auc_pr": 1.0,
+                "auc_roc": 1.0,
+                "precision@50": 1.0,
+                "recall@50": 0.6944444444444444,
+                "precision@100": 0.72,
+                "recall@100": 1.0,
+                "threshold": 0.05
+              }
+            },
+            "gradient_boosting": {
+              "metrics": {
+                "f1": 1.0,
+                "auc_pr": 1.0,
+                "auc_roc": 1.0,
+                "precision@50": 1.0,
+                "recall@50": 0.6944444444444444,
+                "precision@100": 0.72,
+                "recall@100": 1.0,
+                "threshold": 0.05
+              }
+            },
+            "graphsage": {
+              "metrics": {
+                "f1": 1.0,
+                "auc_pr": 1.0,
+                "auc_roc": 1.0,
+                "precision@50": 1.0,
+                "recall@50": 0.6944444444444444,
+                "precision@100": 0.72,
+                "recall@100": 1.0,
+                "threshold": 0.05
+              }
+            },
+            "rule_only": {
+              "metrics": {
+                "f1": 0.62882096069869,
+                "auc_pr": 0.4585987261146497,
+                "auc_roc": 0.7048611111111112,
+                "precision@50": 0.48,
+                "recall@50": 0.3333333333333333,
+                "precision@100": 0.39,
+                "recall@100": 0.5416666666666666,
+                "threshold": 0.5
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "seed": 5,
+      "n_graphs": 60,
+      "split": {
+        "train": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          8,
+          9,
+          11,
+          12,
+          13,
+          14,
+          16,
+          18,
+          19,
+          21,
+          22,
+          23,
+          24,
+          25,
+          26,
+          28,
+          29,
+          30,
+          33,
+          34,
+          37,
+          38,
+          39,
+          40,
+          41,
+          42,
+          44,
+          47,
+          48,
+          49,
+          50,
+          51,
+          52,
+          54,
+          55,
+          56,
+          57,
+          59
+        ],
+        "val": [
+          7,
+          10,
+          15,
+          27,
+          32,
+          46,
+          53
+        ],
+        "test": [
+          0,
+          17,
+          20,
+          31,
+          35,
+          36,
+          43,
+          45,
+          58
+        ]
+      },
+      "split_level": "graph",
+      "test_nodes": 216,
+      "test_positives": 71,
+      "k": {
+        "50": {
+          "k_used": 50,
+          "clamped": false
+        },
+        "100": {
+          "k_used": 100,
+          "clamped": false
+        }
+      },
+      "views": {
+        "edge": {
+          "columns": [
+            "in_degree",
+            "out_degree",
+            "total_degree",
+            "pagerank",
+            "betweenness",
+            "clustering",
+            "reciprocity",
+            "shared_neighbors",
+            "puc_log"
+          ],
+          "models": {
+            "logistic_regression": {
+              "metrics": {
+                "f1": 0.9861111111111112,
+                "auc_pr": 0.9998043818466352,
+                "auc_roc": 0.9999028654686741,
+                "precision@50": 1.0,
+                "recall@50": 0.704225352112676,
+                "precision@100": 0.71,
+                "recall@100": 1.0,
+                "threshold": 0.2
+              }
+            },
+            "gradient_boosting": {
+              "metrics": {
+                "f1": 0.9857142857142858,
+                "auc_pr": 0.9996141230947327,
+                "auc_roc": 0.9998057309373481,
+                "precision@50": 1.0,
+                "recall@50": 0.704225352112676,
+                "precision@100": 0.71,
+                "recall@100": 1.0,
+                "threshold": 0.05
+              }
+            },
+            "graphsage": {
+              "metrics": {
+                "f1": 0.993006993006993,
+                "auc_pr": 0.9999999999999999,
+                "auc_roc": 1.0,
+                "precision@50": 1.0,
+                "recall@50": 0.704225352112676,
+                "precision@100": 0.71,
+                "recall@100": 1.0,
+                "threshold": 0.2
+              }
+            },
+            "rule_only": {
+              "metrics": {
+                "f1": 0.6425339366515838,
+                "auc_pr": 0.47333333333333333,
+                "auc_roc": 0.7275862068965517,
+                "precision@50": 0.42,
+                "recall@50": 0.29577464788732394,
+                "precision@100": 0.47,
+                "recall@100": 0.6619718309859155,
+                "threshold": 0.5
+              }
+            }
+          }
+        },
+        "edge_cycle": {
+          "columns": [
+            "in_degree",
+            "out_degree",
+            "total_degree",
+            "pagerank",
+            "betweenness",
+            "clustering",
+            "reciprocity",
+            "shared_neighbors",
+            "puc_log",
+            "recomputed_cycle_member"
+          ],
+          "models": {
+            "logistic_regression": {
+              "metrics": {
+                "f1": 0.993006993006993,
+                "auc_pr": 0.9999999999999998,
+                "auc_roc": 1.0,
+                "precision@50": 1.0,
+                "recall@50": 0.704225352112676,
+                "precision@100": 0.71,
+                "recall@100": 1.0,
+                "threshold": 0.4
+              }
+            },
+            "gradient_boosting": {
+              "metrics": {
+                "f1": 0.9784172661870504,
+                "auc_pr": 1.0,
+                "auc_roc": 1.0,
+                "precision@50": 1.0,
+                "recall@50": 0.704225352112676,
+                "precision@100": 0.71,
+                "recall@100": 1.0,
+                "threshold": 0.05
+              }
+            },
+            "graphsage": {
+              "metrics": {
+                "f1": 1.0,
+                "auc_pr": 1.0,
+                "auc_roc": 1.0,
+                "precision@50": 1.0,
+                "recall@50": 0.704225352112676,
+                "precision@100": 0.71,
+                "recall@100": 1.0,
+                "threshold": 0.05
+              }
+            },
+            "rule_only": {
+              "metrics": {
+                "f1": 0.6425339366515838,
+                "auc_pr": 0.47333333333333333,
+                "auc_roc": 0.7275862068965517,
+                "precision@50": 0.42,
+                "recall@50": 0.29577464788732394,
+                "precision@100": 0.47,
+                "recall@100": 0.6619718309859155,
+                "threshold": 0.5
+              }
+            }
+          }
+        },
+        "floor": {
+          "columns": [
+            "total_degree",
+            "puc_log"
+          ],
+          "models": {
+            "logistic_regression": {
+              "metrics": {
+                "f1": 0.46511627906976744,
+                "auc_pr": 0.3670940468559186,
+                "auc_roc": 0.535065565808645,
+                "precision@50": 0.38,
+                "recall@50": 0.2676056338028169,
+                "precision@100": 0.38,
+                "recall@100": 0.5352112676056338,
+                "threshold": 0.4
+              }
+            },
+            "gradient_boosting": {
+              "metrics": {
+                "f1": 0.38372093023255816,
+                "auc_pr": 0.3753372018598002,
+                "auc_roc": 0.5227780475959204,
+                "precision@50": 0.34,
+                "recall@50": 0.23943661971830985,
+                "precision@100": 0.33,
+                "recall@100": 0.4647887323943662,
+                "threshold": 0.35000000000000003
+              }
+            },
+            "graphsage": {
+              "metrics": {
+                "f1": 0.5502183406113537,
+                "auc_pr": 0.5804036628835151,
+                "auc_roc": 0.7334628460417678,
+                "precision@50": 0.6,
+                "recall@50": 0.4225352112676056,
+                "precision@100": 0.5,
+                "recall@100": 0.704225352112676,
+                "threshold": 0.55
+              }
+            },
+            "rule_only": {
+              "metrics": {
+                "f1": 0.6425339366515838,
+                "auc_pr": 0.47333333333333333,
+                "auc_roc": 0.7275862068965517,
+                "precision@50": 0.42,
+                "recall@50": 0.29577464788732394,
+                "precision@100": 0.47,
+                "recall@100": 0.6619718309859155,
+                "threshold": 0.5
+              }
+            }
+          }
+        },
+        "leak": {
+          "columns": [
+            "degree",
+            "pagerank",
+            "betweenness",
+            "puc_log",
+            "cycle_member",
+            "shared_director",
+            "shared_address",
+            "community_share"
+          ],
+          "models": {
+            "logistic_regression": {
+              "metrics": {
+                "f1": 1.0,
+                "auc_pr": 1.0,
+                "auc_roc": 1.0,
+                "precision@50": 1.0,
+                "recall@50": 0.704225352112676,
+                "precision@100": 0.71,
+                "recall@100": 1.0,
+                "threshold": 0.05
+              }
+            },
+            "gradient_boosting": {
+              "metrics": {
+                "f1": 1.0,
+                "auc_pr": 1.0,
+                "auc_roc": 1.0,
+                "precision@50": 1.0,
+                "recall@50": 0.704225352112676,
+                "precision@100": 0.71,
+                "recall@100": 1.0,
+                "threshold": 0.05
+              }
+            },
+            "graphsage": {
+              "metrics": {
+                "f1": 1.0,
+                "auc_pr": 1.0,
+                "auc_roc": 1.0,
+                "precision@50": 1.0,
+                "recall@50": 0.704225352112676,
+                "precision@100": 0.71,
+                "recall@100": 1.0,
+                "threshold": 0.05
+              }
+            },
+            "rule_only": {
+              "metrics": {
+                "f1": 0.6425339366515838,
+                "auc_pr": 0.47333333333333333,
+                "auc_roc": 0.7275862068965517,
+                "precision@50": 0.42,
+                "recall@50": 0.29577464788732394,
+                "precision@100": 0.47,
+                "recall@100": 0.6619718309859155,
+                "threshold": 0.5
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "label_shuffle": {
+    "edge": {
+      "prevalence": 0.3541666666666667,
+      "logistic_regression": {
+        "auc_pr": 0.4059168932008723,
+        "auc_roc": 0.5702087286527513
+      },
+      "gradient_boosting": {
+        "auc_pr": 0.43488466440364937,
+        "auc_roc": 0.6261859582542695
+      }
+    },
+    "floor": {
+      "prevalence": 0.3541666666666667,
+      "logistic_regression": {
+        "auc_pr": 0.43031303990649444,
+        "auc_roc": 0.5379506641366223
+      },
+      "gradient_boosting": {
+        "auc_pr": 0.4063061349627344,
+        "auc_roc": 0.4988140417457306
+      }
+    },
+    "leak": {
+      "prevalence": 0.3541666666666667,
+      "logistic_regression": {
+        "auc_pr": 0.4187456631374684,
+        "auc_roc": 0.5137571157495257
+      },
+      "gradient_boosting": {
+        "auc_pr": 0.4620809770289769,
+        "auc_roc": 0.6233396584440228
+      }
+    }
+  }
+}

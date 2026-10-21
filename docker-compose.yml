@@ -1,3 +1,5 @@
+name: dhanchakra
+
 services:
   neo4j:
     image: neo4j:5.23-community
@@ -68,6 +70,23 @@ services:
       # (api/tests/test_privacy_samples.py), which scan it for real PAN/Aadhaar
       # shapes. Mounted so the suite can see it from inside the container.
       - ./ingestion:/ingestion:ro
+      # Operator scripts (e.g. break-glass Super Admin recovery) are read-only
+      # in the container so they can be run with the API's env + deps:
+      #   docker compose exec api python /scripts/reset_super_admin.py
+      - ./scripts:/scripts:ro
+      # Model benchmark harness (read-only) plus a writable docs mount so the
+      # harness can refresh only the marker-bounded region of docs/benchmarks.md:
+      #   docker compose exec api python /benchmarks/run_benchmark.py
+      - ./api/benchmarks:/benchmarks:ro
+      - ./docs:/docs
+      # Real datasets (never committed; gitignored). Mount read-only so the
+      # AMLworld benchmark can read data/amlworld/<file>.csv from the host:
+      #   make benchmark-amlworld AMLWORLD_PATH=/data/amlworld/HI-Small_Trans.csv
+      - ./data:/data:ro
+      # Neo4j schema (constraints/indexes), applied idempotently at start and
+      # on demand by the scale test:
+      #   docker compose exec api python /benchmarks/apply_schema.py
+      - ./graph/cypher:/cypher:ro
     depends_on:
       neo4j:
         condition: service_healthy
