@@ -1,0 +1,351 @@
+{
+  "dataset": "amlsim",
+  "seeds": [
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
+  "cluster_size": 30,
+  "columns": [
+    "in_degree",
+    "out_degree",
+    "total_degree",
+    "pagerank",
+    "betweenness",
+    "clustering",
+    "reciprocity",
+    "shared_neighbors",
+    "in_amount",
+    "out_amount",
+    "amount_imbalance"
+  ],
+  "shapes": {
+    "chain": {
+      "per_seed": [
+        {
+          "logistic_regression": {
+            "flagged": 3,
+            "n": 30,
+            "flag_rate": 0.1,
+            "threshold": 0.6500000000000001
+          },
+          "gradient_boosting": {
+            "flagged": 12,
+            "n": 30,
+            "flag_rate": 0.4,
+            "threshold": 0.5
+          },
+          "graphsage": {
+            "flagged": 4,
+            "n": 30,
+            "flag_rate": 0.13333333333333333,
+            "threshold": 0.4
+          },
+          "rule_only": {
+            "flagged": 14,
+            "n": 30,
+            "flag_rate": 0.4666666666666667,
+            "threshold": 0.5
+          }
+        },
+        {
+          "logistic_regression": {
+            "flagged": 5,
+            "n": 30,
+            "flag_rate": 0.16666666666666666,
+            "threshold": 0.7000000000000001
+          },
+          "gradient_boosting": {
+            "flagged": 1,
+            "n": 30,
+            "flag_rate": 0.03333333333333333,
+            "threshold": 0.35000000000000003
+          },
+          "graphsage": {
+            "flagged": 4,
+            "n": 30,
+            "flag_rate": 0.13333333333333333,
+            "threshold": 0.3
+          },
+          "rule_only": {
+            "flagged": 12,
+            "n": 30,
+            "flag_rate": 0.4,
+            "threshold": 0.5
+          }
+        },
+        {
+          "logistic_regression": {
+            "flagged": 1,
+            "n": 30,
+            "flag_rate": 0.03333333333333333,
+            "threshold": 0.6500000000000001
+          },
+          "gradient_boosting": {
+            "flagged": 1,
+            "n": 30,
+            "flag_rate": 0.03333333333333333,
+            "threshold": 0.55
+          },
+          "graphsage": {
+            "flagged": 2,
+            "n": 30,
+            "flag_rate": 0.06666666666666667,
+            "threshold": 0.4
+          },
+          "rule_only": {
+            "flagged": 8,
+            "n": 30,
+            "flag_rate": 0.26666666666666666,
+            "threshold": 0.5
+          }
+        },
+        {
+          "logistic_regression": {
+            "flagged": 28,
+            "n": 30,
+            "flag_rate": 0.9333333333333333,
+            "threshold": 0.6000000000000001
+          },
+          "gradient_boosting": {
+            "flagged": 4,
+            "n": 30,
+            "flag_rate": 0.13333333333333333,
+            "threshold": 0.55
+          },
+          "graphsage": {
+            "flagged": 4,
+            "n": 30,
+            "flag_rate": 0.13333333333333333,
+            "threshold": 0.25
+          },
+          "rule_only": {
+            "flagged": 13,
+            "n": 30,
+            "flag_rate": 0.43333333333333335,
+            "threshold": 0.5
+          }
+        },
+        {
+          "logistic_regression": {
+            "flagged": 2,
+            "n": 30,
+            "flag_rate": 0.06666666666666667,
+            "threshold": 0.7500000000000001
+          },
+          "gradient_boosting": {
+            "flagged": 5,
+            "n": 30,
+            "flag_rate": 0.16666666666666666,
+            "threshold": 0.15000000000000002
+          },
+          "graphsage": {
+            "flagged": 4,
+            "n": 30,
+            "flag_rate": 0.13333333333333333,
+            "threshold": 0.25
+          },
+          "rule_only": {
+            "flagged": 13,
+            "n": 30,
+            "flag_rate": 0.43333333333333335,
+            "threshold": 0.5
+          }
+        }
+      ],
+      "aggregate": {
+        "logistic_regression": {
+          "mean_flag_rate": 0.26,
+          "max_flag_rate": 0.9333333333333333,
+          "mean_flagged": 7.8,
+          "cluster_size": 30
+        },
+        "gradient_boosting": {
+          "mean_flag_rate": 0.15333333333333332,
+          "max_flag_rate": 0.4,
+          "mean_flagged": 4.6,
+          "cluster_size": 30
+        },
+        "graphsage": {
+          "mean_flag_rate": 0.12,
+          "max_flag_rate": 0.13333333333333333,
+          "mean_flagged": 3.6,
+          "cluster_size": 30
+        },
+        "rule_only": {
+          "mean_flag_rate": 0.4,
+          "max_flag_rate": 0.4666666666666667,
+          "mean_flagged": 12.0,
+          "cluster_size": 30
+        }
+      }
+    },
+    "star": {
+      "per_seed": [
+        {
+          "logistic_regression": {
+            "flagged": 10,
+            "n": 30,
+            "flag_rate": 0.3333333333333333,
+            "threshold": 0.6500000000000001
+          },
+          "gradient_boosting": {
+            "flagged": 1,
+            "n": 30,
+            "flag_rate": 0.03333333333333333,
+            "threshold": 0.5
+          },
+          "graphsage": {
+            "flagged": 24,
+            "n": 30,
+            "flag_rate": 0.8,
+            "threshold": 0.4
+          },
+          "rule_only": {
+            "flagged": 5,
+            "n": 30,
+            "flag_rate": 0.16666666666666666,
+            "threshold": 0.5
+          }
+        },
+        {
+          "logistic_regression": {
+            "flagged": 13,
+            "n": 30,
+            "flag_rate": 0.43333333333333335,
+            "threshold": 0.7000000000000001
+          },
+          "gradient_boosting": {
+            "flagged": 2,
+            "n": 30,
+            "flag_rate": 0.06666666666666667,
+            "threshold": 0.35000000000000003
+          },
+          "graphsage": {
+            "flagged": 14,
+            "n": 30,
+            "flag_rate": 0.4666666666666667,
+            "threshold": 0.3
+          },
+          "rule_only": {
+            "flagged": 5,
+            "n": 30,
+            "flag_rate": 0.16666666666666666,
+            "threshold": 0.5
+          }
+        },
+        {
+          "logistic_regression": {
+            "flagged": 13,
+            "n": 30,
+            "flag_rate": 0.43333333333333335,
+            "threshold": 0.6500000000000001
+          },
+          "gradient_boosting": {
+            "flagged": 1,
+            "n": 30,
+            "flag_rate": 0.03333333333333333,
+            "threshold": 0.55
+          },
+          "graphsage": {
+            "flagged": 1,
+            "n": 30,
+            "flag_rate": 0.03333333333333333,
+            "threshold": 0.4
+          },
+          "rule_only": {
+            "flagged": 4,
+            "n": 30,
+            "flag_rate": 0.13333333333333333,
+            "threshold": 0.5
+          }
+        },
+        {
+          "logistic_regression": {
+            "flagged": 24,
+            "n": 30,
+            "flag_rate": 0.8,
+            "threshold": 0.6000000000000001
+          },
+          "gradient_boosting": {
+            "flagged": 1,
+            "n": 30,
+            "flag_rate": 0.03333333333333333,
+            "threshold": 0.55
+          },
+          "graphsage": {
+            "flagged": 20,
+            "n": 30,
+            "flag_rate": 0.6666666666666666,
+            "threshold": 0.25
+          },
+          "rule_only": {
+            "flagged": 9,
+            "n": 30,
+            "flag_rate": 0.3,
+            "threshold": 0.5
+          }
+        },
+        {
+          "logistic_regression": {
+            "flagged": 10,
+            "n": 30,
+            "flag_rate": 0.3333333333333333,
+            "threshold": 0.7500000000000001
+          },
+          "gradient_boosting": {
+            "flagged": 1,
+            "n": 30,
+            "flag_rate": 0.03333333333333333,
+            "threshold": 0.15000000000000002
+          },
+          "graphsage": {
+            "flagged": 19,
+            "n": 30,
+            "flag_rate": 0.6333333333333333,
+            "threshold": 0.25
+          },
+          "rule_only": {
+            "flagged": 4,
+            "n": 30,
+            "flag_rate": 0.13333333333333333,
+            "threshold": 0.5
+          }
+        }
+      ],
+      "aggregate": {
+        "logistic_regression": {
+          "mean_flag_rate": 0.4666666666666667,
+          "max_flag_rate": 0.8,
+          "mean_flagged": 14.0,
+          "cluster_size": 30
+        },
+        "gradient_boosting": {
+          "mean_flag_rate": 0.039999999999999994,
+          "max_flag_rate": 0.06666666666666667,
+          "mean_flagged": 1.2,
+          "cluster_size": 30
+        },
+        "graphsage": {
+          "mean_flag_rate": 0.52,
+          "max_flag_rate": 0.8,
+          "mean_flagged": 15.6,
+          "cluster_size": 30
+        },
+        "rule_only": {
+          "mean_flag_rate": 0.18,
+          "max_flag_rate": 0.3,
+          "mean_flagged": 5.4,
+          "cluster_size": 30
+        }
+      }
+    }
+  },
+  "notes": [
+    "Cluster nodes are all TRUE NEGATIVES; a flag is a false positive.",
+    "No shared directors/addresses are modelled: no dataset here has them.",
+    "Thresholds are chosen on the real data's validation split, never on the benign cluster."
+  ]
+}

@@ -1,4 +1,6 @@
 {
+  "dataset": "synthetic",
+  "dataset_label": "self-generated synthetic",
   "seeds": [
     1,
     2,
@@ -83,6 +85,7 @@
           58
         ]
       },
+      "split_level": "graph",
       "test_nodes": 192,
       "test_positives": 64,
       "k": {
@@ -414,6 +417,7 @@
           57
         ]
       },
+      "split_level": "graph",
       "test_nodes": 192,
       "test_positives": 65,
       "k": {
@@ -745,6 +749,7 @@
           56
         ]
       },
+      "split_level": "graph",
       "test_nodes": 192,
       "test_positives": 65,
       "k": {
@@ -1076,6 +1081,7 @@
           59
         ]
       },
+      "split_level": "graph",
       "test_nodes": 216,
       "test_positives": 72,
       "k": {
@@ -1407,6 +1413,7 @@
           58
         ]
       },
+      "split_level": "graph",
       "test_nodes": 216,
       "test_positives": 71,
       "k": {

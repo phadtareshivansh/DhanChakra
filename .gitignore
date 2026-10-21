@@ -29,3 +29,12 @@ build/
 
 # Specific folder to ignore
 files/
+
+# Real datasets (IBM AMLworld etc.). Never committed — see docs/benchmarks.md
+# for the download steps. Model checkpoints larger than a few MB likewise.
+data/
+api/benchmarks/results_amlworld.json
+api/benchmarks/ablation_amlworld.json
+api/benchmarks/fp_stress_amlworld.json
+# By-product of a benchmark run with an empty --doc target; not a deliverable.
+api/benchmarks/benchmarks_block*.md

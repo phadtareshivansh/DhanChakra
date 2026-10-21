@@ -77,6 +77,10 @@ services:
       #   docker compose exec api python /benchmarks/run_benchmark.py
       - ./api/benchmarks:/benchmarks:ro
       - ./docs:/docs
+      # Real datasets (never committed; gitignored). Mount read-only so the
+      # AMLworld benchmark can read data/amlworld/<file>.csv from the host:
+      #   make benchmark-amlworld AMLWORLD_PATH=/data/amlworld/HI-Small_Trans.csv
+      - ./data:/data:ro
     depends_on:
       neo4j:
         condition: service_healthy
