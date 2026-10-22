@@ -6,13 +6,13 @@ import uuid
 from sqlalchemy import text
 from ..config import settings
 from ..deps import get_neo4j_session, get_db_session, get_current_user
-from ..services import graph_service, ingestion_service, auth_service, case_service
+from ..services import graph_service, ingestion_service, auth_service, case_service, feedback_service
 from ..models.schemas import (
     Company, EntitySearchResponse, SearchResult, NetworkResponse, LoopResult, LoopsResponse,
     RiskJobResponse, RiskResult, Case, CaseCreate, CaseUpdate,
     IngestionJobResponse, IngestionJobStatus, User, LoginRequest, TokenResponse,
     ExplainResponse, WorklistResponse, StatsOverview, ResolveResponse, CaseExportResponse,
-    ExportPreviewResponse, AuditLogEntry, GNNModelInfo
+    ExportPreviewResponse, AuditLogEntry, GNNModelInfo, FeedbackCreate, FeedbackItem
 )
 
 router = APIRouter(prefix="/api/v1", tags=["entities"])
@@ -108,6 +108,45 @@ async def explain_entity(entity_id: str, db=Depends(get_db_session)):
 async def get_entity_timeline(entity_id: str, db=Depends(get_db_session)):
     async with get_neo4j_session() as session:
         return {"timeline": await graph_service.get_timeline(session, entity_id)}
+
+
+@router.post("/entities/{entity_id}/feedback", response_model=FeedbackItem)
+async def add_entity_feedback(entity_id: str, body: FeedbackCreate, user=Depends(get_current_user),
+                              db=Depends(get_db_session), neo4j=Depends(get_neo4j_session)):
+    if body.label not in ("confirm_fraud", "false_positive", "needs_review"):
+        raise HTTPException(status_code=422, detail={"code": "invalid_label", "message": "invalid label"})
+    # resolve to cin if possible
+    cin = body.entity_cin
+    try:
+        node = await graph_service.get_entity(neo4j, entity_id)
+        if not node:
+            node = await graph_service.get_entity_by_identifier(neo4j, entity_id)
+        if node and not cin:
+            cin = node.get("cin")
+        if node:
+            # mirror to Neo4j
+            try:
+                await neo4j.run(
+                    "MATCH (c:Company {id: $id}) SET c.last_feedback = $label, c.last_feedback_at = datetime(), c.feedback_count = coalesce(c.feedback_count, 0) + 1",
+                    id=node["id"], label=body.label,
+                )
+            except Exception:
+                pass
+    except Exception:
+        pass
+    fb = await feedback_service.add_feedback(db, user["id"], entity_id, cin, body.label, body.note)
+    await case_service.log_audit(db, user["id"], "entity_feedback", "Company", entity_id, {"label": body.label})
+    return fb
+
+
+@router.get("/entities/{entity_id}/feedback", response_model=List[FeedbackItem])
+async def list_entity_feedback(entity_id: str, db=Depends(get_db_session)):
+    return await feedback_service.list_feedback(db, entity_id=entity_id)
+
+
+@router.get("/feedback/stats")
+async def feedback_stats(db=Depends(get_db_session)):
+    return await feedback_service.feedback_counts(db)
 
 
 # ---------------------------------------------------------------------------
@@ -255,13 +294,24 @@ async def get_worklist(
         return WorklistResponse(**data)
 
 
-@router.get("/stats/overview", response_model=StatsOverview)
+@router.get("/stats/overview")
 async def stats_overview(db=Depends(get_db_session)):
     async with get_neo4j_session() as session:
         from app.services.gnn import predict as gnn_predict
 
         await gnn_predict.ensure_scored(session)
-        return await graph_service.get_stats_overview(session, db)
+        base = await graph_service.get_stats_overview(session, db)
+        try:
+            fb = await feedback_service.feedback_counts(db)
+        except Exception:
+            fb = {"counts": {}, "total": 0}
+        base["feedback_counts"] = fb
+        try:
+            row = (await db.execute(text("SELECT version_tag, trained_on, deployed_at FROM model_versions WHERE is_active = true ORDER BY deployed_at DESC LIMIT 1"))).mappings().first()
+            base["active_model"] = dict(row) if row else None
+        except Exception:
+            base["active_model"] = None
+        return base
 
 
 # ---------------------------------------------------------------------------

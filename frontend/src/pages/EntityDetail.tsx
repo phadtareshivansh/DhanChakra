@@ -353,6 +353,9 @@ export default function EntityDetail() {
               <div className="flex flex-wrap gap-2">
                 <button className="btn-secondary btn-compact" onClick={() => { setShowExplain(true) }} disabled={!explanation}>Explain flag</button>
                 <button className="btn-secondary btn-compact" onClick={createCase} disabled={creatingCase}>Open case</button>
+                <button className="btn-secondary btn-compact" onClick={async()=>{try{await api.post(`/entities/${id}/feedback`,{label:'confirm_fraud'});alert('Labeled: Confirm fraud');}catch(e:any){alert(e?.response?.data?.detail?.message||'Failed');}}}>Confirm fraud</button>
+                <button className="btn-secondary btn-compact" onClick={async()=>{try{await api.post(`/entities/${id}/feedback`,{label:'false_positive'});alert('Labeled: False positive');}catch(e:any){alert(e?.response?.data?.detail?.message||'Failed');}}}>False positive</button>
+                <button className="btn-secondary btn-compact" onClick={async()=>{try{await api.post(`/entities/${id}/feedback`,{label:'needs_review'});alert('Labeled: Needs review');}catch(e:any){alert(e?.response?.data?.detail?.message||'Failed');}}}>Needs review</button>
                 <Link to="/worklist" className="btn-secondary btn-compact">Back to worklist</Link>
               </div>
             </div>

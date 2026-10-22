@@ -48,11 +48,12 @@ export default function Dashboard() {
           {[0, 1, 2, 3].map((i) => <div key={i} className="panel p-4 h-28"><div className="skeleton h-full" /></div>)}
         </div>
       ) : (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
           <StatTile label="Entities scanned" value={fmt(stats?.companies)} sub={`${fmt(stats?.directors)} directors linked`} accent="teal" />
           <StatTile label="Flagged entities" value={fmt(stats?.flagged_entities)} sub={`${fmt(stats?.cycles_detected)} circular loops detected`} accent="red" />
           <StatTile label="Est. ITC at risk" value={`₹${fmt(Math.round(stats?.estimated_itc_at_risk ?? 0))}`} sub="flagged capital base" accent="amber" />
-          <StatTile label="Top risk state" value={stats?.top_risk_state || '—'} sub={`${fmt(stats?.open_cases)} open cases`} accent="green" />
+          <StatTile label="Feedback" value={fmt((stats as any)?.feedback_counts?.total)} sub={Object.entries((stats as any)?.feedback_counts?.counts||{}).map(([k,v])=>`${k}:${v}`).join(' ') || '—'} accent="green" />
+          <StatTile label="Active model" value={(stats as any)?.active_model?.version_tag || '—'} sub={(stats as any)?.active_model?.deployed_at?.slice(0,10) || '—'} accent="teal" />
         </div>
       )}
 

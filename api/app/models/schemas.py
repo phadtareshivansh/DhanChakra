@@ -344,6 +344,23 @@ class PasswordReset(BaseModel):
     password: Optional[str] = None
 
 
+class FeedbackCreate(BaseModel):
+    entity_id: Optional[str] = None
+    entity_cin: Optional[str] = None
+    label: str
+    note: Optional[str] = None
+
+
+class FeedbackItem(BaseModel):
+    id: str
+    entity_id: Optional[str] = None
+    entity_cin: Optional[str] = None
+    user_id: Optional[str] = None
+    label: str
+    note: Optional[str] = None
+    created_at: datetime
+
+
 class AuditLogEntry(BaseModel):
     id: str
     user_id: Optional[str] = None
