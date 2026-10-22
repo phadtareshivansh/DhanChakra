@@ -48,7 +48,7 @@ This file extends `OPENCODE_TASKS.md`. Read both. Where they conflict, this file
 ## PROGRESS TRACKER
 
 **Phase 0: Foundation**
-- [ ] P0.1 Rebrand and baseline audit
+- [x] P0.1 Rebrand and baseline audit
 
 **Phase 1: Core completion**
 - [ ] P1.1 Complete `OPENCODE_TASKS.md` tasks A1, A2, A3, B1, B2, B3, B5, B4, C1, C2, C3 (skip D1 and D2, superseded by Phases 7 and 8)
