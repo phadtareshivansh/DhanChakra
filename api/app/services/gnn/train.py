@@ -20,6 +20,7 @@ import torch
 
 from ...config import settings
 from . import features as feat
+from . import synthetic
 from .model import GraphSAGE, build_adjacency, evaluate, train_model, weighted_f1_loss
 from .synthetic import generate_benchmark, split_benchmark
 
@@ -88,6 +89,19 @@ def _finetune(model: GraphSAGE, live: Dict[str, Any], epochs: int) -> None:
 
 
 async def run_pipeline(session, args) -> Dict[str, Any]:
+    # The checkpoint records the feature columns it was trained on, and
+    # inference rebuilds the input matrix from those names. If the generator
+    # and the live extractor disagree, the checkpoint would claim columns it
+    # never saw. Fail loudly instead of shipping a silently mislabelled model.
+    if synthetic.GENERATOR_FEATURE_COLS != feat.FEATURE_COLS:
+        raise RuntimeError(
+            "feature column mismatch between the generator and the live "
+            f"extractor:\n  generator: {synthetic.GENERATOR_FEATURE_COLS}\n"
+            f"  extractor: {feat.FEATURE_COLS}\n"
+            "Update synthetic.GENERATOR_FEATURE_COLS (and the generator's "
+            "values) so the pretrained model matches the live graph."
+        )
+
     model = _pretrain(args)
 
     global _last_benchmark
@@ -108,7 +122,10 @@ async def run_pipeline(session, args) -> Dict[str, Any]:
     torch.save(
         {
             "model_state": model.state_dict(),
-            "feature_cols": feat.FEATURE_COLS,
+            # The columns the model ACTUALLY saw, not the current extractor
+            # list: these two are asserted equal above, but recording the
+            # trained columns keeps the checkpoint self-describing.
+            "feature_cols": list(synthetic.GENERATOR_FEATURE_COLS),
             "version": "gnn_risk_v1",
             "trained_at": str(uuid.uuid4()),
         },

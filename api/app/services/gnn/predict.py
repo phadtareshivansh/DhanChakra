@@ -63,6 +63,18 @@ def model_meta() -> Optional[Dict[str, Any]]:
     return {"version": _checkpoint.get("version"), "feature_cols": _checkpoint.get("feature_cols"), "metrics": metrics}
 
 
+def build_feature_matrix(companies: list, cols: list) -> "Any":
+    """Select `cols` (by name) out of the extracted companies' feature maps.
+
+    A column the extractor does not produce is 0.0. This is what makes an
+    old checkpoint usable against a newer feature set instead of crashing on
+    a shape mismatch."""
+    return [
+        [float((c.get("_feature_map") or {}).get(col, 0.0)) for col in cols]
+        for c in companies
+    ]
+
+
 async def predict_and_writeback(session) -> Dict[str, Any]:
     """Score all companies and write Company.risk_score = GNN score * 100."""
     if not _load():
@@ -82,7 +94,29 @@ async def predict_and_writeback(session) -> Dict[str, Any]:
 
     idx = {c["id"]: i for i, c in enumerate(companies)}
     edges = [(idx[s], idx[d]) for s, d in data["edges"] if s in idx and d in idx]
-    x = torch.tensor([c["_features"] for c in companies], dtype=torch.float32)
+
+    # Build the input matrix from the columns THIS checkpoint was trained on,
+    # selected by name. The live extractor may expose more (or fewer) columns
+    # than the checkpoint knows about -- e.g. features were added after the
+    # model was trained. Positional slicing would silently misalign the
+    # features (and used to crash the whole API with a shape mismatch); by
+    # name, an unknown column is simply 0.0 and a new column is ignored until
+    # the model is retrained.
+    cols = list(_checkpoint.get("feature_cols") or feat.FEATURE_COLS)
+    unknown = [c for c in cols if c not in feat.FEATURE_COLS]
+    if unknown:
+        logger.warning(
+            "checkpoint expects columns the extractor no longer produces: %s "
+            "(they are treated as 0.0; retrain to pick them up)",
+            ", ".join(unknown),
+        )
+    missing = [c for c in feat.FEATURE_COLS if c not in cols]
+    if missing:
+        logger.info(
+            "checkpoint does not use these live features: %s",
+            ", ".join(missing),
+        )
+    x = torch.tensor(build_feature_matrix(companies, cols), dtype=torch.float32)
     a_norm = build_adjacency(edges, n)
 
     with torch.no_grad():

@@ -110,18 +110,24 @@ async def extract_graph(session) -> Dict[str, Any]:
         comm_sizes[c["community_id"]] = comm_sizes.get(c["community_id"], 0) + 1
 
     for c in companies:
-        c["_features"] = [
-            _norm(c.get("degree"), max_deg),
-            _norm(c.get("pagerank"), 1.0),
-            _norm(c.get("betweenness"), 1.0),
-            _norm(_log1p(c.get("puc")), _log1p(max_puc)),
-            1.0 if c.get("cycle_member") else 0.0,
-            _norm(c.get("shared_director"), max_sd),
-            _norm(c.get("shared_address"), max_sa),
-            comm_sizes.get(c.get("community_id"), 0) / max(n, 1),
-            _norm(c.get("eway_mismatch_count"), max_eway),
-            1.0 if (c.get("burst_volume") or 0) >= settings.burst_min_transactions else 0.0,
-        ]
+        # Named map + positional list from ONE source of truth, so inference
+        # can select the columns a checkpoint actually asks for by name
+        # (see gnn/predict.py) instead of assuming the current FEATURE_COLS
+        # order matches the trained model.
+        fmap = {
+            "degree": _norm(c.get("degree"), max_deg),
+            "pagerank": _norm(c.get("pagerank"), 1.0),
+            "betweenness": _norm(c.get("betweenness"), 1.0),
+            "puc_log": _norm(_log1p(c.get("puc")), _log1p(max_puc)),
+            "cycle_member": 1.0 if c.get("cycle_member") else 0.0,
+            "shared_director": _norm(c.get("shared_director"), max_sd),
+            "shared_address": _norm(c.get("shared_address"), max_sa),
+            "community_share": comm_sizes.get(c.get("community_id"), 0) / max(n, 1),
+            "eway_mismatch": _norm(c.get("eway_mismatch_count"), max_eway),
+            "burst_indicator": 1.0 if (c.get("burst_volume") or 0) >= settings.burst_min_transactions else 0.0,
+        }
+        c["_feature_map"] = fmap
+        c["_features"] = [fmap[col] for col in FEATURE_COLS]
 
     return {"companies": companies, "edges": edges, "n": n}
 

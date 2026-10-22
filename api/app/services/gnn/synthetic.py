@@ -14,6 +14,24 @@ import torch
 from .model import build_adjacency
 
 
+# The columns this generator emits. MUST stay identical (same names, same
+# order) to features.FEATURE_COLS, otherwise the pretrained GraphSAGE cannot
+# be applied to the live graph. train.py asserts the two lists match before
+# it trains, and api/tests/test_gnn.py asserts it too.
+GENERATOR_FEATURE_COLS = [
+    "degree",           # normalized invoice degree
+    "pagerank",
+    "betweenness",
+    "puc_log",          # log1p(paid_up_capital) normalized
+    "cycle_member",     # 1 if in a materialized FraudCycle
+    "shared_director",  # normalized count
+    "shared_address",   # normalized count
+    "community_share",  # fraction of companies in same louvain community
+    "eway_mismatch",    # high-value invoice with no matching e-Way Bill movement
+    "burst_indicator",  # entity involved in a detected burst window
+]
+
+
 def generate_graph(
     seed: int,
     n_companies: int = 24,
@@ -22,10 +40,19 @@ def generate_graph(
     ring_max: int = 5,
     noise_edges: float = 0.3,
 ) -> Dict[str, object]:
-    """Emit the same 8 feature columns as features.FEATURE_COLS so the
-    pretrained GraphSAGE transfers to the live graph: degree, pagerank,
-    betweenness, puc_log, cycle_member, shared_director, shared_address,
-    community_share."""
+    """Emit the same feature columns as features.FEATURE_COLS so the
+    pretrained GraphSAGE transfers to the live graph.
+
+    Leakage note: the first 8 columns are a direct function of the generator's
+    `in_ring` flag (`cycle_member` is an exact copy), so this matrix cannot be
+    used for honest evaluation -- the benchmark quarantines it as a
+    "with-leak" sanity view (see api/benchmarks/run_benchmark.py).
+
+    The two later columns (eway_mismatch, burst_indicator) are deliberately
+    NOISY rather than exact: a quarter of ring members have no e-Way Bill gap
+    at all, and clean companies occasionally have a burst window. They stay
+    correlated with ring membership without becoming a second label clone.
+    """
     rng = random.Random(seed)
     labels = [0] * n_companies
     edges: List[Tuple[int, int]] = []
@@ -76,13 +103,27 @@ def generate_graph(
         shared_director = rng.uniform(0.5, 0.8) if in_ring else rng.uniform(0.0, 0.1)
         shared_address = rng.uniform(0.4, 0.7) if in_ring else rng.uniform(0.0, 0.1)
         community_share = comm_sizes[community_of[i]] / n
+        # e-Way Bill gap: ring members invoice each other heavily, so some of
+        # their high-value invoices have no matching movement record. A
+        # quarter of ring members have none, so this column is correlated with
+        # the label but is NOT a copy of it.
+        if in_ring:
+            eway_mismatch = 0.0 if rng.random() < 0.25 else rng.uniform(0.5, 1.0)
+        else:
+            eway_mismatch = rng.uniform(0.0, 0.25) if rng.random() < 0.2 else 0.0
+        # Burst: dense reciprocal traffic trips the rolling-window burst
+        # detector. Rare for clean companies, common but not universal for
+        # ring members.
+        burst_indicator = 1.0 if rng.random() < (0.6 if in_ring else 0.08) else 0.0
         feats.append([deg, pagerank, betweenness, puc_log, cycle_member,
-                      shared_director, shared_address, community_share])
+                      shared_director, shared_address, community_share,
+                      eway_mismatch, burst_indicator])
 
     x = torch.tensor(feats, dtype=torch.float32)
     a_norm = build_adjacency(edges, n)
     y = torch.tensor(labels, dtype=torch.float32)
-    return {"x": x, "a_norm": a_norm, "y": y, "edges": edges, "n": n}
+    return {"x": x, "a_norm": a_norm, "y": y, "edges": edges, "n": n,
+            "feature_cols": list(GENERATOR_FEATURE_COLS)}
 
 
 def generate_benchmark(n_graphs: int = 40, **kwargs) -> List[Dict[str, object]]:

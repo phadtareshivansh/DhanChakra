@@ -27,10 +27,12 @@ benchmark directory itself is mounted read-only:
 
 ## Leakage note (read this before trusting any number)
 
-``synthetic.generate_graph`` builds its 8 feature columns from the *same*
-``in_ring`` flag that defines the label: 7 of the 8 columns are a direct function
-of it (``cycle_member`` is an exact copy). So the generator's feature matrix
-cannot be used for honest evaluation. This benchmark therefore computes its own
+``synthetic.generate_graph`` builds its feature columns from the *same*
+``in_ring`` flag that defines the label: the original 8 columns are direct
+functions of it (``cycle_member`` is an exact copy) and the two later columns
+(``eway_mismatch``, ``burst_indicator``) are stochastically correlated with it
+without being determined by it. So the generator's feature matrix cannot be
+used for honest evaluation. This benchmark therefore computes its own
 feature view from the EDGES only (see ``build_features``), whose signature
 deliberately cannot see labels, ring membership, or the generator's matrix. The
 generator columns are still reported, clearly labelled, as a "with-leak" sanity
@@ -1077,10 +1079,12 @@ def render_markdown(all_results: List[Dict[str, Any]], shuffle: Dict[str, Any],
 
     if "leak" in r0["views"]:
         add("### With-leak — sanity check only, NOT a result\n")
-        add("The generator's own 8 feature columns. **Seven of the eight are derived "
-            "from the same `in_ring` flag that defines the label** (`cycle_member` is an "
-            "exact copy), so this table only quantifies how inflated a naive evaluation "
-            "would look. Never present these numbers as a result.\n")
+        add(f"The generator's own {len(GENERATOR_FEATURE_COLS)} feature columns. **Seven "
+            "of the original eight are derived from the same `in_ring` flag that defines "
+            "the label** (`cycle_member` is an exact copy), and the two later columns "
+            "(`eway_mismatch`, `burst_indicator`) are stochastically correlated with it "
+            "without being determined by it. So this table only quantifies how inflated "
+            "a naive evaluation would look. Never present these numbers as a result.\n")
         models = list(r0["views"]["leak"]["models"].keys())
         add("| Model | F1 | AUC-PR | AUC-ROC |")
         add("|---|---|---|---|")
@@ -1159,9 +1163,14 @@ def render_markdown(all_results: List[Dict[str, Any]], shuffle: Dict[str, Any],
         add("| `shared_director` | disjoint ranges by `in_ring` |")
         add("| `shared_address` | disjoint ranges by `in_ring` |")
         add("| `community_share` | ring members share community 0 |")
+        add("| `eway_mismatch` | correlated but noisy — ring members draw `uniform(0.5,1.0)`, "
+            "except 25% of them which draw `0.0` |")
+        add("| `burst_indicator` | correlated but noisy — `1.0` with probability 0.6 for "
+            "ring members, 0.08 otherwise |")
         add("")
-        add("**So 7 of 8 generator columns are label-derived** and the generator's "
-            "feature matrix cannot be used for honest evaluation.\n")
+        add(f"**So all {len(GENERATOR_FEATURE_COLS)} generator columns are "
+            "label-derived** (the first 8 directly, the last 2 stochastically) and the "
+            "generator's feature matrix cannot be used for honest evaluation.\n")
         add("**How it was excluded.** The headline view is recomputed from edges alone "
             "by `build_features(edges, n)`, whose signature cannot receive labels, ring "
             "membership, or the generator's matrix. `cycle_member` is excluded from the "
@@ -1204,11 +1213,14 @@ def render_markdown(all_results: List[Dict[str, Any]], shuffle: Dict[str, Any],
         add("")
 
     if dataset_slug == "synthetic":
-        add("**Recommended follow-up (not done here).** `synthetic.py` should be changed "
+        add("**Recommended follow-up (still open).** `synthetic.py` should be changed "
             "to generate features independently of `in_ring` (e.g. draw structural "
             "properties from the graph topology after the labels are fixed), so its "
-            "feature matrix becomes usable for evaluation. This task deliberately did "
-            "**not** modify `synthetic.py`.\n")
+            "feature matrix becomes usable for evaluation. `synthetic.py` has since "
+            "been extended with the `eway_mismatch` and `burst_indicator` columns so "
+            "the pretrained model matches the live extractor's feature set — those "
+            "two columns are correlated with `in_ring` by construction, so the "
+            "leakage argument above is unchanged.\n")
 
     add("### PR curve\n")
     add(f"Precision–recall curves for the first seed: "
