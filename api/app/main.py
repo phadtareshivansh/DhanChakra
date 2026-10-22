@@ -97,6 +97,20 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+@app.middleware("http")
+async def log_requests(request, call_next):
+    import time
+    start = time.time()
+    response = None
+    try:
+        response = await call_next(request)
+        return response
+    finally:
+        duration = time.time() - start
+        logger = logging.getLogger('dhanchakra.request')
+        status = getattr(response, 'status_code', '-') if response is not None else '-'
+        logger.info("%s %s %s %.3fs", request.method, request.url.path, status, duration)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origin_list,
