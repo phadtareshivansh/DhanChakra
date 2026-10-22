@@ -46,5 +46,5 @@ CREATE INDEX IF NOT EXISTS idx_login_attempts_email ON login_attempts(email, cre
 -- baselines them rather than re-running their non-idempotent DDL.
 CREATE TABLE IF NOT EXISTS schema_migrations (
     name TEXT PRIMARY KEY,
-    applied_at TIMESTAMESTZ NOT NULL DEFAULT now()
+    applied_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
