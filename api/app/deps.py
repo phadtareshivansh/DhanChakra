@@ -55,6 +55,9 @@ async def get_current_user(
             status_code=401,
             detail={"code": "unauthorized", "message": "Not authenticated"},
         )
+    # Decode without a version first: the user has to be looked up to know
+    # the current version. A token whose version no longer matches is
+    # refused, which is how a password reset ends the sessions it should.
     payload = auth_service.decode_token(authorization[7:])
     if not payload:
         raise HTTPException(
@@ -66,6 +69,12 @@ async def get_current_user(
         raise HTTPException(
             status_code=401,
             detail={"code": "unauthorized", "message": "Unknown user"},
+        )
+    if int(payload.get("tv", 1)) != int(user.get("token_version", 1)):
+        raise HTTPException(
+            status_code=401,
+            detail={"code": "invalid_token",
+                    "message": "Invalid or expired token"},
         )
     return user
 

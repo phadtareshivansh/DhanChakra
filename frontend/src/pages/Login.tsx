@@ -18,6 +18,11 @@ export default function Login() {
     try {
       const res = await api.post<TokenResponse>('/auth/login', { email, password })
       localStorage.setItem('dhanchakra_token', res.data.access_token)
+      // The access token is deliberately short-lived; the refresh token is
+      // what keeps the session alive (TASK C1).
+      if (res.data.refresh_token) {
+        localStorage.setItem('dhanchakra_refresh_token', res.data.refresh_token)
+      }
       localStorage.setItem('dhanchakra_user', JSON.stringify(res.data.user))
       navigate('/')
     } catch (err: any) {

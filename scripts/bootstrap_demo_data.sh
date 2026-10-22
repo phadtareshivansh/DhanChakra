@@ -51,6 +51,9 @@ if ! curl -fsS "$HEALTH_URL" >/dev/null 2>&1; then
   exit 1
 fi
 
+step "applying Postgres schema migrations"
+./scripts/apply_migrations.sh
+
 step "copying loaders + samples into the '$API_SERVICE' container"
 "${COMPOSE[@]}" exec -T "$API_SERVICE" mkdir -p /tmp/boot
 "${COMPOSE[@]}" cp ingestion/scripts/load_sample.py "$API_SERVICE:/tmp/boot/load_sample.py"

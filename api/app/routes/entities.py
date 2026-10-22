@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, Header, Body
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, Header, Body, Request
 from typing import Optional, List
 from datetime import datetime
 import uuid
@@ -6,11 +6,11 @@ import uuid
 from sqlalchemy import text
 from ..config import settings
 from ..deps import get_neo4j_session, get_db_session, get_current_user
-from ..services import graph_service, ingestion_service, auth_service, case_service, feedback_service, case_summary_service, watchlist_service
+from ..services import graph_service, ingestion_service, auth_service, case_service, feedback_service, case_summary_service, watchlist_service, login_guard, audit_service
 from ..models.schemas import (
     Company, EntitySearchResponse, SearchResult, NetworkResponse, LoopResult, LoopsResponse,
     RiskJobResponse, RiskResult, Case, CaseCreate, CaseUpdate,
-    IngestionJobResponse, IngestionJobStatus, User, LoginRequest, TokenResponse,
+    IngestionJobResponse, IngestionJobStatus, User, LoginRequest, TokenResponse, RefreshRequest,
     ExplainResponse, WorklistResponse, StatsOverview, ResolveResponse, CaseExportResponse,
     ExportPreviewResponse, AuditLogEntry, GNNModelInfo, FeedbackCreate, FeedbackItem
 )
@@ -22,15 +22,76 @@ router = APIRouter(prefix="/api/v1", tags=["entities"])
 # Auth (TRD §7 demo token layer)
 # ---------------------------------------------------------------------------
 
+# A bcrypt hash of a value nobody knows. Verifying against it when the
+# address is unknown makes the response time for an unknown account the
+# same as for a known one, so the endpoint cannot be used to enumerate
+# accounts by how long it takes to answer.
+_UNKNOWN_ACCOUNT_HASH = "$2b$12$w0ajFxjGs2H2zcQrPFxd/eWHjrtH2e9i.11j4eWaa7pkR.tYlAi2W"
+
+_INVALID_CREDENTIALS = {
+    "code": "invalid_credentials",
+    "message": "Invalid email or password",
+}
+
+
 @router.post("/auth/login", response_model=TokenResponse)
-async def login(body: LoginRequest, db=Depends(get_db_session)):
+async def login(request: Request, body: LoginRequest, db=Depends(get_db_session)):
+    """Exchange credentials for an access token and a refresh token.
+
+    Rate limited per client IP and per account, with a temporary lockout
+    after repeated failures (TASK C1). The failure message is the same
+    whether the address exists or not.
+    """
+    ip = login_guard.client_ip(request)
+    email = (body.email or "").strip().lower()
+
+    remaining = await login_guard.lockout_seconds_remaining(db, email, ip)
+    if remaining > 0:
+        await audit_service.log_event(
+            db, audit_service.LOGIN_LOCKED_OUT, entity_type="user",
+            entity_id=email,
+            details={"ip": ip, "retry_after_seconds": remaining},
+        )
+        raise HTTPException(
+            status_code=429,
+            headers={"Retry-After": str(remaining)},
+            detail={"code": "too_many_attempts",
+                    "message": "Too many failed attempts. Try again later."},
+        )
+
     user = await auth_service.get_user_by_email(db, body.email)
-    if not user or not auth_service.verify_password(body.password, user["password_hash"]):
-        raise HTTPException(status_code=401, detail={"code": "invalid_credentials", "message": "Invalid email or password"})
-    token = auth_service.create_access_token(user["id"], user["role"])
+    password_ok = auth_service.verify_password(
+        body.password,
+        user["password_hash"] if user else _UNKNOWN_ACCOUNT_HASH,
+    )
+
+    if not user or not password_ok:
+        await login_guard.record_attempt(db, email, ip, succeeded=False)
+        await audit_service.log_event(
+            db, audit_service.LOGIN_FAILED, entity_type="user", entity_id=email,
+            details={"ip": ip, "reason": "invalid_credentials"},
+        )
+        raise HTTPException(status_code=401, detail=dict(_INVALID_CREDENTIALS))
+
+    await login_guard.record_attempt(db, email, ip, succeeded=True)
+    await login_guard.clear_attempts(db, email, ip)
+
+    token = auth_service.create_access_token(
+        user["id"], user["role"], user.get("token_version", 1))
+    refresh = await auth_service.issue_refresh_token(
+        db, user["id"], client_ip=ip,
+        user_agent=request.headers.get("user-agent"))
+
+    await audit_service.log_event(
+        db, audit_service.LOGIN_SUCCEEDED, user_id=user["id"],
+        entity_type="user", entity_id=user["id"], details={"ip": ip},
+    )
+
     return TokenResponse(
         access_token=token,
         token_type="bearer",
+        refresh_token=refresh,
+        expires_in=settings.access_token_expire_minutes * 60,
         user={
             "id": user["id"],
             "email": user["email"],
@@ -38,6 +99,66 @@ async def login(body: LoginRequest, db=Depends(get_db_session)):
             "role": user["role"],
         }
     )
+
+
+@router.post("/auth/refresh", response_model=TokenResponse)
+async def refresh(body: RefreshRequest, request: Request,
+                  db=Depends(get_db_session)):
+    """Exchange a refresh token for a new access token.
+
+    The refresh token is single-use: presenting it revokes it and issues a
+    new one. A token that was already used, revoked or expired is refused,
+    so a stolen copy cannot be replayed once the real session has moved on.
+    """
+    user = await auth_service.consume_refresh_token(db, body.refresh_token)
+    if not user:
+        raise HTTPException(
+            status_code=401,
+            detail={"code": "invalid_token", "message": "Invalid or expired token"},
+        )
+
+    ip = login_guard.client_ip(request)
+    token = auth_service.create_access_token(
+        user["id"], user["role"], user.get("token_version", 1))
+    new_refresh = await auth_service.issue_refresh_token(
+        db, user["id"], client_ip=ip,
+        user_agent=request.headers.get("user-agent"))
+
+    await audit_service.log_event(
+        db, audit_service.TOKEN_REFRESHED, user_id=user["id"],
+        entity_type="user", entity_id=user["id"], details={"ip": ip},
+    )
+
+    return TokenResponse(
+        access_token=token,
+        token_type="bearer",
+        refresh_token=new_refresh,
+        expires_in=settings.access_token_expire_minutes * 60,
+        user={
+            "id": user["id"],
+            "email": user["email"],
+            "display_name": user.get("display_name") or user["email"].split("@")[0],
+            "role": user["role"],
+        }
+    )
+
+
+@router.post("/auth/logout")
+async def logout(body: RefreshRequest, request: Request,
+                 db=Depends(get_db_session)):
+    """End the session: the refresh token is revoked server-side.
+
+    Revoking is what makes logout mean something. The short-lived access
+    token dies on its own within minutes.
+    """
+    ip = login_guard.client_ip(request)
+    revoked = await auth_service.revoke_refresh_token(db, body.refresh_token)
+    await audit_service.log_event(
+        db, audit_service.LOGOUT, entity_type="user",
+        entity_id=body.refresh_token[:8] if body.refresh_token else None,
+        details={"ip": ip, "revoked": revoked},
+    )
+    return {"revoked": revoked}
 
 
 @router.get("/auth/me", response_model=User)
