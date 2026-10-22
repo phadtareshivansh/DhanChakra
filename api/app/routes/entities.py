@@ -6,7 +6,7 @@ import uuid
 from sqlalchemy import text
 from ..config import settings
 from ..deps import get_neo4j_session, get_db_session, get_current_user
-from ..services import graph_service, ingestion_service, auth_service, case_service, feedback_service
+from ..services import graph_service, ingestion_service, auth_service, case_service, feedback_service, case_summary_service
 from ..models.schemas import (
     Company, EntitySearchResponse, SearchResult, NetworkResponse, LoopResult, LoopsResponse,
     RiskJobResponse, RiskResult, Case, CaseCreate, CaseUpdate,
@@ -506,6 +506,11 @@ async def export_case(case_id: str, include_network: bool = True, db=Depends(get
                     bundle["subgraph"] = await graph_service.get_network(
                         session, entity["id"], settings.default_neighborhood_hops)
 
+    try:
+        ev = case_summary_service.build_evidence_object(bundle.get("case") or case, bundle.get("entity"), bundle.get("evidence"), bundle.get("subgraph"))
+        bundle["ai_summary"] = await case_summary_service.generate_summary(ev)
+    except Exception:
+        pass
     result = await case_service.record_export(db, case_id, "json", bundle, None)
     await case_service.log_audit(db, None, "exported_case", "case", case_id,
                                  {"export_id": result["id"], "format": "json"})
@@ -533,6 +538,27 @@ async def preview_export(case_id: str, db=Depends(get_db_session)):
 @router.get("/cases/{case_id}/exports", response_model=List[dict])
 async def list_case_exports(case_id: str, db=Depends(get_db_session)):
     return await case_service.list_exports(db, _valid_uuid_or_404(case_id))
+
+
+@router.post("/cases/{case_id}/summary")
+async def case_summary(case_id: str, db=Depends(get_db_session)):
+    case = await case_service.get_case(db, _valid_uuid_or_404(case_id))
+    if not case:
+        raise HTTPException(status_code=404, detail={"code": "not_found", "message": "Case not found"})
+    bundle = {}
+    entity = None
+    explanation = None
+    subgraph = None
+    if case.get("company_cin"):
+        async with get_neo4j_session() as session:
+            entity = await graph_service.get_entity_by_identifier(session, case["company_cin"])
+            if entity:
+                explanation = await graph_service.explain_entity(session, entity["id"])
+                subgraph = await graph_service.get_network(session, entity["id"], settings.default_neighborhood_hops)
+    evidence = case_summary_service.build_evidence_object(case, entity, explanation, subgraph)
+    result = await case_summary_service.generate_summary(evidence)
+    await case_service.log_audit(db, None, "generated_case_summary", "case", case_id, {"backend": result.get("backend")})
+    return result
 
 
 # ---------------------------------------------------------------------------

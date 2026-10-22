@@ -134,6 +134,8 @@ class Settings(BaseSettings):
     agent_llm_url: Optional[str] = None
     agent_llm_key: Optional[str] = None
     agent_llm_model: str = "llama-3-70b"
+    case_summary_enabled: bool = True
+    case_summary_model: Optional[str] = None
 
     @property
     def gnn_checkpoint_file(self) -> str:
