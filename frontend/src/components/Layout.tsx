@@ -4,6 +4,7 @@ import api from '../utils/api'
 import { SearchResult } from '../types/api'
 import RiskBadge from './RiskBadge'
 import { RISK_THRESHOLDS } from '../config/risk'
+import { useTheme } from '../hooks/useTheme'
 
 export default function Layout() {
   const location = useLocation()
@@ -17,6 +18,7 @@ export default function Layout() {
   const [showNotifs, setShowNotifs] = useState(false)
   const searchRef = useRef<HTMLDivElement>(null)
   const notifRef = useRef<HTMLDivElement>(null)
+  const { theme, toggleTheme } = useTheme()
 
   useEffect(() => {
     api.get('/notifications?unread_only=false').then(r => setNotifs(r.data || [])).catch(() => {})
@@ -172,6 +174,9 @@ export default function Layout() {
                 </div>
               )}
             </div>
+            <button className="btn-secondary btn-compact ml-2" onClick={toggleTheme} title="Toggle theme">
+              {theme === 'dark' ? '☀️' : '🌙'}
+            </button>
             <div ref={notifRef} className="relative ml-2">
               <button className="btn-ghost btn-compact relative" onClick={() => setShowNotifs(!showNotifs)}>
                 <span>🔔</span>
