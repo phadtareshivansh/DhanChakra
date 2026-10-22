@@ -1,3 +1,4 @@
+import { t } from '../../i18n'
 import { cn } from '../../utils/cn'
 
 export interface FilterChipOption {
@@ -61,7 +62,7 @@ export default function FilterChips({
           onClick={onClear}
           className="text-xs text-text-secondary underline-offset-2 hover:text-text-primary hover:underline"
         >
-          Clear all
+          {t('Clear all')}
         </button>
       )}
     </div>

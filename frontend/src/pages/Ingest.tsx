@@ -1,3 +1,4 @@
+import { t } from '../i18n'
 import { useState, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import api from '../utils/api'
@@ -96,7 +97,7 @@ export default function Ingest() {
       setJob({ ...res.data, records_processed: 0, records_failed: 0, started_at: new Date().toISOString() } as unknown as IngestionJobStatus)
       poll(res.data.job_id)
     } catch (err: any) {
-      setError(err.response?.data?.detail?.message || 'Upload failed')
+      setError(err.response?.data?.detail?.message || t('Upload failed'))
     } finally {
       setUploading(false)
     }
@@ -105,27 +106,27 @@ export default function Ingest() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-3xl font-bold">Data Ingestion</h1>
+        <h1 className="text-3xl font-bold">{t('Data Ingestion')}</h1>
         <p className="text-sm text-text-secondary mt-1">
-          Load structured company (MCA) or transaction (GST) CSV data into the graph. Demo-only admin flow.
+          {t('Load structured company (MCA) or transaction (GST) CSV data into the graph. Demo-only admin flow.')}
         </p>
       </div>
 
       <div className="grid grid-cols-2 gap-6">
         <div className="panel p-5">
-          <h2 className="text-lg font-semibold mb-4">Structured data (CSV)</h2>
+          <h2 className="text-lg font-semibold mb-4">{t('Structured data (CSV)')}</h2>
           <div className="flex gap-2 mb-4">
             <button
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${source === 'mca' ? 'bg-accent text-white' : 'bg-raised text-text-secondary hover:text-text-primary'}`}
               onClick={() => setSource('mca')}
             >
-              MCA companies
+              {t('MCA companies')}
             </button>
             <button
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${source === 'gst' ? 'bg-accent text-white' : 'bg-raised text-text-secondary hover:text-text-primary'}`}
               onClick={() => setSource('gst')}
             >
-              GST transactions
+              {t('GST transactions')}
             </button>
           </div>
 
@@ -134,12 +135,12 @@ export default function Ingest() {
               {file ? (
                 <div>
                   <div className="font-mono text-data">{file.name}</div>
-                  <div className="text-xs text-text-secondary mt-1">{file.size.toLocaleString()} bytes</div>
+                  <div className="text-xs text-text-secondary mt-1">{file.size.toLocaleString()} {t('bytes')}</div>
                 </div>
               ) : (
                 <div className="text-text-secondary text-sm">
                   <div className="text-2xl mb-1">⇪</div>
-                  Click to choose a {source === 'mca' ? 'company' : 'transaction'} CSV file
+                  {t('Click to choose a')} {source === 'mca' ? 'company' : 'transaction'} {t('CSV file')}
                 </div>
               )}
               <input ref={fileRef} type="file" accept=".csv" className="hidden" onChange={(e) => setFile(e.target.files?.[0] || null)} />
@@ -147,12 +148,12 @@ export default function Ingest() {
 
             {source === 'mca' && (
               <div className="text-xs text-text-secondary bg-raised rounded-lg p-3">
-                Expected columns: <span className="mono-id">CIN, GSTIN, Company Name, Date of Incorporation, Status, Authorized Capital, Paid Up Capital, NIC Code, ROC</span>
+                {t('Expected columns:')} <span className="mono-id">{t('CIN, GSTIN, Company Name, Date of Incorporation, Status, Authorized Capital, Paid Up Capital, NIC Code, ROC')}</span>
               </div>
             )}
             {source === 'gst' && (
               <div className="text-xs text-text-secondary bg-raised rounded-lg p-3">
-                Expected columns: <span className="mono-id">GSTIN Seller, GSTIN Buyer, Invoice Value, Invoice Date, Return Period</span>
+                {t('Expected columns:')} <span className="mono-id">{t('GSTIN Seller, GSTIN Buyer, Invoice Value, Invoice Date, Return Period')}</span>
               </div>
             )}
 
@@ -168,31 +169,29 @@ export default function Ingest() {
           {job && (
             <div className="mt-4 panel-raised p-4">
               <div className="flex items-center justify-between mb-2">
-                <span className="micro-label">Job {job.id.slice(0, 8)}</span>
+                <span className="micro-label">{t('Job')} {job.id.slice(0, 8)}</span>
                 <span className={`px-2 py-0.5 rounded-full text-micro font-bold ${job.status === 'completed' ? 'bg-success-500/20 text-success-500' : job.status === 'failed' ? 'bg-risk-critical/20 text-risk-critical' : 'bg-amber/20 text-amber'}`}>
                   {job.status}
                 </span>
               </div>
               <div className="grid grid-cols-2 gap-2 text-sm">
-                <div className="text-text-secondary">Rows ingested</div>
+                <div className="text-text-secondary">{t('Rows ingested')}</div>
                 <div className="font-mono text-right">{job.records_processed}</div>
-                <div className="text-text-secondary">Rows failed</div>
+                <div className="text-text-secondary">{t('Rows failed')}</div>
                 <div className="font-mono text-right text-risk-critical">{job.records_failed}</div>
               </div>
               {job.error_log && <div className="mt-2 text-xs text-text-secondary">{job.error_log}</div>}
-              <Link to="/" className="mt-3 inline-block text-sm text-accent-ring hover:underline">See updated dashboard →</Link>
+              <Link to="/" className="mt-3 inline-block text-sm text-accent-ring hover:underline">{t('See updated dashboard →')}</Link>
             </div>
           )}
         </div>
 
         <div className="space-y-4">
           <div className="panel p-5">
-            <h2 className="text-lg font-semibold mb-2">Document (PDF) — agentic extraction</h2>
+            <h2 className="text-lg font-semibold mb-2">{t('Document (PDF) — agentic extraction')}</h2>
             <p className="text-sm text-text-secondary mb-3">
-              Phase 5: the extraction agent reads an MCA-style filing PDF and pulls out
-              <span className="mono-id"> director, DIN, address, shareholding</span> with per-field
-              confidence. Low-confidence fields (amber) are held for your review — nothing is
-              committed until you confirm.
+              {t('Phase 5: the extraction agent reads an MCA-style filing PDF and pulls out')}
+              <span className="mono-id"> {t('director, DIN, address, shareholding')}</span> {t('with per-field confidence. Low-confidence fields (amber) are held for your review — nothing is committed until you confirm.')}
             </p>
 
             <div className="border-2 border-dashed border-border rounded-lg p-5 text-center cursor-pointer hover:border-accent-ring transition-colors mb-3" onClick={() => pdfRef.current?.click()}>
@@ -201,7 +200,7 @@ export default function Ingest() {
               ) : (
                 <div className="text-text-secondary text-sm">
                   <div className="text-2xl mb-1">⇪</div>
-                  Choose an MCA filing PDF
+                  {t('Choose an MCA filing PDF')}
                 </div>
               )}
               <input ref={pdfRef} type="file" accept=".pdf" className="hidden" onChange={(e) => setPdfFile(e.target.files?.[0] || null)} />
@@ -217,11 +216,11 @@ export default function Ingest() {
             {docJob?.extraction && (
               <div className="mt-4 panel-raised p-4">
                 <div className="flex items-center justify-between mb-3">
-                  <span className="micro-label">Extraction · {docJob.backend} backend</span>
+                  <span className="micro-label">{t('Extraction ·')} {docJob.backend} {t('backend')}</span>
                   {docJob.needs_review.length > 0 ? (
-                    <span className="px-2 py-0.5 rounded-full text-micro font-bold bg-amber/20 text-amber">needs review</span>
+                    <span className="px-2 py-0.5 rounded-full text-micro font-bold bg-amber/20 text-amber">{t('needs review')}</span>
                   ) : (
-                    <span className="px-2 py-0.5 rounded-full text-micro font-bold bg-success-500/20 text-success-500">high confidence</span>
+                    <span className="px-2 py-0.5 rounded-full text-micro font-bold bg-success-500/20 text-success-500">{t('high confidence')}</span>
                   )}
                 </div>
                 <div className="space-y-2">
@@ -248,22 +247,19 @@ export default function Ingest() {
 
             {docResult && (
               <div className="mt-3 panel-raised p-4 text-sm">
-                <div className="text-success-500 font-semibold mb-2">✓ Committed to graph</div>
+                <div className="text-success-500 font-semibold mb-2">{t('✓ Committed to graph')}</div>
                 <div className="text-xs text-text-secondary space-y-1">
-                  <div>Company: {docResult.created.companies.join(', ') || '—'}</div>
-                  <div>Directors: {docResult.created.directors.join(', ') || '—'}</div>
-                  <div>Addresses: {docResult.created.addresses.join(', ') || '—'}</div>
+                  <div>{t('Company:')} {docResult.created.companies.join(', ') || '—'}</div>
+                  <div>{t('Directors:')} {docResult.created.directors.join(', ') || '—'}</div>
+                  <div>{t('Addresses:')} {docResult.created.addresses.join(', ') || '—'}</div>
                 </div>
               </div>
             )}
 
             {showPdf && (
               <div className="mt-3 text-xs text-text-secondary bg-raised rounded-lg p-3">
-                The agent runs a deterministic rule backend by default
-                (<span className="mono-id">AGENT_INGEST_BACKEND=rules</span>); an optional
-                OpenAI-compatible LLM backend is used when{' '}
-                <span className="mono-id">AGENT_LLM_URL</span> is configured. Either way the
-                module never blocks the core demo.
+                {t('The agent runs a deterministic rule backend by default (')}<span className="mono-id">{t('AGENT_INGEST_BACKEND=rules')}</span>{t('); an optional OpenAI-compatible LLM backend is used when')}{' '}
+                <span className="mono-id">{t('AGENT_LLM_URL')}</span> {t('is configured. Either way the module never blocks the core demo.')}
               </div>
             )}
             <button className="btn-secondary w-full mt-3" onClick={() => setShowPdf(!showPdf)}>
@@ -272,9 +268,9 @@ export default function Ingest() {
           </div>
 
           <div className="panel p-5">
-            <h2 className="text-lg font-semibold mb-3">Run graph analytics</h2>
+            <h2 className="text-lg font-semibold mb-3">{t('Run graph analytics')}</h2>
             <p className="text-sm text-text-secondary mb-3">
-              Detect &amp; materialize cycles, Louvain communities, centrality, risk scores, and entity-resolution edges ({'Phases 1–3'}).
+              {t('Detect & materialize cycles, Louvain communities, centrality, risk scores, and entity-resolution edges (')}{'Phases 1–3'}).
             </p>
             <button
               className="btn-primary"
@@ -287,7 +283,7 @@ export default function Ingest() {
                 }
               }}
             >
-              ⚙ Run structural analytics
+              {t('⚙ Run structural analytics')}
             </button>
           </div>
         </div>

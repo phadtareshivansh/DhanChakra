@@ -1,3 +1,4 @@
+import { t } from '../../i18n'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import api from '../../utils/api'
@@ -53,7 +54,7 @@ export default function UserMenu({ user }: UserMenuProps) {
     navigate('/login')
   }
 
-  const name = user?.display_name || user?.email || 'Analyst'
+  const name = user?.display_name || user?.email || t('Analyst')
   const initial = name[0]?.toUpperCase() ?? 'U'
 
   return (
@@ -61,7 +62,7 @@ export default function UserMenu({ user }: UserMenuProps) {
       <button
         type="button"
         onClick={() => setOpen((current) => !current)}
-        aria-label="Account menu"
+        aria-label={t('Account menu')}
         aria-expanded={open}
         aria-haspopup="menu"
         className={cn(
@@ -75,7 +76,7 @@ export default function UserMenu({ user }: UserMenuProps) {
         <span className="hidden min-w-0 text-left lg:block">
           <span className="block max-w-[9rem] truncate text-xs font-medium text-text-primary">{name}</span>
           <span className="block text-[10px] uppercase tracking-micro text-text-secondary">
-            {user?.role ?? 'guest'}
+            {t(user?.role ?? 'guest')}
           </span>
         </span>
         <svg
@@ -103,7 +104,7 @@ export default function UserMenu({ user }: UserMenuProps) {
               <div className="truncate text-[11px] text-text-secondary">{user.email}</div>
             )}
             <div className="mt-1 inline-flex rounded-full bg-raised px-2 py-0.5 text-[10px] uppercase tracking-micro text-text-secondary">
-              {user?.role ?? 'guest'}
+              {t(user?.role ?? 'guest')}
             </div>
           </div>
           <Link
@@ -112,7 +113,7 @@ export default function UserMenu({ user }: UserMenuProps) {
             onClick={() => setOpen(false)}
             className="block px-3 py-2 text-xs text-text-secondary hover:bg-raised hover:text-text-primary"
           >
-            Settings
+            {t('Settings')}
           </Link>
           {user?.role === 'admin' && (
             <Link
@@ -121,7 +122,7 @@ export default function UserMenu({ user }: UserMenuProps) {
               onClick={() => setOpen(false)}
               className="block px-3 py-2 text-xs text-text-secondary hover:bg-raised hover:text-text-primary"
             >
-              User management
+              {t('User management')}
             </Link>
           )}
           <button
@@ -130,7 +131,7 @@ export default function UserMenu({ user }: UserMenuProps) {
             onClick={logout}
             className="block w-full border-t border-border px-3 py-2 text-left text-xs text-risk-critical hover:bg-raised"
           >
-            Log out
+            {t('Log out')}
           </button>
         </div>
       )}

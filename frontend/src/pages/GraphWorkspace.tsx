@@ -1,3 +1,4 @@
+import { t } from '../i18n'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import api from '../utils/api'
@@ -17,7 +18,9 @@ import GraphCanvas, {
   GraphEdgeModel,
   GraphNodeModel,
 } from '../components/graph/GraphCanvas'
+import GraphTable from '../components/graph/GraphTable'
 import { buildBenchmarkGraph } from '../utils/graphBenchmark'
+import { useMediaQuery } from '../hooks/useMediaQuery'
 import { cn } from '../utils/cn'
 import { riskColorForScore } from '../utils/riskColors'
 import {
@@ -35,12 +38,12 @@ const CANVAS_THRESHOLD = 1500
 const MAX_HOPS = 4
 
 const TYPE_STYLES: Record<string, { color: string; label: string; shape: string }> = {
-  Company: { color: '#1F8A8C', label: 'Company', shape: 'circle' },
-  Director: { color: '#D6A94A', label: 'Director', shape: 'diamond' },
-  Address: { color: '#8B99AB', label: 'Address', shape: 'square' },
-  BankAccount: { color: '#7383A5', label: 'Bank account', shape: 'circle' },
-  Transaction: { color: '#4FD1D4', label: 'Transaction', shape: 'dot' },
-  GSTINFiling: { color: '#6FCF97', label: 'GST return', shape: 'circle' },
+  Company: { color: '#1F8A8C', label: t('Company'), shape: 'circle' },
+  Director: { color: '#D6A94A', label: t('Director'), shape: 'diamond' },
+  Address: { color: '#8B99AB', label: t('Address'), shape: 'square' },
+  BankAccount: { color: '#7383A5', label: t('Bank account'), shape: 'circle' },
+  Transaction: { color: '#4FD1D4', label: t('Transaction'), shape: 'dot' },
+  GSTINFiling: { color: '#6FCF97', label: t('GST return'), shape: 'circle' },
 }
 
 const ALL_TYPES = Object.keys(TYPE_STYLES)
@@ -153,6 +156,9 @@ export default function GraphWorkspace() {
   const [layout, setLayout] = useState<'force' | 'hierarchical'>('force')
   const [renderAll, setRenderAll] = useState(false)
   const [mobileFilters, setMobileFilters] = useState(false)
+  const [viewMode, setViewMode] = useState<'graph' | 'table'>('graph')
+  const isPhone = useMediaQuery('(max-width: 767px)')
+  const showingTable = viewMode === 'table' || isPhone
 
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [pathSource, setPathSource] = useState('')
@@ -270,7 +276,7 @@ export default function GraphWorkspace() {
       })
       .catch((requestError) => {
         if (cancelled) return
-        setError(requestError?.response?.data?.detail?.message || 'Could not load this neighbourhood.')
+        setError(requestError?.response?.data?.detail?.message || t('Could not load this neighbourhood.'))
       })
       .finally(() => {
         if (!cancelled) setLoading(false)
@@ -453,11 +459,11 @@ export default function GraphWorkspace() {
 
   const expandHop = useCallback(async () => {
     if (!id || benchmarkMode) {
-      toast({ title: 'Benchmark mode', description: 'Synthetic graphs cannot expand from a server.', tone: 'info' })
+      toast({ title: t('Benchmark mode'), description: t('Synthetic graphs cannot expand from a server.'), tone: 'info' })
       return
     }
     if (hops >= MAX_HOPS) {
-      toast({ title: 'Maximum depth reached', description: `This workspace loads up to ${MAX_HOPS} hops.` })
+      toast({ title: t('Maximum depth reached'), description: t('This workspace loads up to {max} hops.', { max: MAX_HOPS }) })
       return
     }
     const next = hops + 1
@@ -468,9 +474,9 @@ export default function GraphWorkspace() {
       })
       applyNetwork(response.data, rootId || id, next)
       void loadTimeline(rootId || id, next)
-      toast({ title: `Expanded to ${next} hops`, description: `${response.data.nodes.length} nodes loaded.` })
+      toast({ title: t('Expanded to {hops} hops', { hops: next }), description: t('{count} nodes loaded.', { count: response.data.nodes.length }) })
     } catch {
-      toast({ title: 'Could not expand', description: 'The neighbourhood request failed.', tone: 'critical' })
+      toast({ title: t('Could not expand'), description: t('The neighbourhood request failed.'), tone: 'critical' })
     } finally {
       setGraphLoading(false)
     }
@@ -478,7 +484,7 @@ export default function GraphWorkspace() {
 
   const focusRingNodes = useCallback(() => {
     if (!flaggedNodeIds.size) {
-      toast({ title: 'No flagged ring edges', description: 'This neighbourhood has no detected cycle edges.' })
+      toast({ title: t('No flagged ring edges'), description: t('This neighbourhood has no detected cycle edges.') })
       return
     }
     setFocusRing(true)
@@ -488,11 +494,11 @@ export default function GraphWorkspace() {
 
   const findPaths = useCallback(async () => {
     if (!pathSource || !pathTarget) {
-      toast({ title: 'Pick two companies', description: 'Choose a source and target first.' })
+      toast({ title: t('Pick two companies'), description: t('Choose a source and target first.') })
       return
     }
     if (pathSource === pathTarget) {
-      toast({ title: 'Pick two different companies' })
+      toast({ title: t('Pick two different companies') })
       return
     }
     setPathBusy(true)
@@ -513,7 +519,7 @@ export default function GraphWorkspace() {
       }
     } catch (requestError: any) {
       const detail = requestError?.response?.data?.detail
-      setPathError(detail?.message || 'No connecting path was found.')
+      setPathError(detail?.message || t('No connecting path was found.'))
       setPathsResult(null)
     } finally {
       setPathBusy(false)
@@ -547,7 +553,7 @@ export default function GraphWorkspace() {
       for (const nodeId of hiddenNeighbours) next.delete(nodeId)
       return next
     })
-    toast({ title: 'Expanded neighbours', description: `${hiddenNeighbours.length} hidden node(s) shown.` })
+    toast({ title: t('Expanded neighbours'), description: t('{count} hidden node(s) shown.', { count: hiddenNeighbours.length }) })
   }, [selectedId, rawEdges, hidden, expandHop, toast])
 
   const collapseSelected = useCallback(() => {
@@ -563,7 +569,7 @@ export default function GraphWorkspace() {
       for (const nodeId of adjacent) next.add(nodeId)
       return next
     })
-    toast({ title: 'Collapsed neighbours', description: `${adjacent.size} node(s) hidden.` })
+    toast({ title: t('Collapsed neighbours'), description: t('{count} node(s) hidden.', { count: adjacent.size }) })
   }, [selectedId, rawEdges, toast])
 
   const hideSelected = useCallback(() => {
@@ -590,18 +596,18 @@ export default function GraphWorkspace() {
   const exportPng = useCallback(async () => {
     try {
       await graphRef.current?.exportPng()
-      toast({ title: 'PNG exported', description: 'The graph was saved to your downloads.' })
+      toast({ title: t('PNG exported'), description: t('The graph was saved to your downloads.') })
     } catch {
-      toast({ title: 'Export failed', tone: 'critical' })
+      toast({ title: t('Export failed'), tone: 'critical' })
     }
   }, [toast])
 
   const exportSvg = useCallback(async () => {
     try {
       await graphRef.current?.exportSvg()
-      toast({ title: 'SVG exported', description: 'The graph was saved to your downloads.' })
+      toast({ title: t('SVG exported'), description: t('The graph was saved to your downloads.') })
     } catch {
-      toast({ title: 'Export failed', tone: 'critical' })
+      toast({ title: t('Export failed'), tone: 'critical' })
     }
   }, [toast])
 
@@ -618,30 +624,30 @@ export default function GraphWorkspace() {
     return (
       <div className="-m-4 flex min-h-[calc(100vh-8rem)] flex-col bg-canvas sm:-m-6">
         <div className="border-b border-border px-6 py-5">
-          <p className="micro-label">Graph workspace</p>
-          <h1 className="mt-1 text-2xl font-semibold text-text-primary">Investigate a neighbourhood</h1>
+          <p className="micro-label">{t('Graph workspace')}</p>
+          <h1 className="mt-1 text-2xl font-semibold text-text-primary">{t('Investigate a neighbourhood')}</h1>
           <p className="mt-1 text-sm text-text-secondary">
-            Search for a company to open a full-bleed network canvas with time, ring and path controls.
+            {t('Search for a company to open a full-bleed network canvas with time, ring and path controls.')}
           </p>
         </div>
         <div className="mx-auto w-full max-w-3xl px-6 py-8">
           <Input
-            label="Entity search"
-            placeholder="Search by name, CIN, GSTIN or DIN"
+            label={t('Entity search')}
+            placeholder={t('Search by name, CIN, GSTIN or DIN')}
             value={landingQuery}
             onChange={(event) => setLandingQuery(event.target.value)}
             autoFocus
           />
           <div className="mt-5 space-y-2">
-            {landingLoading && <p className="text-xs text-text-secondary">Searching…</p>}
+            {landingLoading && <p className="text-xs text-text-secondary">{t('Searching…')}</p>}
             {!landingLoading && landingResults.length === 0 && (
               <EmptyState
                 compact
-                title="No companies found"
-                description="Try a shorter name, a CIN, or a GSTIN."
+                title={t('No companies found')}
+                description={t('Try a shorter name, a CIN, or a GSTIN.')}
                 action={
                   <Button variant="secondary" size="sm" onClick={() => setLandingQuery('')}>
-                    Clear search
+                    {t('Clear search')}
                   </Button>
                 }
               />
@@ -661,7 +667,7 @@ export default function GraphWorkspace() {
                 </span>
                 <span className="flex shrink-0 items-center gap-2">
                   {result.risk_score !== undefined && <RiskBadge score={result.risk_score} />}
-                  <span className="text-xs text-accent-ring">Open graph →</span>
+                  <span className="text-xs text-accent-ring">{t('Open graph →')}</span>
                 </span>
               </button>
             ))}
@@ -676,7 +682,7 @@ export default function GraphWorkspace() {
       <div className="-m-4 flex h-[calc(100vh-8rem)] items-center justify-center bg-canvas sm:-m-6">
         <div className="text-center">
           <div className="mx-auto h-9 w-9 animate-spin rounded-full border-2 border-border border-t-accent-ring" />
-          <p className="mt-3 text-sm text-text-secondary">Loading neighbourhood…</p>
+          <p className="mt-3 text-sm text-text-secondary">{t('Loading neighbourhood…')}</p>
         </div>
       </div>
     )
@@ -686,13 +692,13 @@ export default function GraphWorkspace() {
     return (
       <div className="-m-4 flex h-[calc(100vh-8rem)] items-center justify-center bg-canvas sm:-m-6">
         <EmptyState
-          title="Could not open the graph workspace"
+          title={t('Could not open the graph workspace')}
           description={error}
           action={
             <div className="flex gap-2">
-              <Button onClick={() => window.location.reload()}>Retry</Button>
+              <Button onClick={() => window.location.reload()}>{t('Retry')}</Button>
               <Button variant="secondary" onClick={() => navigate('/worklist')}>
-                Back to worklist
+                {t('Back to worklist')}
               </Button>
             </div>
           }
@@ -713,28 +719,55 @@ export default function GraphWorkspace() {
           onClick={() => setMobileFilters((current) => !current)}
           aria-pressed={mobileFilters}
         >
-          Filters
+          {t('Filters')}
         </Button>
         <div className="min-w-0">
+          <h1 className="sr-only">{t('Graph workspace')}</h1>
           <div className="flex items-center gap-2">
             <Link
               to={id ? `/entity/${encodeURIComponent(id)}/network` : '/worklist'}
               className="truncate text-sm font-semibold text-text-primary hover:text-accent-ring"
             >
-              {entity?.name || 'Graph workspace'}
+              {entity?.name || t('Graph workspace')}
             </Link>
             {riskScore !== undefined && <RiskBadge score={riskScore} />}
-            {benchmarkMode && <Badge tone="amber">Synthetic benchmark</Badge>}
+            {benchmarkMode && <Badge tone="amber">{t('Synthetic benchmark')}</Badge>}
           </div>
           <p className="truncate font-mono text-[10px] text-text-secondary">
             {entity?.cin || entity?.gstin || id || 'benchmark'} · {view.nodes.length.toLocaleString()} /{' '}
-            {view.total.toLocaleString()} nodes · {view.edges.length.toLocaleString()} edges · {hops} hop
+            {view.total.toLocaleString()} {t('nodes ·')} {view.edges.length.toLocaleString()} {t('edges ·')} {hops} {t('hop')}
             {hops === 1 ? '' : 's'}
           </p>
         </div>
 
         <div className="ml-auto flex flex-wrap items-center gap-1.5">
-          <div className="flex rounded-lg border border-border p-0.5" role="group" aria-label="Graph layout">
+          <div className="flex rounded-lg border border-border p-0.5" role="group" aria-label={t('View mode')}>
+            <button
+              type="button"
+              onClick={() => setViewMode('graph')}
+              disabled={isPhone}
+              className={cn(
+                'rounded-md px-2 py-1 text-[11px] transition-colors disabled:cursor-not-allowed disabled:opacity-40',
+                !showingTable ? 'bg-accent text-white' : 'text-text-secondary hover:text-text-primary',
+              )}
+              aria-pressed={!showingTable}
+            >
+              {t('Graph')}
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('table')}
+              className={cn(
+                'rounded-md px-2 py-1 text-[11px] transition-colors',
+                showingTable ? 'bg-accent text-white' : 'text-text-secondary hover:text-text-primary',
+              )}
+              aria-pressed={showingTable}
+            >
+              {t('Table')}
+            </button>
+          </div>
+          <div className="hidden flex-wrap items-center gap-1.5 sm:flex">
+          <div className="flex rounded-lg border border-border p-0.5" role="group" aria-label={t('Graph layout')}>
             <button
               type="button"
               onClick={() => setLayout('force')}
@@ -744,7 +777,7 @@ export default function GraphWorkspace() {
               )}
               aria-pressed={layout === 'force'}
             >
-              Force
+              {t('Force')}
             </button>
             <button
               type="button"
@@ -755,28 +788,29 @@ export default function GraphWorkspace() {
               )}
               aria-pressed={layout === 'hierarchical'}
             >
-              Hierarchical
+              {t('Hierarchical')}
             </button>
           </div>
           <Button size="sm" variant="secondary" loading={graphLoading} onClick={() => void expandHop()}>
-            +1 hop
+            {t('+1 hop')}
           </Button>
           <Button size="sm" variant="ghost" onClick={focusRingNodes}>
-            Focus ring
+            {t('Focus ring')}
           </Button>
           <Button size="sm" variant="ghost" onClick={() => graphRef.current?.fit()}>
-            Fit
+            {t('Fit')}
           </Button>
           <Button size="sm" variant="ghost" onClick={resetWorkspace}>
-            Reset
+            {t('Reset')}
           </Button>
           <Button size="sm" variant="ghost" onClick={() => void exportPng()}>
-            PNG
+            {t('PNG')}
           </Button>
           <Button size="sm" variant="ghost" onClick={() => void exportSvg()}>
-            SVG
+            {t('SVG')}
           </Button>
           <Badge tone={mode === 'canvas' ? 'accent' : 'neutral'}>{mode === 'canvas' ? 'Canvas' : 'SVG'}</Badge>
+          </div>
         </div>
       </header>
 
@@ -786,35 +820,35 @@ export default function GraphWorkspace() {
             'absolute inset-y-0 left-0 z-20 w-[286px] shrink-0 space-y-4 overflow-y-auto border-r border-border bg-surface p-3.5 lg:static lg:z-auto lg:block',
             mobileFilters ? 'block shadow-2xl' : 'hidden',
           )}
-          aria-label="Graph filters"
+          aria-label={t('Graph filters')}
         >
           <div>
             <div className="flex items-center justify-between">
-              <p className="micro-label">Search in graph</p>
+              <p className="micro-label">{t('Search in graph')}</p>
               <button
                 type="button"
                 className="text-[11px] text-text-disabled hover:text-text-primary lg:hidden"
                 onClick={() => setMobileFilters(false)}
               >
-                Close
+                {t('Close')}
               </button>
             </div>
             <Input
               className="mt-1.5"
-              placeholder="Name, CIN, GSTIN, invoice"
+              placeholder={t('Name, CIN, GSTIN, invoice')}
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              aria-label="Search within graph"
+              aria-label={t('Search within graph')}
             />
             {search && (
               <p className="mt-1 text-[11px] text-text-secondary">
-                {searchMatches.size} match{searchMatches.size === 1 ? '' : 'es'} highlighted.
+                {searchMatches.size} {t('match')}{searchMatches.size === 1 ? '' : 'es'} {t('highlighted.')}
               </p>
             )}
           </div>
 
           <section>
-            <p className="micro-label">Node types</p>
+            <p className="micro-label">{t('Node types')}</p>
             <div className="mt-2 space-y-1.5">
               {ALL_TYPES.map((type) => {
                 const count = rawNodes.filter((node) => node.type === type).length
@@ -826,7 +860,7 @@ export default function GraphWorkspace() {
                       type="checkbox"
                       checked={typeFilter.has(type)}
                       onChange={() => toggleType(type)}
-                      className="h-3.5 w-3.5 rounded border-border bg-canvas accent-accent"
+                      className="h-6 w-6 shrink-0 rounded border-border bg-canvas accent-accent"
                     />
                     <span
                       className="h-2.5 w-2.5 shrink-0"
@@ -847,7 +881,7 @@ export default function GraphWorkspace() {
           <section>
             <div className="flex items-center justify-between">
               <label htmlFor="risk-min" className="micro-label">
-                Minimum risk
+                {t('Minimum risk')}
               </label>
               <span className="font-mono text-xs" style={{ color: riskColorForScore(riskMin) }}>
                 {riskMin}
@@ -863,7 +897,7 @@ export default function GraphWorkspace() {
               onChange={(event) => setRiskMin(Number(event.target.value))}
               className="mt-2 w-full accent-accent"
             />
-            <p className="text-[11px] text-text-secondary">Companies below the threshold are hidden; structural nodes remain for context.</p>
+            <p className="text-[11px] text-text-secondary">{t('Companies below the threshold are hidden; structural nodes remain for context.')}</p>
           </section>
 
           <section className="space-y-2">
@@ -872,11 +906,11 @@ export default function GraphWorkspace() {
                 type="checkbox"
                 checked={flaggedOnly}
                 onChange={(event) => setFlaggedOnly(event.target.checked)}
-                className="mt-0.5 h-3.5 w-3.5 rounded border-border bg-canvas accent-accent"
+                className="h-6 w-6 shrink-0 rounded border-border bg-canvas accent-accent"
               />
               <span>
-                <span className="block font-medium text-text-primary">Only flagged cycle edges</span>
-                <span className="text-[11px]">Drops structural context and shows detected rings.</span>
+                <span className="block font-medium text-text-primary">{t('Only flagged cycle edges')}</span>
+                <span className="text-[11px]">{t('Drops structural context and shows detected rings.')}</span>
               </span>
             </label>
             <label className="flex cursor-pointer items-start gap-2 text-xs text-text-secondary">
@@ -884,18 +918,18 @@ export default function GraphWorkspace() {
                 type="checkbox"
                 checked={focusRing}
                 onChange={(event) => setFocusRing(event.target.checked)}
-                className="mt-0.5 h-3.5 w-3.5 rounded border-border bg-canvas accent-accent"
+                className="h-6 w-6 shrink-0 rounded border-border bg-canvas accent-accent"
               />
               <span>
-                <span className="block font-medium text-text-primary">Emphasise ring edges</span>
-                <span className="text-[11px]">Dims everything outside flagged cycles.</span>
+                <span className="block font-medium text-text-primary">{t('Emphasise ring edges')}</span>
+                <span className="text-[11px]">{t('Dims everything outside flagged cycles.')}</span>
               </span>
             </label>
           </section>
 
           <section>
             <div className="flex items-center justify-between">
-              <p className="micro-label">Invoice window</p>
+              <p className="micro-label">{t('Invoice window')}</p>
               <button
                 type="button"
                 className="text-[11px] text-text-disabled hover:text-text-primary"
@@ -903,7 +937,7 @@ export default function GraphWorkspace() {
                   if (dateBounds) setTimeRange(dateBounds)
                 }}
               >
-                All dates
+                {t('All dates')}
               </button>
             </div>
             {dateBounds ? (
@@ -922,7 +956,7 @@ export default function GraphWorkspace() {
                   })}
                 </div>
                 <label className="mt-2 block text-[11px] text-text-secondary" htmlFor="time-from">
-                  From <span className="font-mono text-text-primary">{dateLabel(timeRange[0])}</span>
+                  {t('From')} <span className="font-mono text-text-primary">{dateLabel(timeRange[0])}</span>
                 </label>
                 <input
                   id="time-from"
@@ -938,7 +972,7 @@ export default function GraphWorkspace() {
                   className="w-full accent-accent"
                 />
                 <label className="block text-[11px] text-text-secondary" htmlFor="time-to">
-                  To <span className="font-mono text-text-primary">{dateLabel(timeRange[1])}</span>
+                  {t('To')} <span className="font-mono text-text-primary">{dateLabel(timeRange[1])}</span>
                 </label>
                 <input
                   id="time-to"
@@ -956,40 +990,40 @@ export default function GraphWorkspace() {
               </>
             ) : (
               <p className="mt-2 text-[11px] text-text-secondary">
-                No dated invoices in this neighbourhood. The time slider appears when invoice dates exist.
+                {t('No dated invoices in this neighbourhood. The time slider appears when invoice dates exist.')}
               </p>
             )}
           </section>
 
           <section className="rounded-lg border border-border bg-canvas p-3">
             <div className="flex items-center justify-between">
-              <p className="micro-label">Path finder</p>
-              <InfoHint content="Shortest connecting paths traverse invoices, shared directors and shared addresses. Up to eight paths are returned." />
+              <p className="micro-label">{t('Path finder')}</p>
+              <InfoHint content={t('Shortest connecting paths traverse invoices, shared directors and shared addresses. Up to eight paths are returned.')} />
             </div>
             {benchmarkMode ? (
-              <p className="mt-2 text-[11px] text-text-secondary">Path finding is disabled for synthetic benchmarks.</p>
+              <p className="mt-2 text-[11px] text-text-secondary">{t('Path finding is disabled for synthetic benchmarks.')}</p>
             ) : (
               <div className="mt-2 space-y-2">
                 <Select
-                  label="From"
+                  label={t('From')}
                   selectSize="sm"
                   value={pathSource}
                   onChange={(event) => setPathSource(event.target.value)}
                   options={companyOptions}
                 />
                 <Select
-                  label="To"
+                  label={t('To')}
                   selectSize="sm"
                   value={pathTarget}
                   onChange={(event) => setPathTarget(event.target.value)}
                   options={companyOptions}
                 />
                 <Button size="sm" fullWidth loading={pathBusy} onClick={() => void findPaths()}>
-                  Find paths
+                  {t('Find paths')}
                 </Button>
                 {pathNodeIds.size > 0 && (
                   <Button size="sm" variant="ghost" fullWidth onClick={() => setPathNodeIds(new Set())}>
-                    Clear path highlight
+                    {t('Clear path highlight')}
                   </Button>
                 )}
                 {pathError && <p className="text-[11px] text-risk-critical">{pathError}</p>}
@@ -999,8 +1033,8 @@ export default function GraphWorkspace() {
 
           <section>
             <div className="flex items-center gap-1.5">
-              <p className="micro-label">Legend</p>
-              <InfoHint content="Risk is shown by the outer ring and the number inside company nodes. Cycle edges are red with arrowheads; dashed orange edges are high-value invoices with no matching e-Way Bill." />
+              <p className="micro-label">{t('Legend')}</p>
+              <InfoHint content={t('Risk is shown by the outer ring and the number inside company nodes. Cycle edges are red with arrowheads; dashed orange edges are high-value invoices with no matching e-Way Bill.')} />
             </div>
             <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1.5 text-[11px] text-text-secondary">
               {ALL_TYPES.filter((type) => rawNodes.some((node) => node.type === type)).map((type) => (
@@ -1017,28 +1051,39 @@ export default function GraphWorkspace() {
                 </span>
               ))}
               <span className="flex items-center gap-1.5">
-                <span className="h-0.5 w-4 bg-risk-critical" /> Cycle edge
+                <span className="h-0.5 w-4 bg-risk-critical" /> {t('Cycle edge')}
               </span>
               <span className="flex items-center gap-1.5">
-                <span className="h-0.5 w-4 border-t border-dashed border-risk-high" /> e-Way gap
+                <span className="h-0.5 w-4 border-t border-dashed border-risk-high" /> {t('e-Way gap')}
               </span>
             </div>
           </section>
 
           <Button variant="secondary" size="sm" fullWidth onClick={resetFilters}>
-            Reset filters
+            {t('Reset filters')}
           </Button>
         </aside>
 
         <section className="relative min-w-0 flex-1">
+          {showingTable && (
+            <div className="border-b border-border bg-surface px-4 py-2 text-[11px] text-text-secondary">
+              {isPhone
+                ? t(
+                    'The interactive graph is available on tablet and desktop. This phone view is a read-only table of the visible entities and relationships.',
+                  )
+                : t('Read-only table view of the current graph filters.')}
+            </div>
+          )}
           {view.nodes.length === 0 ? (
             <div className="flex h-full items-center justify-center">
               <EmptyState
-                title="Nothing matches these filters"
-                description="Widen the risk threshold, re-enable node types, or reset filters."
-                action={<Button size="sm" onClick={resetFilters}>Reset filters</Button>}
+                title={t('Nothing matches these filters')}
+                description={t('Widen the risk threshold, re-enable node types, or reset filters.')}
+                action={<Button size="sm" onClick={resetFilters}>{t('Reset filters')}</Button>}
               />
             </div>
+          ) : showingTable ? (
+            <GraphTable nodes={view.nodes} edges={view.edges} onInspect={(node) => setSelectedId(node.id)} />
           ) : (
             <GraphCanvas
               ref={graphRef}
@@ -1060,11 +1105,10 @@ export default function GraphWorkspace() {
           {view.total > view.nodes.length && (
             <div className="absolute left-1/2 top-3 z-10 flex max-w-[92%] -translate-x-1/2 items-center gap-3 rounded-lg border border-risk-high/40 bg-surface/95 px-3 py-2 text-xs shadow-lg backdrop-blur">
               <span className="text-text-secondary">
-                Showing {view.nodes.length.toLocaleString()} of {view.total.toLocaleString()} nodes to keep
-                rendering responsive.
+                {t('Showing')} {view.nodes.length.toLocaleString()} {t('of')} {view.total.toLocaleString()} {t('nodes to keep rendering responsive.')}
               </span>
               <Button size="sm" onClick={() => setRenderAll(true)}>
-                Render all
+                {t('Render all')}
               </Button>
             </div>
           )}
@@ -1072,22 +1116,22 @@ export default function GraphWorkspace() {
           <div className="pointer-events-none absolute left-3 top-3 flex flex-col gap-1.5">
             {pathNodeIds.size > 0 && (
               <div className="pointer-events-auto flex items-center gap-2 rounded-lg border border-amber/40 bg-surface/95 px-3 py-1.5 text-[11px] shadow backdrop-blur">
-                <span className="font-medium text-amber">Path highlighted</span>
+                <span className="font-medium text-amber">{t('Path highlighted')}</span>
                 <button type="button" className="text-text-secondary hover:text-text-primary" onClick={() => setPathNodeIds(new Set())}>
-                  Clear
+                  {t('Clear')}
                 </button>
               </div>
             )}
             {flaggedOnly && (
               <div className="rounded-lg border border-risk-critical/40 bg-surface/95 px-3 py-1.5 text-[11px] text-risk-critical shadow backdrop-blur">
-                Showing flagged cycle edges only
+                {t('Showing flagged cycle edges only')}
               </div>
             )}
             {benchmarkResult && (
               <div className="rounded-lg border border-accent-ring/40 bg-surface/95 px-3 py-1.5 text-[11px] shadow backdrop-blur">
-                <span className="font-medium text-text-primary">Render benchmark</span>{' '}
+                <span className="font-medium text-text-primary">{t('Render benchmark')}</span>{' '}
                 <span className="font-mono text-accent-ring">
-                  {benchmarkResult.nodes.toLocaleString()} nodes · {benchmarkResult.fps.toFixed(1)} fps ·{' '}
+                  {benchmarkResult.nodes.toLocaleString()} {t('nodes ·')} {benchmarkResult.fps.toFixed(1)} {t('fps ·')}{' '}
                   {benchmarkResult.mode}
                 </span>
               </div>
@@ -1097,7 +1141,7 @@ export default function GraphWorkspace() {
           {graphLoading && (
             <div className="absolute inset-0 z-10 flex items-center justify-center bg-canvas/50 backdrop-blur-[1px]">
               <div className="rounded-lg border border-border bg-surface px-4 py-3 text-xs text-text-secondary shadow-lg">
-                Expanding neighbourhood…
+                {t('Expanding neighbourhood…')}
               </div>
             </div>
           )}
@@ -1120,19 +1164,19 @@ export default function GraphWorkspace() {
           selectedNode ? (
             <div className="flex w-full flex-wrap items-center gap-2">
               <Button size="sm" onClick={expandSelected}>
-                Expand neighbours
+                {t('Expand neighbours')}
               </Button>
               <Button size="sm" variant="secondary" onClick={collapseSelected}>
-                Collapse
+                {t('Collapse')}
               </Button>
               <Button size="sm" variant="ghost" onClick={togglePinSelected}>
                 {pinned.has(selectedNode.id) ? 'Unpin' : 'Pin'}
               </Button>
               <Button size="sm" variant="ghost" onClick={() => graphRef.current?.focusNodes([selectedNode.id])}>
-                Focus
+                {t('Focus')}
               </Button>
               <Button size="sm" variant="ghost" onClick={hideSelected}>
-                Hide
+                {t('Hide')}
               </Button>
             </div>
           ) : undefined
@@ -1143,12 +1187,12 @@ export default function GraphWorkspace() {
             <div className="flex flex-wrap items-center gap-2">
               {selectedNode.risk_score !== undefined && <RiskBadge score={selectedNode.risk_score} />}
               <Badge tone="neutral">{titleCase(selectedNode.type)}</Badge>
-              {pinned.has(selectedNode.id) && <Badge tone="amber">Pinned</Badge>}
+              {pinned.has(selectedNode.id) && <Badge tone="amber">{t('Pinned')}</Badge>}
             </div>
 
             <div className="grid gap-2 rounded-lg border border-border bg-canvas p-3 text-xs">
               <div className="flex items-center justify-between gap-3">
-                <span className="text-text-secondary">Graph id</span>
+                <span className="text-text-secondary">{t('Graph id')}</span>
                 <span className="truncate font-mono text-[11px] text-text-primary">{selectedNode.id}</span>
               </div>
               {Object.entries(selectedNode.properties || {})
@@ -1165,13 +1209,13 @@ export default function GraphWorkspace() {
             </div>
 
             <div className="space-y-2">
-              <p className="micro-label">Path finder</p>
+              <p className="micro-label">{t('Path finder')}</p>
               <div className="flex flex-wrap gap-2">
                 <Button size="sm" variant="secondary" onClick={() => setPathSource(selectedNode.id)}>
-                  Set as source
+                  {t('Set as source')}
                 </Button>
                 <Button size="sm" variant="secondary" onClick={() => setPathTarget(selectedNode.id)}>
-                  Set as target
+                  {t('Set as target')}
                 </Button>
               </div>
             </div>
@@ -1189,18 +1233,18 @@ export default function GraphWorkspace() {
                   )
                 }
               >
-                Open entity workspace
+                {t('Open entity workspace')}
               </Button>
             )}
 
             {pathsResult && pathsResult.paths.length > 0 && (
               <div className="rounded-lg border border-border bg-canvas p-3">
-                <p className="micro-label">Current path result</p>
+                <p className="micro-label">{t('Current path result')}</p>
                 <p className="mt-1 text-xs text-text-secondary">
-                  {pathsResult.paths.length} path(s), shortest {pathsResult.paths[0].length} edge(s).
+                  {pathsResult.paths.length} {t('path(s), shortest')} {pathsResult.paths[0].length} {t('edge(s).')}
                 </p>
                 <Button size="sm" variant="ghost" className="mt-2" onClick={() => setPathsOpen(true)}>
-                  View paths
+                  {t('View paths')}
                 </Button>
               </div>
             )}
@@ -1211,19 +1255,19 @@ export default function GraphWorkspace() {
       <Modal
         open={pathsOpen}
         onClose={() => setPathsOpen(false)}
-        title="Shortest connecting paths"
-        description="Paths may traverse invoice transactions, shared directors and shared addresses."
+        title={t('Shortest connecting paths')}
+        description={t('Paths may traverse invoice transactions, shared directors and shared addresses.')}
         size="lg"
         footer={
           <Button variant="secondary" size="sm" onClick={() => setPathsOpen(false)}>
-            Close
+            {t('Close')}
           </Button>
         }
       >
         {!pathsResult || pathsResult.paths.length === 0 ? (
           <EmptyState
             compact
-            title="No connecting path"
+            title={t('No connecting path')}
             description={pathError || 'No path exists within six hops, or the two companies are disconnected.'}
           />
         ) : (
@@ -1236,13 +1280,13 @@ export default function GraphWorkspace() {
                 <div key={`${index}-${path.node_ids.join('-')}`} className="rounded-lg border border-border bg-canvas p-3">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
-                      <Badge tone="accent">{path.length} edge{path.length === 1 ? '' : 's'}</Badge>
+                      <Badge tone="accent">{path.length} {t('edge')}{path.length === 1 ? '' : 's'}</Badge>
                       {path.total_amount !== undefined && (
                         <span className="font-mono text-[11px] text-amber">{formatInrCompact(path.total_amount)}</span>
                       )}
                     </div>
                     <Button size="sm" variant="secondary" onClick={() => focusPath(index)}>
-                      Show on canvas
+                      {t('Show on canvas')}
                     </Button>
                   </div>
                   <p className="mt-2 break-words text-[11px] leading-relaxed text-text-secondary">

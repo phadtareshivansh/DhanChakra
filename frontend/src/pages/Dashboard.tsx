@@ -1,3 +1,4 @@
+import { t } from '../i18n'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import api from '../utils/api'
@@ -11,10 +12,10 @@ import { formatInr, formatInrCompact, relativeTime, titleCase } from '../utils/f
 import { riskLevel } from '../components/RiskBadge'
 
 const BAND_META = [
-  { key: 'critical', label: 'Critical', color: 'var(--color-risk-critical)' },
-  { key: 'high', label: 'High', color: 'var(--color-risk-high)' },
-  { key: 'medium', label: 'Medium', color: 'var(--color-risk-medium)' },
-  { key: 'low', label: 'Low', color: 'var(--color-risk-low)' },
+  { key: 'critical', label: t('Critical'), color: 'var(--color-risk-critical)' },
+  { key: 'high', label: t('High'), color: 'var(--color-risk-high)' },
+  { key: 'medium', label: t('Medium'), color: 'var(--color-risk-medium)' },
+  { key: 'low', label: t('Low'), color: 'var(--color-risk-low)' },
 ] as const
 
 function StatCard({
@@ -60,11 +61,11 @@ function TrendChart({ points }: { points: { period: string; amount: number; invo
     return (
       <EmptyState
         compact
-        title="No dated invoices yet"
-        description="The trend appears once invoices carrying a return period (or invoice date) are ingested."
+        title={t('No dated invoices yet')}
+        description={t('The trend appears once invoices carrying a return period (or invoice date) are ingested.')}
         action={
           <Link to="/ingest">
-            <Button variant="secondary" size="sm">Import GST invoices</Button>
+            <Button variant="secondary" size="sm">{t('Import GST invoices')}</Button>
           </Link>
         }
       />
@@ -88,7 +89,7 @@ function TrendChart({ points }: { points: { period: string; amount: number; invo
 
   return (
     <div>
-      <svg viewBox={`0 0 ${width} ${height}`} className="h-48 w-full" role="img" aria-label="Flagged invoice value by return period">
+      <svg viewBox={`0 0 ${width} ${height}`} className="h-48 w-full" role="img" aria-label={t('Flagged invoice value by return period')}>
         <defs>
           <linearGradient id="trend-fill" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor="var(--color-accent)" stopOpacity="0.35" />
@@ -128,8 +129,8 @@ function TrendChart({ points }: { points: { period: string; amount: number; invo
         ))}
       </svg>
       <div className="mt-1 flex items-center justify-between text-xs text-text-secondary">
-        <span>Peak period: {formatInrCompact(max)}</span>
-        <span>{points.reduce((sum, point) => sum + point.invoices, 0)} flagged invoices</span>
+        <span>{t('Peak period:')} {formatInrCompact(max)}</span>
+        <span>{points.reduce((sum, point) => sum + point.invoices, 0)} {t('flagged invoices')}</span>
       </div>
     </div>
   )
@@ -169,7 +170,7 @@ export default function Dashboard() {
       setActivity(auditRes.status === 'fulfilled' ? auditRes.value.data : [])
       setLastUpdated(new Date())
     } catch (err: any) {
-      setError(err?.response?.data?.detail?.message || 'Could not load the intelligence overview.')
+      setError(err?.response?.data?.detail?.message || t('Could not load the intelligence overview.'))
     } finally {
       setLoading(false)
     }
@@ -195,16 +196,16 @@ export default function Dashboard() {
     <div className="space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <p className="micro-label text-accent-ring">Command centre</p>
-          <h1 className="mt-1 text-display font-semibold tracking-tight">Fraud intelligence</h1>
+          <p className="micro-label text-accent-ring">{t('Command centre')}</p>
+          <h1 className="mt-1 text-display font-semibold tracking-tight">{t('Fraud intelligence')}</h1>
           <p className="mt-1 max-w-2xl text-sm text-text-secondary">
-            A ranked view of network risk across registered entities, fraud rings and open investigations.
-            {lastUpdated && <span className="ml-1 text-text-disabled">Updated {relativeTime(lastUpdated.toISOString())}.</span>}
+            {t('A ranked view of network risk across registered entities, fraud rings and open investigations.')}
+            {lastUpdated && <span className="ml-1 text-text-disabled">{t('Updated')} {relativeTime(lastUpdated.toISOString())}.</span>}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Link to="/ingest"><Button variant="secondary">Import data</Button></Link>
-          <Link to="/worklist"><Button>Open worklist</Button></Link>
+          <Link to="/ingest"><Button variant="secondary">{t('Import data')}</Button></Link>
+          <Link to="/worklist"><Button>{t('Open worklist')}</Button></Link>
         </div>
       </div>
 
@@ -212,9 +213,9 @@ export default function Dashboard() {
         <div className="panel flex flex-wrap items-center justify-between gap-3 border-risk-critical/40 p-4" role="alert">
           <div>
             <p className="text-sm font-medium text-risk-critical">{error}</p>
-            <p className="mt-0.5 text-xs text-text-secondary">The API may be warming up or a data source may be unavailable.</p>
+            <p className="mt-0.5 text-xs text-text-secondary">{t('The API may be warming up or a data source may be unavailable.')}</p>
           </div>
-          <Button variant="secondary" onClick={load} loading={loading}>Retry</Button>
+          <Button variant="secondary" onClick={load} loading={loading}>{t('Retry')}</Button>
         </div>
       )}
 
@@ -238,34 +239,34 @@ export default function Dashboard() {
         <>
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
             <StatCard
-              label="Entities monitored"
+              label={t('Entities monitored')}
               value={stats.companies.toLocaleString('en-IN')}
               sub={`${stats.directors.toLocaleString('en-IN')} directors in the graph`}
               tone="neutral"
             />
             <StatCard
-              label="Flagged entities"
+              label={t('Flagged entities')}
               value={stats.flagged_entities.toLocaleString('en-IN')}
               sub={`${flaggedPct}% of the monitored base`}
               tone="critical"
-              hint="Entities at or above the risk flag threshold. Flagging opens them to analyst review, not an automatic finding."
+              hint={t('Entities at or above the risk flag threshold. Flagging opens them to analyst review, not an automatic finding.')}
             />
             <StatCard
-              label="Rings detected"
+              label={t('Rings detected')}
               value={stats.cycles_detected.toLocaleString('en-IN')}
               sub="Closed invoice loops"
               tone="amber"
-              hint="A ring (cycle) is a closed chain of invoices that returns to the starting entity, a common circular-trading pattern."
+              hint={t('A ring (cycle) is a closed chain of invoices that returns to the starting entity, a common circular-trading pattern.')}
             />
             <StatCard
-              label="Estimated ITC at risk"
+              label={t('Estimated ITC at risk')}
               value={formatInrCompact(stats.estimated_itc_at_risk)}
               sub="Based on flagged-entity exposure"
               tone="accent"
-              hint="ITC = Input Tax Credit. This is an exposure estimate derived from the flagged entities' capital base, not a tax assessment."
+              hint={t('ITC = Input Tax Credit. This is an exposure estimate derived from the flagged entities\' capital base, not a tax assessment.')}
             />
             <StatCard
-              label="Open cases"
+              label={t('Open cases')}
               value={stats.open_cases.toLocaleString('en-IN')}
               sub={stats.top_risk_state ? `Highest-risk state: ${stats.top_risk_state}` : 'No state concentration yet'}
               tone="low"
@@ -276,17 +277,17 @@ export default function Dashboard() {
             <div className="panel p-5 lg:col-span-2">
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div>
-                  <h2 className="text-sm font-semibold">Risk distribution</h2>
-                  <p className="mt-0.5 text-xs text-text-secondary">Entity count by current risk band.</p>
+                  <h2 className="text-sm font-semibold">{t('Risk distribution')}</h2>
+                  <p className="mt-0.5 text-xs text-text-secondary">{t('Entity count by current risk band.')}</p>
                 </div>
-                <Badge tone="outline">{bandTotal.toLocaleString('en-IN')} scored</Badge>
+                <Badge tone="outline">{bandTotal.toLocaleString('en-IN')} {t('scored')}</Badge>
               </div>
 
               {bandTotal === 0 ? (
-                <EmptyState compact title="No scored entities" description="Risk scores appear after the scoring job has run on an ingested graph." />
+                <EmptyState compact title={t('No scored entities')} description={t('Risk scores appear after the scoring job has run on an ingested graph.')} />
               ) : (
                 <>
-                  <div className="mt-4 flex h-3 w-full overflow-hidden rounded-full bg-raised" role="img" aria-label="Risk band distribution">
+                  <div className="mt-4 flex h-3 w-full overflow-hidden rounded-full bg-raised" role="img" aria-label={t('Risk band distribution')}>
                     {BAND_META.map((band) => {
                       const count = distribution?.[band.key] || 0
                       const width = bandTotal ? (count / bandTotal) * 100 : 0
@@ -311,7 +312,7 @@ export default function Dashboard() {
                             {band.label}
                           </div>
                           <div className="mt-1 font-mono text-lg">{count.toLocaleString('en-IN')}</div>
-                          <div className="text-micro text-text-disabled">{pct}% of scored</div>
+                          <div className="text-micro text-text-disabled">{pct}{t('% of scored')}</div>
                         </div>
                       )
                     })}
@@ -323,13 +324,13 @@ export default function Dashboard() {
                 <div className="flex items-start justify-between gap-2">
                   <div>
                     <h2 className="flex items-center gap-1.5 text-sm font-semibold">
-                      ITC-at-risk trend
+                      {t('ITC-at-risk trend')}
                       <InfoHint
                         side="bottom"
-                        content="Proxy: total invoice value from flagged sellers grouped by GST return period (or invoice month when no period is present). Tax-rate data is not stored, so this is exposure, not a computed credit claim."
+                        content={t('Proxy: total invoice value from flagged sellers grouped by GST return period (or invoice month when no period is present). Tax-rate data is not stored, so this is exposure, not a computed credit claim.')}
                       />
                     </h2>
-                    <p className="mt-0.5 text-xs text-text-secondary">Flagged-seller invoice value by return period.</p>
+                    <p className="mt-0.5 text-xs text-text-secondary">{t('Flagged-seller invoice value by return period.')}</p>
                   </div>
                 </div>
                 <div className="mt-2">
@@ -342,16 +343,16 @@ export default function Dashboard() {
               <div className="flex items-start justify-between gap-2">
                 <div>
                   <h2 className="flex items-center gap-1.5 text-sm font-semibold">
-                    Top rings
-                    <InfoHint side="bottom" content="Rings are closed invoice cycles found in the transaction graph. Larger amounts and more members usually indicate higher exposure." />
+                    {t('Top rings')}
+                    <InfoHint side="bottom" content={t('Rings are closed invoice cycles found in the transaction graph. Larger amounts and more members usually indicate higher exposure.')} />
                   </h2>
-                  <p className="mt-0.5 text-xs text-text-secondary">By invoice value in the ring.</p>
+                  <p className="mt-0.5 text-xs text-text-secondary">{t('By invoice value in the ring.')}</p>
                 </div>
-                <Link to="/loops" className="text-xs text-accent-ring hover:underline">View all</Link>
+                <Link to="/loops" className="text-xs text-accent-ring hover:underline">{t('View all')}</Link>
               </div>
 
               {topRings.length === 0 ? (
-                <EmptyState compact title="No rings detected" description="Run the risk job after importing invoice data to detect circular trading." />
+                <EmptyState compact title={t('No rings detected')} description={t('Run the risk job after importing invoice data to detect circular trading.')} />
               ) : (
                 <ol className="mt-3 divide-y divide-border">
                   {topRings.map((ring, index) => {
@@ -369,7 +370,7 @@ export default function Dashboard() {
                                 {members.length > 1 && <span className="text-text-secondary"> +{members.length - 1}</span>}
                               </p>
                               <p className="text-data text-text-disabled">
-                                {members.length} members · {ring.length} invoice edges
+                                {members.length} {t('members ·')} {ring.length} {t('invoice edges')}
                               </p>
                             </div>
                           </div>
@@ -393,7 +394,7 @@ export default function Dashboard() {
               )}
               <div className="mt-auto pt-3">
                 <Link to="/cases">
-                  <Button variant="secondary" fullWidth>Open case board</Button>
+                  <Button variant="secondary" fullWidth>{t('Open case board')}</Button>
                 </Link>
               </div>
             </div>
@@ -403,13 +404,13 @@ export default function Dashboard() {
             <div className="panel p-5 lg:col-span-2">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-sm font-semibold">Recent activity</h2>
-                  <p className="mt-0.5 text-xs text-text-secondary">Latest audit events across ingestion, scoring and investigations.</p>
+                  <h2 className="text-sm font-semibold">{t('Recent activity')}</h2>
+                  <p className="mt-0.5 text-xs text-text-secondary">{t('Latest audit events across ingestion, scoring and investigations.')}</p>
                 </div>
-                <Badge tone="neutral">{activity.length} events</Badge>
+                <Badge tone="neutral">{activity.length} {t('events')}</Badge>
               </div>
               {activity.length === 0 ? (
-                <EmptyState compact title="No activity yet" description="Imports, score runs, logins and case actions are logged here as they happen." />
+                <EmptyState compact title={t('No activity yet')} description={t('Imports, score runs, logins and case actions are logged here as they happen.')} />
               ) : (
                 <ul className="mt-3 space-y-0 divide-y divide-border">
                   {activity.map((entry) => (
@@ -437,8 +438,8 @@ export default function Dashboard() {
             </div>
 
             <div className="panel p-5">
-              <h2 className="text-sm font-semibold">Risk band reference</h2>
-              <p className="mt-0.5 text-xs text-text-secondary">Bands used by badges, filters and exports.</p>
+              <h2 className="text-sm font-semibold">{t('Risk band reference')}</h2>
+              <p className="mt-0.5 text-xs text-text-secondary">{t('Bands used by badges, filters and exports.')}</p>
               <dl className="mt-3 space-y-2">
                 {BAND_META.map((band) => {
                   const level = riskLevel(
@@ -458,7 +459,7 @@ export default function Dashboard() {
                 })}
               </dl>
               <p className="mt-3 text-xs leading-relaxed text-text-disabled">
-                Scores are model-assisted prioritisation, not a legal finding. An analyst confirms every case.
+                {t('Scores are model-assisted prioritisation, not a legal finding. An analyst confirms every case.')}
               </p>
             </div>
           </div>

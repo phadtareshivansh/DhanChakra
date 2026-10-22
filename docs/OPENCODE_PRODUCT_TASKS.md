@@ -57,7 +57,7 @@ This file extends `OPENCODE_TASKS.md`. Read both. Where they conflict, this file
 - [x] P2.1 Design system and app shell
 - [x] P2.2 Core screens redesign
 - [x] P2.3 Graph investigation workspace
-- [ ] P2.4 Accessibility, responsive, i18n, visual tests
+- [x] P2.4 Accessibility, responsive, i18n, visual tests
 
 **Phase 3: Identity, tenancy, security**
 - [ ] P3.1 Organizations, tenancy and RBAC
@@ -155,6 +155,8 @@ Requirements:
 3. i18n framework with English complete and Hindi if I chose it. No hard-coded user-facing strings.
 4. Visual regression tests (Playwright screenshots) for key screens in both themes, run in CI.
 5. Run automated accessibility checks (axe) in CI.
+
+Verification (2026-10-22): the full Playwright suite passes 31/31 in the Linux Chromium image used for CI. It covers 14 axe runs (seven screens in light and dark themes, zero WCAG 2.2 A/AA violations), 13 visual snapshots (dashboard, worklist, entity, graph, cases and login in both themes plus the phone graph table), a Hindi language-switch test and tablet/phone responsive checks. Visual snapshots were regenerated and then compared cleanly in two consecutive full runs. The Hindi dictionary covers all 588 source strings; `npm run i18n:check`, `tsc --noEmit` and the production Vite build pass. Graph motion settles synchronously under `prefers-reduced-motion`, and the graph workspace always offers a keyboard-readable table view, which is the only graph view on phones.
 
 ---
 

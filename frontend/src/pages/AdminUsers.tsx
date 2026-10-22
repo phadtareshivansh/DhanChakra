@@ -1,3 +1,4 @@
+import { t } from '../i18n'
 import { useEffect, useState } from 'react'
 import api from '../utils/api'
 
@@ -28,7 +29,7 @@ export default function AdminUsers() {
     api
       .get('/admin/users')
       .then((r) => setUsers(r.data.users))
-      .catch((e) => setError(e.response?.data?.detail?.message || 'Failed to load users'))
+      .catch((e) => setError(e.response?.data?.detail?.message || t('Failed to load users')))
   }
 
   useEffect(load, [])
@@ -51,7 +52,7 @@ export default function AdminUsers() {
       setNotice('User updated')
       load()
     } catch (e: any) {
-      setError(e.response?.data?.detail?.message || 'Update failed')
+      setError(e.response?.data?.detail?.message || t('Update failed'))
     }
   }
 
@@ -64,17 +65,16 @@ export default function AdminUsers() {
         setNotice(`Password reset for ${u.email}`)
       }
     } catch (e: any) {
-      setError(e.response?.data?.detail?.message || 'Reset failed')
+      setError(e.response?.data?.detail?.message || t('Reset failed'))
     }
   }
 
   return (
     <div className="space-y-4 max-w-3xl">
       <div>
-        <h1 className="text-3xl font-bold">Users</h1>
+        <h1 className="text-3xl font-bold">{t('Users')}</h1>
         <p className="text-sm text-text-secondary mt-1">
-          One Super Admin and two standard users. Roles are fixed; you can change a standard user's
-          email, display name and password.
+          {t('One Super Admin and two standard users. Roles are fixed; you can change a standard user\'s email, display name and password.')}
         </p>
       </div>
 
@@ -94,11 +94,11 @@ export default function AdminUsers() {
               </div>
             </div>
             {u.role === 'admin' ? (
-              <span className="text-xs text-text-secondary">not editable here</span>
+              <span className="text-xs text-text-secondary">{t('not editable here')}</span>
             ) : (
               <div className="flex gap-2">
-                <button className="btn-secondary" onClick={() => startEdit(u)}>Edit</button>
-                <button className="btn-secondary" onClick={() => resetPassword(u)}>Reset password</button>
+                <button className="btn-secondary" onClick={() => startEdit(u)}>{t('Edit')}</button>
+                <button className="btn-secondary" onClick={() => resetPassword(u)}>{t('Reset password')}</button>
               </div>
             )}
           </div>
@@ -107,25 +107,25 @@ export default function AdminUsers() {
 
       {editing && (
         <div className="panel p-5 space-y-3">
-          <h2 className="text-lg font-semibold">Edit {editing.email}</h2>
+          <h2 className="text-lg font-semibold">{t('Edit')} {editing.email}</h2>
           <div>
-            <label className="micro-label block mb-1">Email</label>
+            <label className="micro-label block mb-1">{t('Email')}</label>
             <input className="input w-full" value={form.email}
                    onChange={(e) => setForm({ ...form, email: e.target.value })} />
           </div>
           <div>
-            <label className="micro-label block mb-1">Display name</label>
+            <label className="micro-label block mb-1">{t('Display name')}</label>
             <input className="input w-full" value={form.display_name}
                    onChange={(e) => setForm({ ...form, display_name: e.target.value })} />
           </div>
           <div>
-            <label className="micro-label block mb-1">New password (leave blank to keep)</label>
+            <label className="micro-label block mb-1">{t('New password (leave blank to keep)')}</label>
             <input className="input w-full" type="password" value={form.password}
                    onChange={(e) => setForm({ ...form, password: e.target.value })} />
           </div>
           <div className="flex gap-2 pt-1">
-            <button className="btn-primary" onClick={save}>Save</button>
-            <button className="btn-secondary" onClick={() => setEditing(null)}>Cancel</button>
+            <button className="btn-primary" onClick={save}>{t('Save')}</button>
+            <button className="btn-secondary" onClick={() => setEditing(null)}>{t('Cancel')}</button>
           </div>
         </div>
       )}

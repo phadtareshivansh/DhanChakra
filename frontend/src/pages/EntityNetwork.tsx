@@ -1,3 +1,4 @@
+import { t } from '../i18n'
 import { useEffect, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import * as d3 from 'd3'
@@ -54,7 +55,7 @@ export default function EntityNetwork() {
           setTimeline([])
         }
       } catch (err) {
-        setError('Failed to load network')
+        setError(t('Failed to load network'))
         console.error(err)
       } finally {
         setLoading(false)
@@ -92,11 +93,14 @@ export default function EntityNetwork() {
 
     svg.selectAll('*').remove()
 
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
     const simulation = d3.forceSimulation<NetworkNode>(nodes)
       .force('link', d3.forceLink<NetworkNode, NetworkEdge>(edges).id((d) => d.id).distance(100))
       .force('charge', d3.forceManyBody().strength(-300))
       .force('center', d3.forceCenter(width / 2, height / 2))
-      .force('collision', d3.forceCollide().radius(40))
+    if (!reduceMotion) {
+      simulation.force('collision', d3.forceCollide().radius(40))
+    }
 
     const visibleEdges = timeline.length && timeRange[1] >= timeRange[0]
       ? edges.filter(() => true)
@@ -166,7 +170,7 @@ export default function EntityNetwork() {
       .attr('dy', 35)
       .text((d) => d.label.length > 18 ? d.label.slice(0, 18) + '...' : d.label)
 
-    simulation.on('tick', () => {
+    const ticked = () => {
       link
         .attr('x1', (d: any) => d.source.x)
         .attr('y1', (d: any) => d.source.y)
@@ -184,7 +188,15 @@ export default function EntityNetwork() {
       ewayBadge
         .attr('cx', (d: any) => (((d.source as any)?.x ?? 0) + ((d.target as any)?.x ?? 0)) / 2)
         .attr('cy', (d: any) => (((d.source as any)?.y ?? 0) + ((d.target as any)?.y ?? 0)) / 2)
-    })
+    }
+    simulation.on('tick', ticked)
+
+    if (reduceMotion) {
+      // Respect the OS setting and keep visual-regression screenshots stable.
+      simulation.stop()
+      simulation.tick(160)
+      ticked()
+    }
 
     function drag(simulation: d3.Simulation<NetworkNode, NetworkEdge>) {
       function dragstarted(event: d3.D3DragEvent<SVGCircleElement, NetworkNode, NetworkNode>) {
@@ -229,18 +241,18 @@ export default function EntityNetwork() {
     <div className="h-[600px] bg-white rounded-lg border border-gray-200 relative">
       <svg ref={svgRef} className="w-full h-full" />
       <div className="absolute top-3 left-3 flex flex-wrap gap-3 text-[11px] text-gray-500 pointer-events-none">
-        <span><span className="inline-block w-2.5 h-2.5 rounded-full bg-sky-500 mr-1" />Company</span>
-        <span><span className="inline-block w-2.5 h-2.5 rounded-full bg-green-500 mr-1" />Director</span>
-        <span><span className="inline-block w-2.5 h-2.5 rounded-full bg-amber-500 mr-1" />Address</span>
-        <span><span className="inline-block w-2.5 h-2.5 rounded-full bg-violet-500 mr-1" />Bank</span>
-        <span className="text-red-600">red solid = flagged cycle</span>
-        <span className="text-red-600">red dashed = burst (high-volume window)</span>
-        <span><span className="inline-block w-2.5 h-2.5 rounded-full bg-orange-500 mr-1" />e-Way Bill mismatch (no movement record)</span>
+        <span><span className="inline-block w-2.5 h-2.5 rounded-full bg-sky-500 mr-1" />{t('Company')}</span>
+        <span><span className="inline-block w-2.5 h-2.5 rounded-full bg-green-500 mr-1" />{t('Director')}</span>
+        <span><span className="inline-block w-2.5 h-2.5 rounded-full bg-amber-500 mr-1" />{t('Address')}</span>
+        <span><span className="inline-block w-2.5 h-2.5 rounded-full bg-violet-500 mr-1" />{t('Bank')}</span>
+        <span className="text-red-600">{t('red solid = flagged cycle')}</span>
+        <span className="text-red-600">{t('red dashed = burst (high-volume window)')}</span>
+        <span><span className="inline-block w-2.5 h-2.5 rounded-full bg-orange-500 mr-1" />{t('e-Way Bill mismatch (no movement record)')}</span>
       </div>
       {timeline.length > 0 && (
         <div className="absolute bottom-3 left-3 right-3 bg-white/90 p-2 rounded border border-gray-200">
           <div className="flex items-center gap-2 text-[11px] text-gray-600">
-            <span>Timeline</span>
+            <span>{t('Timeline')}</span>
             <input type="range" min={0} max={timeline.length - 1} value={timeRange[1]} onChange={(e) => setTimeRange([0, parseInt(e.target.value)])} className="flex-1" />
             <span>{timeline[timeRange[1]]?.date}</span>
           </div>
@@ -259,7 +271,7 @@ export default function EntityNetwork() {
             onClick={() => setSelectedNode(null)}
             className="mt-2 text-primary-600 hover:underline text-sm"
           >
-            Close
+            {t('Close')}
           </button>
         </div>
       )}

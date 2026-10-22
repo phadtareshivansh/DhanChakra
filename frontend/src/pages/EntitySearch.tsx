@@ -1,3 +1,4 @@
+import { t } from '../i18n'
 import { useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { SearchResult } from '../types/api'
@@ -23,7 +24,7 @@ export default function EntitySearch() {
       setResults(response.data.results)
       setSearched(true)
     } catch (err) {
-      setError('Failed to search entities')
+      setError(t('Failed to search entities'))
       console.error(err)
     } finally {
       setLoading(false)
@@ -33,8 +34,8 @@ export default function EntitySearch() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">Entity Search</h1>
-        <p className="text-sm text-text-secondary mt-1">Search by GSTIN, CIN, company name, DIN, or IFSC.</p>
+        <h1 className="text-3xl font-bold">{t('Entity Search')}</h1>
+        <p className="text-sm text-text-secondary mt-1">{t('Search by GSTIN, CIN, company name, DIN, or IFSC.')}</p>
       </div>
 
       <form onSubmit={handleSearch} className="flex gap-3">
@@ -42,7 +43,7 @@ export default function EntitySearch() {
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="e.g. 27AAAAA0000A1Z5 or Alpha Corp…"
+          placeholder={t('e.g. 27AAAAA0000A1Z5 or Alpha Corp…')}
           className="input flex-1"
         />
         <button type="submit" disabled={loading || !query.trim()} className="btn-primary">
@@ -67,12 +68,12 @@ export default function EntitySearch() {
           <table className="w-full text-sm">
             <thead className="bg-raised">
               <tr className="text-left text-micro uppercase tracking-micro text-text-secondary">
-                <th className="py-2.5 px-4">Type</th>
-                <th className="py-2.5 px-4">Name</th>
-                <th className="py-2.5 px-4">Identifier</th>
-                <th className="py-2.5 px-4">State</th>
-                <th className="py-2.5 px-4">Risk</th>
-                <th className="py-2.5 px-4 text-right">Actions</th>
+                <th className="py-2.5 px-4">{t('Type')}</th>
+                <th className="py-2.5 px-4">{t('Name')}</th>
+                <th className="py-2.5 px-4">{t('Identifier')}</th>
+                <th className="py-2.5 px-4">{t('State')}</th>
+                <th className="py-2.5 px-4">{t('Risk')}</th>
+                <th className="py-2.5 px-4 text-right">{t('Actions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -89,7 +90,7 @@ export default function EntitySearch() {
                   <td className="px-4 py-3"><RiskBadge score={result.risk_score} /></td>
                   <td className="px-4 py-3 text-right">
                     <Link to={`/entity/${result.id}/network`} className="text-accent-ring hover:underline text-sm">
-                      View Network →
+                      {t('View Network →')}
                     </Link>
                   </td>
                 </tr>
@@ -102,7 +103,7 @@ export default function EntitySearch() {
       {!loading && searched && results.length === 0 && (
         <div className="panel p-12 text-center text-text-secondary">
           <div className="text-3xl mb-2">⌕</div>
-          No entities match "{query}" — try a broader name or a partial CIN/GSTIN.
+          {t('No entities match "')}{query}{t('" — try a broader name or a partial CIN/GSTIN.')}
         </div>
       )}
     </div>

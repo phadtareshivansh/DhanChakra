@@ -1,3 +1,4 @@
+import { t } from '../i18n'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../utils/api'
@@ -26,7 +27,7 @@ export default function Login() {
       localStorage.setItem('dhanchakra_user', JSON.stringify(res.data.user))
       navigate('/')
     } catch (err: any) {
-      setError(err.response?.data?.detail?.message || 'Login failed')
+      setError(err.response?.data?.detail?.message || t('Login failed'))
     } finally {
       setLoading(false)
     }
@@ -36,10 +37,10 @@ export default function Login() {
     <div className="min-h-screen bg-canvas flex items-center justify-center px-4">
       <div className="panel-raised rounded-xl p-8 w-full max-w-sm">
         <div className="flex items-center gap-3 mb-8">
-          <img src="/favicon.svg" alt="Dhan-Chakra" className="w-14 h-14 rounded-xl border border-border object-cover bg-surface" />
+          <img src="/favicon.svg" alt={t('Dhan-Chakra')} className="w-14 h-14 rounded-xl border border-border object-cover bg-surface" />
           <div>
-            <h1 className="text-2xl font-bold">Dhan-Chakra</h1>
-            <p className="text-xs text-text-secondary mt-0.5">Graph-AI Engine for Shell Company Loops & GST Fraud Detection</p>
+            <h1 className="text-2xl font-bold">{t('Dhan-Chakra')}</h1>
+            <p className="text-xs text-text-secondary mt-0.5">{t('Graph-AI Engine for Shell Company Loops & GST Fraud Detection')}</p>
           </div>
         </div>
 
@@ -51,18 +52,18 @@ export default function Login() {
 
         <form onSubmit={submit} className="space-y-4">
           <div>
-            <label className="micro-label block mb-1.5">Email</label>
+            <label className="micro-label block mb-1.5">{t('Email')}</label>
             <input
               className="input w-full"
               type="email"
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.gov.in"
+              placeholder={t('you@example.gov.in')}
             />
           </div>
           <div>
-            <label className="micro-label block mb-1.5">Password</label>
+            <label className="micro-label block mb-1.5">{t('Password')}</label>
             <input
               className="input w-full"
               type="password"
@@ -73,7 +74,7 @@ export default function Login() {
             />
           </div>
           <button className="btn-primary w-full" disabled={loading}>
-            {loading ? 'Signing in…' : 'Sign in'}
+            {loading ? t('Signing in…') : t('Sign in')}
           </button>
         </form>
 

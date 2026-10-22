@@ -1,3 +1,4 @@
+import { t } from '../../i18n'
 import { useEffect, useRef, useState } from 'react'
 import api from '../../utils/api'
 import { cn } from '../../utils/cn'
@@ -67,7 +68,7 @@ export default function NotificationsBell() {
           />
         </svg>
         {unread.length > 0 && (
-          <span className="absolute right-1.5 top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-risk-critical px-1 text-[9px] font-bold text-white">
+          <span className="absolute right-1.5 top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-risk-critical px-1 text-[9px] font-bold text-canvas">
             {unread.length > 9 ? '9+' : unread.length}
           </span>
         )}
@@ -76,14 +77,14 @@ export default function NotificationsBell() {
       {open && (
         <div className="absolute right-0 top-11 z-50 w-80 overflow-hidden rounded-lg border border-border bg-surface shadow-lg">
           <div className="flex items-center justify-between border-b border-border px-3 py-2">
-            <span className="text-xs font-semibold text-text-primary">Notifications</span>
-            <span className="text-[10px] text-text-secondary">{unread.length} unread</span>
+            <span className="text-xs font-semibold text-text-primary">{t('Notifications')}</span>
+            <span className="text-[10px] text-text-secondary">{unread.length} {t('unread')}</span>
           </div>
           {error && (
-            <div className="px-3 py-3 text-xs text-risk-critical">Could not load notifications.</div>
+            <div className="px-3 py-3 text-xs text-risk-critical">{t('Could not load notifications.')}</div>
           )}
           {!error && notifications.length === 0 && (
-            <div className="px-3 py-4 text-xs text-text-secondary">No notifications yet.</div>
+            <div className="px-3 py-4 text-xs text-text-secondary">{t('No notifications yet.')}</div>
           )}
           <div className="max-h-80 overflow-y-auto">
             {notifications.slice(0, 10).map((notification) => (

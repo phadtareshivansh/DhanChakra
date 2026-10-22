@@ -20,16 +20,17 @@ html, body, #root {
   --color-border: #26303E;
   --color-text-primary: #E7EDF3;
   --color-text-secondary: #8B99AB;
-  --color-text-disabled: #4C5768;
-  --color-accent: #1F8A8C;
-  --color-accent-hover: #26A3A6;
+  --color-text-disabled: #7F8DA0;
+  --color-accent: #1C7F81;
+  --color-accent-hover: #187477;
   --color-accent-ring: #4FD1D4;
   --color-amber: #D6A94A;
-  --risk-critical: #E5484D;
+  --risk-critical: #FF6B70;
   --risk-high: #F2994A;
   --risk-medium: #F2C94C;
   --risk-low: #6FCF97;
   --risk-neutral: #8B99AB;
+  --color-risk-badge-text: #0B0F14;
   --radius-sm: 6px;
   --radius-md: 8px;
   --radius-lg: 12px;
@@ -96,16 +97,17 @@ html, body, #root {
   --color-border: #E2E8F0;
   --color-text-primary: #0F172A;
   --color-text-secondary: #475569;
-  --color-text-disabled: #94A3B8;
-  --color-accent: #1F8A8C;
-  --color-accent-hover: #26A3A6;
-  --color-accent-ring: #4FD1D4;
-  --color-amber: #D97706;
-  --risk-critical: #DC2626;
-  --risk-high: #EA580C;
-  --risk-medium: #CA8A04;
-  --risk-low: #16A34A;
+  --color-text-disabled: #64748B;
+  --color-accent: #1C7F81;
+  --color-accent-hover: #187477;
+  --color-accent-ring: #0F6E70;
+  --color-amber: #92400E;
+  --risk-critical: #B91C1C;
+  --risk-high: #9A3412;
+  --risk-medium: #854D0E;
+  --risk-low: #166534;
   --risk-neutral: #64748B;
+  --color-risk-badge-text: #FFFFFF;
   --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
   --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
   --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1);
@@ -163,7 +165,7 @@ body {
     @apply inline-flex items-center justify-center gap-2 h-10 px-4 rounded-lg border border-border text-text-primary text-sm font-medium transition-colors hover:bg-raised disabled:opacity-50 disabled:cursor-not-allowed;
   }
   .btn-critical {
-    @apply inline-flex items-center justify-center gap-2 h-10 px-4 rounded-lg bg-risk-critical text-white text-sm font-medium transition-colors hover:opacity-90 disabled:opacity-50;
+    @apply inline-flex items-center justify-center gap-2 h-10 px-4 rounded-lg bg-risk-critical text-canvas text-sm font-medium transition-colors hover:opacity-90 disabled:opacity-50;
   }
   .btn-compact {
     @apply h-8 px-3 text-xs;

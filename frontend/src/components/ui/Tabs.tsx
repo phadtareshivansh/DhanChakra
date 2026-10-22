@@ -1,3 +1,4 @@
+import { t } from '../../i18n'
 import { ReactNode, useId, useRef } from 'react'
 import { cn } from '../../utils/cn'
 
@@ -33,7 +34,7 @@ export default function Tabs({ items, value, onChange, className, fullWidth = fa
   return (
     <div
       role="tablist"
-      aria-label="Sections"
+      aria-label={t('Sections')}
       className={cn('flex items-center gap-1 border-b border-border', className)}
     >
       {items.map((item) => {
@@ -47,7 +48,6 @@ export default function Tabs({ items, value, onChange, className, fullWidth = fa
             role="tab"
             id={`${baseId}-tab-${item.id}`}
             aria-selected={selected}
-            aria-controls={`${baseId}-panel-${item.id}`}
             tabIndex={selected ? 0 : -1}
             disabled={item.disabled}
             onClick={() => onChange(item.id)}

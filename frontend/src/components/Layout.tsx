@@ -1,3 +1,4 @@
+import { t } from '../i18n'
 import { Link, Outlet, useLocation } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import { RISK_THRESHOLDS } from '../config/risk'
@@ -7,19 +8,37 @@ import CommandPalette from './shell/CommandPalette'
 import NotificationsBell from './shell/NotificationsBell'
 import OrgSwitcher from './shell/OrgSwitcher'
 import Sidebar from './shell/Sidebar'
+import LanguageSwitcher from './shell/LanguageSwitcher'
+import { cn } from '../utils/cn'
 import UserMenu, { ShellUser } from './shell/UserMenu'
 
 const SIDEBAR_KEY = 'dhanchakra_sidebar_collapsed'
 
+const CRUMB_LABELS: Record<string, string> = {
+  graph: 'Graph workspace',
+  worklist: 'Worklist',
+  entity: 'Entity',
+  network: 'Network',
+  cases: 'Cases',
+  case: 'Case',
+  export: 'Export',
+  ingest: 'Ingest',
+  settings: 'Settings',
+  admin: 'Users',
+  users: 'Users',
+  search: 'Entity Search',
+  loops: 'Loops',
+}
+
 function buildCrumbs(pathname: string): BreadcrumbItem[] {
-  if (pathname === '/') return [{ label: 'Dashboard' }]
+  if (pathname === '/') return [{ label: t('Dashboard') }]
   const segments = pathname.split('/').filter(Boolean)
   return segments.map((segment, index) => {
-    const label = segment
+    const fallback = segment
       .replace(/-/g, ' ')
       .replace(/^\w/, (character) => character.toUpperCase())
     return {
-      label,
+      label: t(CRUMB_LABELS[segment] || fallback),
       href: '/' + segments.slice(0, index + 1).join('/'),
     }
   })
@@ -34,6 +53,7 @@ export default function Layout() {
     return window.innerWidth < 1024
   })
   const [paletteOpen, setPaletteOpen] = useState(false)
+  const [mobileNavOpen, setMobileNavOpen] = useState(false)
   const [showLegend, setShowLegend] = useState(true)
   const { theme, toggleTheme } = useTheme()
 
@@ -52,6 +72,19 @@ export default function Layout() {
   }, [collapsed])
 
   useEffect(() => {
+    setMobileNavOpen(false)
+  }, [location.pathname])
+
+  useEffect(() => {
+    if (!mobileNavOpen) return
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setMobileNavOpen(false)
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => document.removeEventListener('keydown', onKeyDown)
+  }, [mobileNavOpen])
+
+  useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
         event.preventDefault()
@@ -66,18 +99,44 @@ export default function Layout() {
 
   return (
     <div className="min-h-screen bg-canvas text-text-primary">
+      <a
+        href="#main-content"
+        className="sr-only z-[100] rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white focus:not-sr-only focus:fixed focus:left-4 focus:top-4"
+      >
+        {t('Skip to main content')}
+      </a>
+
+      {mobileNavOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/60 backdrop-blur-[1px] md:hidden"
+          aria-hidden="true"
+          onClick={() => setMobileNavOpen(false)}
+        />
+      )}
+
       <Sidebar
         collapsed={collapsed}
         onToggle={() => setCollapsed((current) => !current)}
         isAdmin={user?.role === 'admin'}
+        mobileOpen={mobileNavOpen}
+        onMobileClose={() => setMobileNavOpen(false)}
       />
 
-      <div
-        className="min-h-screen transition-[margin] duration-200 ease-out"
-        style={{ marginLeft: collapsed ? 68 : 240 }}
-      >
+      <div className={cn('min-h-screen transition-[margin] duration-200 ease-out', collapsed ? 'md:ml-[68px]' : 'md:ml-[240px]')}>
         <header className="sticky top-0 z-30 border-b border-border bg-canvas/90 backdrop-blur">
-          <div className="flex h-14 items-center gap-3 px-4 sm:px-6">
+          <div className="flex h-14 items-center gap-2 px-3 sm:gap-3 sm:px-6">
+            <button
+              type="button"
+              onClick={() => setMobileNavOpen(true)}
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-text-secondary hover:bg-raised hover:text-text-primary md:hidden"
+              aria-label={t('Open navigation')}
+              aria-expanded={mobileNavOpen}
+            >
+              <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
+
             <Breadcrumbs
               items={crumbs}
               className="hidden min-w-0 flex-1 md:block"
@@ -92,26 +151,30 @@ export default function Layout() {
               type="button"
               onClick={() => setPaletteOpen(true)}
               className="flex h-9 flex-1 items-center gap-2 rounded-lg border border-border bg-canvas px-3 text-left text-xs text-text-disabled transition-colors hover:border-accent-ring/60 hover:text-text-secondary md:ml-auto md:max-w-xs md:flex-none"
-              aria-label="Open global search"
+              aria-label={t('Open global search')}
             >
               <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
-              <span className="truncate">Search entities…</span>
+              <span className="truncate">{t('Search entities…')}</span>
               <kbd className="ml-auto hidden shrink-0 rounded border border-border px-1.5 py-0.5 text-[10px] text-text-secondary sm:inline">
-                ⌘K
+                {t('⌘K')}
               </kbd>
             </button>
 
-            <div className="hidden sm:block">
+            <div className="hidden lg:block">
               <OrgSwitcher />
+            </div>
+
+            <div className="hidden sm:block">
+              <LanguageSwitcher compact />
             </div>
 
             <button
               type="button"
               onClick={toggleTheme}
-              aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
-              title={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+              aria-label={theme === 'dark' ? t('Switch to light theme') : t('Switch to dark theme')}
+              title={theme === 'dark' ? t('Switch to light theme') : t('Switch to dark theme')}
               className="flex h-9 w-9 items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-raised hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-ring"
             >
               {theme === 'dark' ? (
@@ -133,27 +196,27 @@ export default function Layout() {
         {showLegend && (
           <div className="px-4 pt-4 sm:px-6">
             <div className="panel flex flex-wrap items-center gap-x-5 gap-y-2 px-4 py-2 text-[11px] text-text-secondary">
-              <span className="micro-label">Risk legend</span>
+              <span className="micro-label">{t('Risk legend')}</span>
               <span>
                 <span className="mr-1 inline-block h-2 w-2 rounded-full bg-risk-critical" />
-                Critical ≥{RISK_THRESHOLDS.critical}
+                {t('Critical ≥')}{RISK_THRESHOLDS.critical}
               </span>
               <span>
                 <span className="mr-1 inline-block h-2 w-2 rounded-full bg-risk-high" />
-                High {RISK_THRESHOLDS.high}–{RISK_THRESHOLDS.critical - 1}
+                {t('High')} {RISK_THRESHOLDS.high}–{RISK_THRESHOLDS.critical - 1}
               </span>
               <span>
                 <span className="mr-1 inline-block h-2 w-2 rounded-full bg-risk-medium" />
-                Medium {RISK_THRESHOLDS.medium}–{RISK_THRESHOLDS.high - 1}
+                {t('Medium')} {RISK_THRESHOLDS.medium}–{RISK_THRESHOLDS.high - 1}
               </span>
               <span>
                 <span className="mr-1 inline-block h-2 w-2 rounded-full bg-risk-low" />
-                Low &lt;{RISK_THRESHOLDS.medium}
+                {t('Low <')}{RISK_THRESHOLDS.medium}
               </span>
               <button
                 type="button"
                 onClick={() => setShowLegend(false)}
-                aria-label="Dismiss risk legend"
+                aria-label={t('Dismiss risk legend')}
                 className="ml-auto text-text-disabled hover:text-text-primary"
               >
                 ✕
@@ -162,7 +225,7 @@ export default function Layout() {
           </div>
         )}
 
-        <main className="p-4 sm:p-6">
+        <main id="main-content" tabIndex={-1} className="p-4 sm:p-6">
           <Outlet />
         </main>
       </div>

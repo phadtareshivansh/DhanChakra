@@ -1,3 +1,4 @@
+import { t } from '../i18n'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import api from '../utils/api'
@@ -147,7 +148,7 @@ export default function Worklist() {
       const res = await api.get<WorklistResponse>(`/worklist?${params.toString()}`)
       setData(res.data)
     } catch (err: any) {
-      setError(err?.response?.data?.detail?.message || 'Could not load the worklist.')
+      setError(err?.response?.data?.detail?.message || t('Could not load the worklist.'))
     } finally {
       setLoading(false)
     }
@@ -259,7 +260,7 @@ export default function Worklist() {
         setUsers(res.data)
         if (res.data[0]) setAssigneeId(res.data[0].id)
       } catch {
-        toast.push({ title: 'Could not load analysts', tone: 'critical' })
+        toast.push({ title: t('Could not load analysts'), tone: 'critical' })
       }
     }
     if (kind === 'case' && cases.length === 0) {
@@ -268,7 +269,7 @@ export default function Worklist() {
         setCases(res.data)
         if (res.data[0]) setCaseId(res.data[0].id)
       } catch {
-        toast.push({ title: 'Could not load cases', tone: 'critical' })
+        toast.push({ title: t('Could not load cases'), tone: 'critical' })
       }
     }
   }
@@ -301,7 +302,7 @@ export default function Worklist() {
       await load()
     } catch (err: any) {
       toast.push({
-        title: 'Bulk action failed',
+        title: t('Bulk action failed'),
         description: err?.response?.data?.detail?.message || 'Try again or reduce the selection.',
         tone: 'critical',
       })
@@ -336,18 +337,18 @@ export default function Worklist() {
     () => [
       { id: 'critical', label: `Critical ${RISK_THRESHOLDS.critical}+` },
       { id: 'high', label: `High ${RISK_THRESHOLDS.high}–${RISK_THRESHOLDS.critical - 1}` },
-      { id: 'medium', label: `Medium ${RISK_THRESHOLDS.medium}–${RISK_THRESHOLDS.high - 1}` },
-      { id: 'low', label: `Low <${RISK_THRESHOLDS.medium}` },
+      { id: 'medium', label: t('Medium {min}–{max}', { min: RISK_THRESHOLDS.medium, max: RISK_THRESHOLDS.high - 1 }) },
+      { id: 'low', label: t('Low <{max}', { max: RISK_THRESHOLDS.medium }) },
     ],
     [],
   )
 
   const stateOptions = [
-    { value: '', label: 'All states' },
+    { value: '', label: t('All states') },
     ...(facets?.states || []).map((state) => ({ value: state, label: state })),
   ]
   const sectorOptions = [
-    { value: '', label: 'All sectors' },
+    { value: '', label: t('All sectors') },
     ...(facets?.sectors || []).map((sector) => ({ value: sector, label: `NIC ${sector}` })),
   ]
 
@@ -358,10 +359,10 @@ export default function Worklist() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <p className="micro-label text-accent-ring">Investigation queue</p>
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight">Risk worklist</h1>
+          <p className="micro-label text-accent-ring">{t('Investigation queue')}</p>
+          <h1 className="mt-1 text-2xl font-semibold tracking-tight">{t('Risk worklist')}</h1>
           <p className="mt-1 max-w-2xl text-sm text-text-secondary">
-            Ranked entities with network evidence. Filter, save a view, then assign or label a batch without leaving the queue.
+            {t('Ranked entities with network evidence. Filter, save a view, then assign or label a batch without leaving the queue.')}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -370,18 +371,18 @@ export default function Worklist() {
               {data.total.toLocaleString('en-IN')} {data.total === 1 ? 'entity' : 'entities'}
             </Badge>
           )}
-          <Button variant="secondary" onClick={() => setSaveOpen(true)}>Save view</Button>
+          <Button variant="secondary" onClick={() => setSaveOpen(true)}>{t('Save view')}</Button>
         </div>
       </div>
 
       <div className="panel space-y-3 p-4">
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-12">
           <div className="xl:col-span-4">
-            <label className="micro-label mb-1.5 block" htmlFor="worklist-search">Search</label>
+            <label className="micro-label mb-1.5 block" htmlFor="worklist-search">{t('Search')}</label>
             <Input
               id="worklist-search"
               inputSize="sm"
-              placeholder="Name, CIN or GSTIN"
+              placeholder={t('Name, CIN or GSTIN')}
               value={filters.q}
               onChange={(event) => updateFilter({ q: event.target.value })}
               leadingIcon={
@@ -392,16 +393,16 @@ export default function Worklist() {
             />
           </div>
           <div className="xl:col-span-2">
-            <Select label="State" selectSize="sm" value={filters.state} onChange={(event) => updateFilter({ state: event.target.value })} options={stateOptions} />
+            <Select label={t('State')} selectSize="sm" value={filters.state} onChange={(event) => updateFilter({ state: event.target.value })} options={stateOptions} />
           </div>
           <div className="xl:col-span-2">
-            <Select label="Sector" selectSize="sm" value={filters.sector} onChange={(event) => updateFilter({ sector: event.target.value })} options={sectorOptions} />
+            <Select label={t('Sector')} selectSize="sm" value={filters.sector} onChange={(event) => updateFilter({ sector: event.target.value })} options={sectorOptions} />
           </div>
           <div className="xl:col-span-1">
-            <Input label="Min score" inputSize="sm" type="number" min={0} max={100} value={filters.minScore} onChange={(event) => updateFilter({ minScore: event.target.value, bands: [] })} />
+            <Input label={t('Min score')} inputSize="sm" type="number" min={0} max={100} value={filters.minScore} onChange={(event) => updateFilter({ minScore: event.target.value, bands: [] })} />
           </div>
           <div className="xl:col-span-1">
-            <Input label="Max score" inputSize="sm" type="number" min={0} max={100} value={filters.maxScore} onChange={(event) => updateFilter({ maxScore: event.target.value, bands: [] })} />
+            <Input label={t('Max score')} inputSize="sm" type="number" min={0} max={100} value={filters.maxScore} onChange={(event) => updateFilter({ maxScore: event.target.value, bands: [] })} />
           </div>
           <div className="flex items-end xl:col-span-2">
             <label className="flex h-8 cursor-pointer items-center gap-2 rounded-lg border border-border px-2.5 text-xs text-text-secondary">
@@ -411,7 +412,7 @@ export default function Worklist() {
                 checked={filters.hasCycles}
                 onChange={(event) => updateFilter({ hasCycles: event.target.checked })}
               />
-              In a ring
+              {t('In a ring')}
             </label>
           </div>
         </div>
@@ -426,17 +427,17 @@ export default function Worklist() {
           />
           <div className="flex items-center gap-2">
             {filterCount > 0 && (
-              <Button variant="ghost" size="sm" onClick={clearFilters}>Clear {filterCount} filter{filterCount === 1 ? '' : 's'}</Button>
+              <Button variant="ghost" size="sm" onClick={clearFilters}>{t('Clear')} {filterCount} {t('filter')}{filterCount === 1 ? '' : 's'}</Button>
             )}
             <InfoHint
-              content="Risk bands are presets over the same score range. Combining bands widens the min/max range; editing the score inputs clears band selection."
+              content={t('Risk bands are presets over the same score range. Combining bands widens the min/max range; editing the score inputs clears band selection.')}
             />
           </div>
         </div>
 
         {views.length > 0 && (
           <div className="flex flex-wrap items-center gap-2 border-t border-border pt-3">
-            <span className="micro-label">Saved views</span>
+            <span className="micro-label">{t('Saved views')}</span>
             {views.map((view) => (
               <span key={view.id} className="inline-flex items-center overflow-hidden rounded-full border border-border">
                 <button
@@ -463,8 +464,8 @@ export default function Worklist() {
       {error ? (
         <div className="panel p-8 text-center" role="alert">
           <p className="text-sm font-medium text-risk-critical">{error}</p>
-          <p className="mt-1 text-xs text-text-secondary">Check that the graph is available, then retry.</p>
-          <Button variant="secondary" className="mt-4" onClick={load}>Retry</Button>
+          <p className="mt-1 text-xs text-text-secondary">{t('Check that the graph is available, then retry.')}</p>
+          <Button variant="secondary" className="mt-4" onClick={load}>{t('Retry')}</Button>
         </div>
       ) : loading && !data ? (
         <div className="panel overflow-hidden">
@@ -482,13 +483,13 @@ export default function Worklist() {
       ) : (
         <div className="panel overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[900px] text-sm" aria-label="Risk worklist">
+            <table className="w-full min-w-[900px] text-sm" aria-label={t('Risk worklist')}>
               <thead className="sticky top-0 z-10 bg-raised/95 backdrop-blur">
                 <tr className="text-left text-micro uppercase tracking-micro text-text-secondary">
                   <th className="w-10 px-3 py-2.5">
                     <input
                       type="checkbox"
-                      aria-label="Select all rows on this page"
+                      aria-label={t('Select all rows on this page')}
                       className="h-3.5 w-3.5 accent-[var(--color-accent)]"
                       checked={allSelected}
                       onChange={toggleAll}
@@ -496,30 +497,30 @@ export default function Worklist() {
                   </th>
                   <th className="px-3 py-2.5">
                     <button type="button" className="hover:text-text-primary" onClick={() => toggleSort('risk_score')}>
-                      Risk {sort === 'risk_score' ? (direction === 'desc' ? '↓' : '↑') : ''}
+                      {t('Risk')} {sort === 'risk_score' ? (direction === 'desc' ? '↓' : '↑') : ''}
                     </button>
                   </th>
                   <th className="px-3 py-2.5">
                     <button type="button" className="hover:text-text-primary" onClick={() => toggleSort('name')}>
-                      Entity {sort === 'name' ? (direction === 'desc' ? '↓' : '↑') : ''}
+                      {t('Entity')} {sort === 'name' ? (direction === 'desc' ? '↓' : '↑') : ''}
                     </button>
                   </th>
-                  <th className="px-3 py-2.5">GSTIN / CIN</th>
-                  <th className="px-3 py-2.5">State</th>
-                  <th className="px-3 py-2.5">Sector</th>
+                  <th className="px-3 py-2.5">{t('GSTIN / CIN')}</th>
+                  <th className="px-3 py-2.5">{t('State')}</th>
+                  <th className="px-3 py-2.5">{t('Sector')}</th>
                   <th className="px-3 py-2.5">
                     <span className="inline-flex items-center gap-1">
-                      Loops
-                      <InfoHint content="Number of detected fraud rings this entity belongs to. A ring is a closed chain of invoices." />
+                      {t('Loops')}
+                      <InfoHint content={t('Number of detected fraud rings this entity belongs to. A ring is a closed chain of invoices.')} />
                     </span>
                   </th>
-                  <th className="px-3 py-2.5">Owner</th>
+                  <th className="px-3 py-2.5">{t('Owner')}</th>
                   <th className="px-3 py-2.5 text-right">
                     <button type="button" className="hover:text-text-primary" onClick={() => toggleSort('paid_up_capital')}>
-                      Paid-up capital {sort === 'paid_up_capital' ? (direction === 'desc' ? '↓' : '↑') : ''}
+                      {t('Paid-up capital')} {sort === 'paid_up_capital' ? (direction === 'desc' ? '↓' : '↑') : ''}
                     </button>
                   </th>
-                  <th className="px-3 py-2.5 text-right">Updated</th>
+                  <th className="px-3 py-2.5 text-right">{t('Updated')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -586,7 +587,7 @@ export default function Worklist() {
                             <span className="max-w-[8rem] truncate text-xs">{assignment.assignee_name}</span>
                           </span>
                         ) : (
-                          <span className="text-xs text-text-disabled">Unassigned</span>
+                          <span className="text-xs text-text-disabled">{t('Unassigned')}</span>
                         )}
                       </td>
                       <td className="px-3 py-2.5 text-right font-mono text-data">{formatInr(item.paid_up_capital)}</td>
@@ -603,15 +604,15 @@ export default function Worklist() {
           {!loading && items.length === 0 && (
             filterCount > 0 ? (
               <EmptyState
-                title="No entities match these filters"
-                description="Try removing a risk band, widening the score range, or clearing the ring filter."
-                action={<Button variant="secondary" onClick={clearFilters}>Clear all filters</Button>}
+                title={t('No entities match these filters')}
+                description={t('Try removing a risk band, widening the score range, or clearing the ring filter.')}
+                action={<Button variant="secondary" onClick={clearFilters}>{t('Clear all filters')}</Button>}
               />
             ) : (
               <EmptyState
-                title="No scored entities yet"
-                description="Import MCA and GST data, then run a risk job to populate the queue."
-                action={<Link to="/ingest"><Button>Import data</Button></Link>}
+                title={t('No scored entities yet')}
+                description={t('Import MCA and GST data, then run a risk job to populate the queue.')}
+                action={<Link to="/ingest"><Button>{t('Import data')}</Button></Link>}
               />
             )
           )}
@@ -619,10 +620,10 @@ export default function Worklist() {
           <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-4 py-3">
             <span className="text-xs text-text-disabled">
               <kbd className="rounded border border-border px-1">↑</kbd>{' '}
-              <kbd className="rounded border border-border px-1">↓</kbd> move ·{' '}
-              <kbd className="rounded border border-border px-1">Space</kbd> select ·{' '}
-              <kbd className="rounded border border-border px-1">Enter</kbd> open
-              {loading && <span className="ml-2 text-accent-ring">Refreshing…</span>}
+              <kbd className="rounded border border-border px-1">↓</kbd> {t('move ·')}{' '}
+              <kbd className="rounded border border-border px-1">{t('Space')}</kbd> {t('select ·')}{' '}
+              <kbd className="rounded border border-border px-1">{t('Enter')}</kbd> {t('open')}
+              {loading && <span className="ml-2 text-accent-ring">{t('Refreshing…')}</span>}
             </span>
             {data && data.total > 0 && (
               <Pagination page={page} pageSize={PAGE_SIZE} total={data.total} onChange={setPage} />
@@ -634,19 +635,19 @@ export default function Worklist() {
       {selected.size > 0 && (
         <div className="sticky bottom-4 z-20 mx-auto flex w-full max-w-4xl flex-wrap items-center justify-between gap-3 rounded-xl border border-accent/40 bg-surface/95 px-4 py-3 shadow-lg backdrop-blur">
           <div className="flex items-center gap-3">
-            <Badge tone="accent">{selected.size} selected</Badge>
+            <Badge tone="accent">{selected.size} {t('selected')}</Badge>
             <button
               type="button"
               onClick={() => setSelected(new Set())}
               className="text-xs text-text-secondary hover:text-text-primary"
             >
-              Clear
+              {t('Clear')}
             </button>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button size="sm" variant="secondary" onClick={() => openBulk('assign')}>Assign</Button>
-            <Button size="sm" variant="secondary" onClick={() => openBulk('label')}>Label</Button>
-            <Button size="sm" onClick={() => openBulk('case')}>Add to case</Button>
+            <Button size="sm" variant="secondary" onClick={() => openBulk('assign')}>{t('Assign')}</Button>
+            <Button size="sm" variant="secondary" onClick={() => openBulk('label')}>{t('Label')}</Button>
+            <Button size="sm" onClick={() => openBulk('case')}>{t('Add to case')}</Button>
           </div>
         </div>
       )}
@@ -659,17 +660,17 @@ export default function Worklist() {
           bulkModal === 'label' ? `Label ${selected.size} entities` :
           `Add ${selected.size} entities to a case`
         }
-        description="Changes apply to every selected entity and are recorded in the audit trail."
+        description={t('Changes apply to every selected entity and are recorded in the audit trail.')}
         footer={
           <div className="flex justify-end gap-2">
-            <Button variant="secondary" onClick={() => setBulkModal(null)}>Cancel</Button>
-            <Button onClick={runBulk} loading={bulkBusy}>Confirm</Button>
+            <Button variant="secondary" onClick={() => setBulkModal(null)}>{t('Cancel')}</Button>
+            <Button onClick={runBulk} loading={bulkBusy}>{t('Confirm')}</Button>
           </div>
         }
       >
         {bulkModal === 'assign' && (
           <Select
-            label="Assign to"
+            label={t('Assign to')}
             value={assigneeId}
             onChange={(event) => setAssigneeId(event.target.value)}
             options={users.map((user) => ({
@@ -681,23 +682,23 @@ export default function Worklist() {
         {bulkModal === 'label' && (
           <div className="space-y-2">
             <Select
-              label="Analyst label"
+              label={t('Analyst label')}
               value={label}
               onChange={(event) => setLabel(event.target.value)}
               options={[
-                { value: 'needs_review', label: 'Needs review' },
-                { value: 'confirm_fraud', label: 'Confirm fraud' },
-                { value: 'false_positive', label: 'False positive' },
+                { value: 'needs_review', label: t('Needs review') },
+                { value: 'confirm_fraud', label: t('Confirm fraud') },
+                { value: 'false_positive', label: t('False positive') },
               ]}
             />
             <p className="text-xs text-text-secondary">
-              Labels feed the model feedback loop. They do not close entities or cases automatically.
+              {t('Labels feed the model feedback loop. They do not close entities or cases automatically.')}
             </p>
           </div>
         )}
         {bulkModal === 'case' && (
           <Select
-            label="Case"
+            label={t('Case')}
             value={caseId}
             onChange={(event) => setCaseId(event.target.value)}
             options={cases.map((item) => ({ value: item.id, label: item.title }))}
@@ -708,19 +709,19 @@ export default function Worklist() {
       <Modal
         open={saveOpen}
         onClose={() => setSaveOpen(false)}
-        title="Save current view"
-        description="Filters and sorting are stored in this browser for this workstation."
+        title={t('Save current view')}
+        description={t('Filters and sorting are stored in this browser for this workstation.')}
         size="sm"
         footer={
           <div className="flex justify-end gap-2">
-            <Button variant="secondary" onClick={() => setSaveOpen(false)}>Cancel</Button>
-            <Button onClick={saveView} disabled={!viewName.trim()}>Save view</Button>
+            <Button variant="secondary" onClick={() => setSaveOpen(false)}>{t('Cancel')}</Button>
+            <Button onClick={saveView} disabled={!viewName.trim()}>{t('Save view')}</Button>
           </div>
         }
       >
         <Input
-          label="View name"
-          placeholder="e.g. Maharashtra critical rings"
+          label={t('View name')}
+          placeholder={t('e.g. Maharashtra critical rings')}
           value={viewName}
           onChange={(event) => setViewName(event.target.value)}
           onKeyDown={(event) => { if (event.key === 'Enter') saveView() }}
@@ -729,7 +730,7 @@ export default function Worklist() {
       </Modal>
 
       <p className="text-xs text-text-disabled">
-        Showing page {page} of {pageCount}. Saved views are local to this browser; server-synced views are on the roadmap.
+        {t('Showing page')} {page} {t('of')} {pageCount}{t('. Saved views are local to this browser; server-synced views are on the roadmap.')}
       </p>
     </div>
   )

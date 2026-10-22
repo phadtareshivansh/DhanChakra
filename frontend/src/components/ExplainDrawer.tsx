@@ -1,3 +1,4 @@
+import { t } from '../i18n'
 import { useState } from 'react'
 import { ExplainResponse } from '../types/api'
 import RiskBadge from './RiskBadge'
@@ -20,7 +21,7 @@ function EvidenceMiniGraph({ companyNames }: { companyNames: string[] }) {
     return { name, x: cx + r * Math.cos(angle), y: cy + r * Math.sin(angle) }
   })
   return (
-    <svg viewBox={`0 0 ${size} ${size}`} className="w-full h-52" role="img" aria-label="Evidence subgraph">
+    <svg viewBox={`0 0 ${size} ${size}`} className="w-full h-52" role="img" aria-label={t('Evidence subgraph')}>
       <defs>
         <marker id="ev-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
           <path d="M 0 0 L 10 5 L 0 10 z" fill="#ef4444" />
@@ -101,10 +102,10 @@ export default function ExplainDrawer({ data, entityId, onClose }: {
       >
         <div className="flex items-center justify-between px-6 py-4 border-b border-border">
           <div>
-            <div className="micro-label">Structural evidence</div>
-            <h2 className="text-lg font-semibold mt-0.5">Why flagged?</h2>
+            <div className="micro-label">{t('Structural evidence')}</div>
+            <h2 className="text-lg font-semibold mt-0.5">{t('Why flagged?')}</h2>
           </div>
-          <button onClick={onClose} className="text-text-secondary hover:text-text-primary text-xl leading-none" aria-label="Close">✕</button>
+          <button onClick={onClose} className="text-text-secondary hover:text-text-primary text-xl leading-none" aria-label={t('Close')}>✕</button>
         </div>
 
         <div className="px-6 py-5 space-y-6 overflow-y-auto h-[calc(100%-61px)]">
@@ -119,7 +120,7 @@ export default function ExplainDrawer({ data, entityId, onClose }: {
 
           {/* Reason */}
           <div>
-            <div className="micro-label mb-2">Plain-language reason</div>
+            <div className="micro-label mb-2">{t('Plain-language reason')}</div>
             <ul className="space-y-2">
               {data.reasons.map((reason, i) => (
                 <li key={i} className="flex gap-2 text-sm text-text-primary leading-snug">
@@ -133,7 +134,7 @@ export default function ExplainDrawer({ data, entityId, onClose }: {
           {/* Mini-subgraph of the evidence only */}
           {cycle && cycle.companies?.length > 1 && (
             <div>
-              <div className="micro-label mb-2">Evidence subgraph (invoice loop)</div>
+              <div className="micro-label mb-2">{t('Evidence subgraph (invoice loop)')}</div>
               <div className="panel p-2">
                 <EvidenceMiniGraph companyNames={cycle.companies.map((c) => c.name)} />
                 <ol className="mt-1 grid grid-cols-2 gap-x-3 gap-y-0.5 text-[10px] text-text-secondary">
@@ -150,18 +151,18 @@ export default function ExplainDrawer({ data, entityId, onClose }: {
           {/* Detected loops with real amounts + date span */}
           {cycle && (
             <div>
-              <div className="micro-label mb-2">Detected loop</div>
+              <div className="micro-label mb-2">{t('Detected loop')}</div>
               <div className="panel p-3">
                 <div className="flex justify-between text-xs mb-1">
                   <span className="text-risk-critical font-semibold">
-                    {cycle.hop_count}-hop invoice cycle across {cycle.company_count} companies
+                    {cycle.hop_count}{t('-hop invoice cycle across')} {cycle.company_count} {t('companies')}
                   </span>
                   <span className="font-mono">₹{Number(cycle.total_invoice_amount || 0).toLocaleString('en-IN')}</span>
                 </div>
                 {cycle.date_span && (
                   <div className="text-[11px] text-text-secondary mb-2">
                     {cycle.date_span.first} → {cycle.date_span.last}
-                    {cycle.date_span.span_days != null && <> · over {cycle.date_span.span_days} days</>}
+                    {cycle.date_span.span_days != null && <> {t('· over')} {cycle.date_span.span_days} {t('days')}</>}
                   </div>
                 )}
                 <div className="font-mono text-[11px] text-text-secondary truncate mb-2">
@@ -187,10 +188,10 @@ export default function ExplainDrawer({ data, entityId, onClose }: {
           {/* Louvain community evidence */}
           {(evidence.communities?.length ?? 0) > 0 && (
             <div>
-              <div className="micro-label mb-2">Fraud community (Louvain)</div>
+              <div className="micro-label mb-2">{t('Fraud community (Louvain)')}</div>
               {evidence.communities!.map((cm, i) => (
                 <div key={i} className="text-xs text-text-primary mb-1">
-                  Community <span className="mono-id">{cm.community_id}</span> — {cm.member_count} companies
+                  {t('Community')} <span className="mono-id">{cm.community_id}</span> — {cm.member_count} {t('companies')}
                 </div>
               ))}
             </div>
@@ -198,11 +199,11 @@ export default function ExplainDrawer({ data, entityId, onClose }: {
 
           {(evidence.shared_directors?.length ?? 0) > 0 && (
             <div>
-              <div className="micro-label mb-2">Shared directors</div>
+              <div className="micro-label mb-2">{t('Shared directors')}</div>
               {evidence.shared_directors.map((sd, i) => (
                 <div key={i} className="text-xs text-text-primary mb-1">
                   <span className="font-semibold">{sd.director}</span>
-                  {sd.din && <span className="text-text-secondary"> (DIN {sd.din})</span>} — also director of{' '}
+                  {sd.din && <span className="text-text-secondary"> {t('(DIN')} {sd.din})</span>} {t('— also director of')}{' '}
                   <span className="mono-id">{sd.companies?.join(', ')}</span>
                 </div>
               ))}
@@ -211,7 +212,7 @@ export default function ExplainDrawer({ data, entityId, onClose }: {
 
           {(evidence.shared_addresses?.length ?? 0) > 0 && (
             <div>
-              <div className="micro-label mb-2">Shared registered addresses</div>
+              <div className="micro-label mb-2">{t('Shared registered addresses')}</div>
               {evidence.shared_addresses.map((sa, i) => (
                 <div key={i} className="text-xs text-text-primary mb-1">
                   <span className="font-mono">{sa.address}</span> ({sa.state}) — {sa.companies?.join(', ')}
@@ -222,7 +223,7 @@ export default function ExplainDrawer({ data, entityId, onClose }: {
 
           {eway.length > 0 && (
             <div>
-              <div className="micro-label mb-2">e-Way Bill mismatch</div>
+              <div className="micro-label mb-2">{t('e-Way Bill mismatch')}</div>
               <div className="panel p-3 space-y-2">
                 {eway.map((m, i) => (
                   <div key={i} className="text-[11px]">
@@ -235,7 +236,7 @@ export default function ExplainDrawer({ data, entityId, onClose }: {
                     </div>
                     {m.claimed_ref && (
                       <div className="font-mono text-text-secondary">
-                        cites {m.claimed_ref}
+                        {t('cites')} {m.claimed_ref}
                         {m.movement_ref ? '' : ' — no movement record exists'}
                       </div>
                     )}
@@ -255,11 +256,11 @@ export default function ExplainDrawer({ data, entityId, onClose }: {
 
           {bursts.length > 0 && (
             <div>
-              <div className="micro-label mb-2">Temporal burst</div>
+              <div className="micro-label mb-2">{t('Temporal burst')}</div>
               <div className="panel p-3 space-y-1">
                 {(bursts as any[]).map((b: any, i: number) => (
                   <div key={i} className="text-[11px] text-text-primary">
-                    {b.seller_cin} → {b.buyer_cin}: {b.count} invoices ₹{Number(b.total_amount || 0).toLocaleString('en-IN')} ({b.start_date}–{b.end_date}), z={b.z_score}
+                    {b.seller_cin} → {b.buyer_cin}: {b.count} {t('invoices ₹')}{Number(b.total_amount || 0).toLocaleString('en-IN')} ({b.start_date}–{b.end_date}{t('), z=')}{b.z_score}
                   </div>
                 ))}
               </div>
@@ -268,7 +269,7 @@ export default function ExplainDrawer({ data, entityId, onClose }: {
 
           {/* Feature attribution for the risk score */}
           <div>
-            <div className="micro-label mb-2">Risk decomposition</div>
+            <div className="micro-label mb-2">{t('Risk decomposition')}</div>
             <div className="panel p-3 space-y-1">
               {decomRows.map(([label, val]) => (
                 <div key={label} className="flex justify-between text-[11px]">
@@ -285,7 +286,7 @@ export default function ExplainDrawer({ data, entityId, onClose }: {
               onClick={onClose}
               className="btn-secondary w-full"
             >
-              View full network →
+              {t('View full network →')}
             </Link>
             <button
               onClick={exportCase}
