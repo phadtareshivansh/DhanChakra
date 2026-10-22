@@ -26,16 +26,16 @@ This file is the single source of truth for the remaining build work. Read this 
 - [x] TASK A1: Benchmark harness
 - [x] TASK A2: Public benchmark, ablation, false-positive stress test
 - [x] TASK A3: Scale test
-- [ ] TASK B1: e-Way Bill mismatch signal
-- [ ] TASK B2: Temporal view and burst detection
-- [ ] TASK B3: Analyst feedback loop
-- [ ] TASK B5: LLM case summary
-- [ ] TASK B4: Watchlist and alerts
-- [ ] TASK C1: Auth hardening
-- [ ] TASK C3: Frontend quality
-- [ ] TASK C2: Ops and observability
-- [ ] TASK D1: Deployment
-- [ ] TASK D2: Docs and responsible-use
+- [x] TASK B1: e-Way Bill mismatch signal
+- [x] TASK B2: Temporal view and burst detection
+- [x] TASK B3: Analyst feedback loop
+- [x] TASK B5: LLM case summary
+- [x] TASK B4: Watchlist and alerts
+- [x] TASK C1: Auth hardening
+- [x] TASK C3: Frontend quality
+- [x] TASK C2: Ops and observability
+- [x] TASK D1: Deployment
+- [x] TASK D2: Docs and responsible-use
 
 Recommended order is the order listed above (B5 before B4 is intentional).
 
