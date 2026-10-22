@@ -1,230 +1,177 @@
-import { Link, useLocation, useNavigate, Outlet } from 'react-router-dom'
-import { useState, useEffect, useRef } from 'react'
-import api from '../utils/api'
-import { SearchResult } from '../types/api'
-import RiskBadge from './RiskBadge'
+import { Link, Outlet, useLocation } from 'react-router-dom'
+import { useEffect, useState } from 'react'
 import { RISK_THRESHOLDS } from '../config/risk'
 import { useTheme } from '../hooks/useTheme'
+import Breadcrumbs, { BreadcrumbItem } from './ui/Breadcrumbs'
+import CommandPalette from './shell/CommandPalette'
+import NotificationsBell from './shell/NotificationsBell'
+import OrgSwitcher from './shell/OrgSwitcher'
+import Sidebar from './shell/Sidebar'
+import UserMenu, { ShellUser } from './shell/UserMenu'
+
+const SIDEBAR_KEY = 'dhanchakra_sidebar_collapsed'
+
+function buildCrumbs(pathname: string): BreadcrumbItem[] {
+  if (pathname === '/') return [{ label: 'Dashboard' }]
+  const segments = pathname.split('/').filter(Boolean)
+  return segments.map((segment, index) => {
+    const label = segment
+      .replace(/-/g, ' ')
+      .replace(/^\w/, (character) => character.toUpperCase())
+    return {
+      label,
+      href: '/' + segments.slice(0, index + 1).join('/'),
+    }
+  })
+}
 
 export default function Layout() {
   const location = useLocation()
-  const navigate = useNavigate()
-  const [user, setUser] = useState<any>(null)
-  const [query, setQuery] = useState('')
-  const [results, setResults] = useState<SearchResult[]>([])
-  const [showResults, setShowResults] = useState(false)
+  const [user, setUser] = useState<ShellUser | null>(null)
+  const [collapsed, setCollapsed] = useState<boolean>(() => {
+    const stored = localStorage.getItem(SIDEBAR_KEY)
+    if (stored === '1' || stored === '0') return stored === '1'
+    return window.innerWidth < 1024
+  })
+  const [paletteOpen, setPaletteOpen] = useState(false)
   const [showLegend, setShowLegend] = useState(true)
-  const [notifs, setNotifs] = useState<any[]>([])
-  const [showNotifs, setShowNotifs] = useState(false)
-  const searchRef = useRef<HTMLDivElement>(null)
-  const notifRef = useRef<HTMLDivElement>(null)
   const { theme, toggleTheme } = useTheme()
 
   useEffect(() => {
-    api.get('/notifications?unread_only=false').then(r => setNotifs(r.data || [])).catch(() => {})
-  }, [])
-
-  useEffect(() => {
     const stored = localStorage.getItem('dhanchakra_user')
-    if (stored) setUser(JSON.parse(stored))
+    if (!stored) return
+    try {
+      setUser(JSON.parse(stored) as ShellUser)
+    } catch {
+      setUser(null)
+    }
   }, [])
 
   useEffect(() => {
-    const onClick = (e: MouseEvent) => {
-      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
-        setShowResults(false)
-      }
-      if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
-        setShowNotifs(false)
-      }
-    }
-    document.addEventListener('mousedown', onClick)
-    return () => document.removeEventListener('mousedown', onClick)
-  }, [])
+    localStorage.setItem(SIDEBAR_KEY, collapsed ? '1' : '0')
+  }, [collapsed])
 
   useEffect(() => {
-    if (query.trim().length < 2) {
-      setResults([])
-      return
-    }
-    const timeout = setTimeout(async () => {
-      try {
-        const res = await api.get(`/entities/search?q=${encodeURIComponent(query)}&limit=8`)
-        setResults(res.data.results)
-        setShowResults(true)
-      } catch {
-        setResults([])
-      }
-    }, 250)
-    return () => clearTimeout(timeout)
-  }, [query])
-
-  const navItems = [
-    { path: '/', label: 'Dashboard', icon: 'M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z' },
-    { path: '/worklist', label: 'Worklist', icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4' },
-    { path: '/loops', label: 'Loops', icon: 'M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15' },
-    { path: '/cases', label: 'Cases', icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z' },
-    { path: '/ingest', label: 'Ingest', icon: 'M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12' },
-    { path: '/settings', label: 'Settings', icon: 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z' },
-  ]
-
-  const crumbs = location.pathname.split('/').filter(Boolean).map((seg, i, arr) => ({
-    label: seg.charAt(0).toUpperCase() + seg.slice(1),
-    path: '/' + arr.slice(0, i + 1).join('/'),
-  }))
-
-  const logout = async () => {
-    // Revoke the refresh token server-side first, so the session really
-    // ends rather than merely being forgotten here (TASK C1). The access
-    // token dies on its own within minutes.
-    const refreshToken = localStorage.getItem('dhanchakra_refresh_token')
-    if (refreshToken) {
-      try {
-        await api.post('/auth/logout', { refresh_token: refreshToken })
-      } catch {
-        // A failed revoke must not trap the user in the app.
+    const onKeyDown = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault()
+        setPaletteOpen((current) => !current)
       }
     }
-    localStorage.removeItem('dhanchakra_token')
-    localStorage.removeItem('dhanchakra_refresh_token')
-    localStorage.removeItem('dhanchakra_user')
-    navigate('/login')
-  }
+    document.addEventListener('keydown', onKeyDown)
+    return () => document.removeEventListener('keydown', onKeyDown)
+  }, [])
+
+  const crumbs = buildCrumbs(location.pathname)
 
   return (
     <div className="min-h-screen bg-canvas text-text-primary">
-      <aside className="fixed inset-y-0 left-0 z-40 w-60 bg-surface border-r border-border">
-        <div className="flex h-16 items-center px-5 border-b border-border">
-          <Link to="/" className="flex items-center gap-2.5">
-            <img src="/favicon.svg" alt="Dhan-Chakra" className="w-8 h-8 rounded-lg border border-border object-cover bg-surface" />
-            <div>
-              <div className="text-lg font-bold leading-tight">Dhan-Chakra</div>
-              <div className="text-[10px] uppercase tracking-micro text-text-secondary">Graph-AI Fraud Engine</div>
-            </div>
-          </Link>
-        </div>
+      <Sidebar
+        collapsed={collapsed}
+        onToggle={() => setCollapsed((current) => !current)}
+        isAdmin={user?.role === 'admin'}
+      />
 
-        <nav className="p-3 space-y-1">
-          {navItems.map((item) => {
-            const active = item.path === '/' ? location.pathname === '/' : location.pathname.startsWith(item.path)
-            return (
-              <Link
-                key={item.path}
-                to={item.path}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors ${
-                  active ? 'bg-accent/15 text-accent-ring' : 'text-text-secondary hover:bg-raised hover:text-text-primary'
-                }`}
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d={item.icon} />
-                </svg>
-                {item.label}
-              </Link>
-            )
-          })}
-        </nav>
+      <div
+        className="min-h-screen transition-[margin] duration-200 ease-out"
+        style={{ marginLeft: collapsed ? 68 : 240 }}
+      >
+        <header className="sticky top-0 z-30 border-b border-border bg-canvas/90 backdrop-blur">
+          <div className="flex h-14 items-center gap-3 px-4 sm:px-6">
+            <Breadcrumbs
+              items={crumbs}
+              className="hidden min-w-0 flex-1 md:block"
+              renderLink={(item, children) => (
+                <Link to={item.href ?? '/'} className="truncate hover:text-accent-ring">
+                  {children}
+                </Link>
+              )}
+            />
 
-        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-border">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-accent flex items-center justify-center text-sm font-semibold">
-              {(user?.display_name || user?.email || 'U')[0]?.toUpperCase()}
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="text-sm font-medium truncate">{user?.display_name || user?.email || 'Analyst'}</div>
-              <div className="text-[10px] uppercase tracking-micro text-text-secondary">{user?.role || 'guest'}</div>
-            </div>
-            {user && (
-              <button onClick={logout} className="text-text-secondary hover:text-risk-critical text-xs" title="Log out">⏻</button>
-            )}
-          </div>
-        </div>
-      </aside>
-
-      <div className="ml-60 min-h-screen">
-        <header className="sticky top-0 z-30 bg-canvas/90 backdrop-blur border-b border-border">
-          <div className="px-6 py-3 flex items-center gap-6">
-            {crumbs.length > 0 ? (
-              <nav className="text-xs text-text-secondary">
-                <Link to="/" className="hover:text-accent-ring">Home</Link>
-                {crumbs.map((c, i) => (
-                  <span key={c.path}>
-                    <span className="mx-1.5 text-text-disabled">›</span>
-                    <Link to={c.path} className={i === crumbs.length - 1 ? 'text-text-primary' : 'hover:text-accent-ring'}>
-                      {c.label}
-                    </Link>
-                  </span>
-                ))}
-              </nav>
-            ) : <div />}
-            <div ref={searchRef} className="relative ml-auto w-80">
-              <input
-                className="input w-full pl-9"
-                placeholder="Search GSTIN / CIN / company name…"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                onFocus={() => query.trim().length >= 2 && setShowResults(true)}
-              />
-              <svg className="w-4 h-4 absolute left-3 top-3 text-text-disabled" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <button
+              type="button"
+              onClick={() => setPaletteOpen(true)}
+              className="flex h-9 flex-1 items-center gap-2 rounded-lg border border-border bg-canvas px-3 text-left text-xs text-text-disabled transition-colors hover:border-accent-ring/60 hover:text-text-secondary md:ml-auto md:max-w-xs md:flex-none"
+              aria-label="Open global search"
+            >
+              <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
-              {showResults && results.length > 0 && (
-                <div className="absolute top-11 right-0 w-full panel-raised rounded-lg shadow-xl overflow-hidden">
-                  {results.map((r) => (
-                    <button
-                      key={r.id}
-                      className="w-full text-left px-4 py-2.5 hover:bg-raised border-b border-border last:border-0"
-                      onClick={() => { setShowResults(false); setQuery(''); navigate(`/entity/${r.id}/network`) }}
-                    >
-                      <div className="text-sm font-medium">{r.name}</div>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <span className="mono-id text-[11px]">{r.identifier}</span>
-                        <span className="text-[10px] uppercase tracking-micro text-text-secondary">{r.type}</span>
-                        {r.risk_score !== undefined && <RiskBadge score={r.risk_score} showScore={false} />}
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-            <button className="btn-secondary btn-compact ml-2" onClick={toggleTheme} title="Toggle theme">
-              {theme === 'dark' ? '☀️' : '🌙'}
+              <span className="truncate">Search entities…</span>
+              <kbd className="ml-auto hidden shrink-0 rounded border border-border px-1.5 py-0.5 text-[10px] text-text-secondary sm:inline">
+                ⌘K
+              </kbd>
             </button>
-            <div ref={notifRef} className="relative ml-2">
-              <button className="btn-ghost btn-compact relative" onClick={() => setShowNotifs(!showNotifs)}>
-                <span>🔔</span>
-                {notifs.some((n: any) => !n.read) && <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full" />}
-              </button>
-              {showNotifs && (
-                <div className="absolute top-9 right-0 w-80 panel-raised rounded-lg shadow-xl overflow-hidden">
-                  <div className="px-3 py-2 text-xs font-medium border-b border-border">Notifications</div>
-                  {notifs.length === 0 && <div className="px-3 py-2 text-xs text-text-secondary">No notifications</div>}
-                  {notifs.slice(0, 10).map((n: any) => (
-                    <button key={n.id} className="w-full text-left px-3 py-2 text-xs border-b border-border hover:bg-raised" onClick={async()=>{try{await api.post(`/notifications/${n.id}/read`); setNotifs(notifs.map(x=>x.id===n.id?{...x,read:true}:x));}catch{}}}>
-                      <div className={n.read ? 'text-text-secondary' : 'text-text-primary'}>{n.message}</div>
-                      <div className="text-[10px] text-text-disabled mt-0.5">{n.created_at?.slice(0,16)}</div>
-                    </button>
-                  ))}
-                </div>
-              )}
+
+            <div className="hidden sm:block">
+              <OrgSwitcher />
             </div>
+
+            <button
+              type="button"
+              onClick={toggleTheme}
+              aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+              title={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+              className="flex h-9 w-9 items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-raised hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-ring"
+            >
+              {theme === 'dark' ? (
+                <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.6} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                </svg>
+              ) : (
+                <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.6} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                </svg>
+              )}
+            </button>
+
+            <NotificationsBell />
+            <UserMenu user={user} />
           </div>
         </header>
 
         {showLegend && (
-          <div className="px-6 pt-4">
-            <div className="panel px-4 py-2 flex items-center gap-5 text-[11px] text-text-secondary">
+          <div className="px-4 pt-4 sm:px-6">
+            <div className="panel flex flex-wrap items-center gap-x-5 gap-y-2 px-4 py-2 text-[11px] text-text-secondary">
               <span className="micro-label">Risk legend</span>
-              <span><span className="inline-block w-2 h-2 rounded-full bg-risk-critical mr-1" />Critical ≥{RISK_THRESHOLDS.critical}</span>
-              <span><span className="inline-block w-2 h-2 rounded-full bg-risk-high mr-1" />High {RISK_THRESHOLDS.high}–{RISK_THRESHOLDS.critical - 1}</span>
-              <span><span className="inline-block w-2 h-2 rounded-full bg-risk-medium mr-1" />Medium {RISK_THRESHOLDS.medium}–{RISK_THRESHOLDS.high - 1}</span>
-              <span><span className="inline-block w-2 h-2 rounded-full bg-risk-low mr-1" />Low &lt;{RISK_THRESHOLDS.medium}</span>
-              <button onClick={() => setShowLegend(false)} className="ml-auto text-text-disabled hover:text-text-primary">✕</button>
+              <span>
+                <span className="mr-1 inline-block h-2 w-2 rounded-full bg-risk-critical" />
+                Critical ≥{RISK_THRESHOLDS.critical}
+              </span>
+              <span>
+                <span className="mr-1 inline-block h-2 w-2 rounded-full bg-risk-high" />
+                High {RISK_THRESHOLDS.high}–{RISK_THRESHOLDS.critical - 1}
+              </span>
+              <span>
+                <span className="mr-1 inline-block h-2 w-2 rounded-full bg-risk-medium" />
+                Medium {RISK_THRESHOLDS.medium}–{RISK_THRESHOLDS.high - 1}
+              </span>
+              <span>
+                <span className="mr-1 inline-block h-2 w-2 rounded-full bg-risk-low" />
+                Low &lt;{RISK_THRESHOLDS.medium}
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowLegend(false)}
+                aria-label="Dismiss risk legend"
+                className="ml-auto text-text-disabled hover:text-text-primary"
+              >
+                ✕
+              </button>
             </div>
           </div>
         )}
 
-        <main className="p-6"><Outlet /></main>
+        <main className="p-4 sm:p-6">
+          <Outlet />
+        </main>
       </div>
+
+      <CommandPalette
+        open={paletteOpen}
+        onClose={() => setPaletteOpen(false)}
+        isAdmin={user?.role === 'admin'}
+      />
     </div>
   )
 }

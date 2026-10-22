@@ -10,6 +10,7 @@ import Ingest from './pages/Ingest'
 import Settings from './pages/Settings'
 import AdminUsers from './pages/AdminUsers'
 import CaseExport from './pages/CaseExport'
+import DesignSystem from './pages/DesignSystem'
 import Login from './pages/Login'
 import Layout from './components/Layout'
 
@@ -50,6 +51,7 @@ function App() {
         <Route path="/ingest" element={<Ingest />} />
         <Route path="/settings" element={<Settings />} />
         <Route path="/admin/users" element={<AdminUsers />} />
+        <Route path="/design-system" element={<DesignSystem />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>
