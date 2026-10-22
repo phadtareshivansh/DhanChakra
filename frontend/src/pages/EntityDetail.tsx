@@ -1,12 +1,29 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import * as d3 from 'd3'
 import api from '../utils/api'
-import { NetworkResponse, ExplainResponse } from '../types/api'
-import RiskBadge from '../components/RiskBadge'
+import {
+  Case,
+  EntityHistoryEvent,
+  EntityHistoryResponse,
+  EntityNote,
+  ExplainResponse,
+  NetworkResponse,
+  TimelineInvoice,
+  TimelineResponse,
+} from '../types/api'
+import { riskLevel } from '../components/RiskBadge'
 import ExplainDrawer from '../components/ExplainDrawer'
+import Badge from '../components/ui/Badge'
+import Button from '../components/ui/Button'
+import EmptyState from '../components/ui/EmptyState'
+import Skeleton, { SkeletonText } from '../components/ui/Skeleton'
+import Tabs from '../components/ui/Tabs'
+import { useToast } from '../components/ui/Toast'
+import InfoHint from '../components/InfoHint'
 import { riskColorForScore } from '../utils/riskColors'
 import { RISK_THRESHOLDS } from '../config/risk'
+import { formatDate, formatInr, formatInrCompact, relativeTime, titleCase, truncateMiddle } from '../utils/format'
 
 interface GraphNode extends d3.SimulationNodeDatum {
   id: string
@@ -35,11 +52,35 @@ const TYPE_COLORS: Record<string, string> = {
   GSTINFiling: '#6FCF97',
 }
 
+const DRIVER_LABELS: Record<string, string> = {
+  cycle: 'Invoice cycle membership',
+  shared_director: 'Shared director',
+  shared_address: 'Shared registered address',
+  eway_mismatch: 'e-Way Bill mismatch',
+  burst: 'Invoice burst',
+  degree: 'Network degree',
+  pagerank: 'PageRank influence',
+  betweenness: 'Betweenness bridge',
+}
+
+const HISTORY_TONE: Record<string, string> = {
+  feedback: 'var(--color-amber)',
+  case: 'var(--color-accent)',
+  note: 'var(--color-text-secondary)',
+  invoice: 'var(--color-risk-low)',
+}
+
+function edgeEndpointId(endpoint: string | GraphNode): string {
+  return typeof endpoint === 'string' ? endpoint : endpoint.id
+}
+
 export default function EntityDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const toast = useToast()
   const svgRef = useRef<SVGSVGElement>(null)
-  const [tab, setTab] = useState<'network' | 'overview' | 'evidence'>('network')
+  type TabId = 'network' | 'transactions' | 'people' | 'evidence' | 'history' | 'notes'
+  const [tab, setTab] = useState<TabId>('network')
   const [entity, setEntity] = useState<any>(null)
   const [nodes, setNodes] = useState<GraphNode[]>([])
   const [edges, setEdges] = useState<GraphEdge[]>([])
@@ -50,8 +91,16 @@ export default function EntityDetail() {
   const [showExplain, setShowExplain] = useState(false)
   const [hops, setHops] = useState(2)
   const [creatingCase, setCreatingCase] = useState(false)
+  const [timeline, setTimeline] = useState<TimelineInvoice[] | null>(null)
+  const [history, setHistory] = useState<EntityHistoryEvent[] | null>(null)
+  const [notes, setNotes] = useState<EntityNote[] | null>(null)
+  const [tabError, setTabError] = useState<string | null>(null)
+  const [noteDraft, setNoteDraft] = useState('')
+  const [savingNote, setSavingNote] = useState(false)
+  const [feedbackBusy, setFeedbackBusy] = useState<string | null>(null)
 
-  const load = async (depth: number) => {
+  const load = useCallback(async (depth: number) => {
+    if (!id) return
     setLoading(true)
     setError(null)
     try {
@@ -65,13 +114,13 @@ export default function EntityDetail() {
       setEdges(net.edges)
       setHops(depth)
     } catch (err: any) {
-      setError(err.response?.data?.detail?.message || 'Failed to load entity')
+      setError(err?.response?.data?.detail?.message || 'Failed to load entity')
     } finally {
       setLoading(false)
     }
-  }
+  }, [id])
 
-  useEffect(() => { if (id) load(2) }, [id])
+  useEffect(() => { if (id) load(2) }, [id, load])
 
   useEffect(() => {
     if (!id) return
@@ -80,15 +129,33 @@ export default function EntityDetail() {
       .catch(() => setExplanation(null))
   }, [id])
 
-  // Flagged-cycle edges are marked by the API (see graph_service.get_network),
-  // so the highlight is deterministic and can't be lost to client-side races.
+  useEffect(() => {
+    if (!id) return
+    setTabError(null)
+    if (tab === 'transactions' && timeline === null) {
+      api.get<TimelineResponse>(`/entities/${id}/timeline`)
+        .then((res) => setTimeline(res.data.timeline || []))
+        .catch((err) => setTabError(err?.response?.data?.detail?.message || 'Could not load transactions.'))
+    }
+    if (tab === 'history' && history === null) {
+      api.get<EntityHistoryResponse>(`/entities/${id}/history`)
+        .then((res) => setHistory(res.data.events || []))
+        .catch((err) => setTabError(err?.response?.data?.detail?.message || 'Could not load entity history.'))
+    }
+    if (tab === 'notes' && notes === null) {
+      api.get<EntityNote[]>(`/entities/${id}/notes`)
+        .then((res) => setNotes(res.data))
+        .catch((err) => setTabError(err?.response?.data?.detail?.message || 'Could not load notes.'))
+    }
+  }, [id, tab, timeline, history, notes])
+
+  // Flagged-cycle edges are marked by the API, so the highlight is deterministic.
   useEffect(() => {
     if (!svgRef.current || nodes.length === 0 || tab !== 'network') return
 
     const svg = d3.select(svgRef.current)
     const width = svgRef.current.clientWidth
     const height = svgRef.current.clientHeight || 600
-
     svg.selectAll('*').remove()
 
     const container = svg.append('g')
@@ -112,8 +179,6 @@ export default function EntityDetail() {
       .attr('stroke-opacity', 0.85)
       .attr('marker-end', 'url(#arrow)')
 
-    // e-Way Bill mismatch badge (TASK B1) — its own marker so an edge that is
-    // both a flagged cycle edge and an e-Way mismatch shows both signals.
     const ewayBadge = container.append('g')
       .selectAll('circle')
       .data(edges.filter((d: any) => d.eway_mismatch))
@@ -202,11 +267,12 @@ export default function EntityDetail() {
   }, [nodes, edges, tab])
 
   const fitView = () => {
+    if (!svgRef.current) return
     const svg = d3.select(svgRef.current)
-    const width = svgRef.current!.clientWidth
-    const height = svgRef.current!.clientHeight || 600
-    const xVals = nodes.map((n) => (n as any).x ?? width / 2)
-    const yVals = nodes.map((n) => (n as any).y ?? height / 2)
+    const width = svgRef.current.clientWidth
+    const height = svgRef.current.clientHeight || 600
+    const xVals = nodes.map((node) => (node as any).x ?? width / 2)
+    const yVals = nodes.map((node) => (node as any).y ?? height / 2)
     const minX = Math.min(...xVals), maxX = Math.max(...xVals)
     const minY = Math.min(...yVals), maxY = Math.max(...yVals)
     const dx = maxX - minX || width, dy = maxY - minY || height
@@ -215,7 +281,7 @@ export default function EntityDetail() {
     const ty = height / 2 - (minY + dy / 2) * scale
     svg.transition().duration(500).call(
       d3.zoom<SVGSVGElement, unknown>().transform as any,
-      d3.zoomIdentity.translate(tx, ty).scale(scale)
+      d3.zoomIdentity.translate(tx, ty).scale(scale),
     )
   }
 
@@ -223,260 +289,691 @@ export default function EntityDetail() {
     if (!entity) return
     setCreatingCase(true)
     try {
-      const res = await api.post('/cases', {
+      const res = await api.post<Case>('/cases', {
         title: `Investigation: ${entity.name || entity.cin}`,
         description: `Case opened from entity ${entity.cin || entity.id} with risk score ${entity.risk_score ?? 'n/a'}`,
         company_cin: entity.cin,
         priority: entity.risk_score && entity.risk_score >= RISK_THRESHOLDS.high ? 2 : entity.risk_score && entity.risk_score >= RISK_THRESHOLDS.medium ? 1 : 0,
       })
+      toast.push({ title: 'Case opened', description: res.data.title, tone: 'success' })
       navigate(`/cases?highlight=${res.data.id}`)
-    } catch (err) {
-      console.error(err)
-      alert('Failed to open case')
+    } catch (err: any) {
+      toast.push({ title: 'Failed to open case', description: err?.response?.data?.detail?.message, tone: 'critical' })
     } finally {
       setCreatingCase(false)
     }
   }
 
-  // e-Way Bill mismatch count for the entity page (TASK B1). The count is
-  // the number of this company's high-value invoices that have no matching
-  // e-Way Bill movement record.
+  const submitFeedback = async (label: 'confirm_fraud' | 'false_positive' | 'needs_review') => {
+    if (!id) return
+    setFeedbackBusy(label)
+    try {
+      await api.post(`/entities/${id}/feedback`, { label })
+      toast.push({ title: 'Label recorded', description: titleCase(label), tone: 'success' })
+      setHistory(null)
+    } catch (err: any) {
+      toast.push({ title: 'Could not record label', description: err?.response?.data?.detail?.message, tone: 'critical' })
+    } finally {
+      setFeedbackBusy(null)
+    }
+  }
+
+  const addToWatchlist = async () => {
+    try {
+      await api.post('/watchlist', { entity_id: id, entity_cin: entity?.cin })
+      toast.push({ title: 'Added to watchlist', tone: 'success' })
+    } catch (err: any) {
+      toast.push({ title: 'Could not update watchlist', description: err?.response?.data?.detail?.message, tone: 'critical' })
+    }
+  }
+
+  const submitNote = async () => {
+    if (!id || !noteDraft.trim()) return
+    setSavingNote(true)
+    try {
+      const res = await api.post<EntityNote>(`/entities/${id}/notes`, { body: noteDraft.trim() })
+      setNotes((current) => [res.data, ...(current || [])])
+      setNoteDraft('')
+      setHistory(null)
+      toast.push({ title: 'Note added', tone: 'success' })
+    } catch (err: any) {
+      toast.push({ title: 'Could not save note', description: err?.response?.data?.detail?.message, tone: 'critical' })
+    } finally {
+      setSavingNote(false)
+    }
+  }
+
   const ewayMismatches = explanation?.evidence?.eway_mismatches || []
   const ewayCount = ewayMismatches.length
-  const ewayTotal = ewayMismatches.reduce((sum, m) => sum + Number(m.amount || 0), 0)
+  const ewayTotal = ewayMismatches.reduce((sum, mismatch) => sum + Number(mismatch.amount || 0), 0)
+  const directors = useMemo(() => nodes.filter((node) => node.type === 'Director'), [nodes])
+  const addresses = useMemo(() => nodes.filter((node) => node.type === 'Address'), [nodes])
+  const riskDecomposition = explanation?.evidence?.risk_decomposition || null
+  const driverEntries = useMemo(() => {
+    if (!riskDecomposition) return []
+    return Object.entries(DRIVER_LABELS)
+      .map(([key, label]) => ({ key, label, value: Number(riskDecomposition[key] || 0) }))
+      .filter((driver) => driver.value > 0)
+      .sort((a, b) => b.value - a.value)
+  }, [riskDecomposition])
+  const maxDriver = Math.max(...driverEntries.map((driver) => driver.value), 1)
+  const totalTransactions = (timeline || []).reduce((sum, invoice) => sum + Number(invoice.amount || 0), 0)
+  const entityState = addresses[0]?.properties?.state || '—'
+
+  const connectedCompanies = (nodeId: string) => {
+    const companyIds = new Set<string>()
+    edges.forEach((edge) => {
+      const source = edgeEndpointId(edge.source)
+      const target = edgeEndpointId(edge.target)
+      if (source === nodeId) companyIds.add(target)
+      if (target === nodeId) companyIds.add(source)
+    })
+    return nodes
+      .filter((node) => companyIds.has(node.id) && node.type === 'Company' && node.id !== nodeId)
+      .map((node) => node.label)
+  }
+
+  const tabItems = [
+    { id: 'network', label: 'Network', count: nodes.length },
+    { id: 'transactions', label: 'Transactions', count: timeline?.length },
+    { id: 'people', label: 'Directors & addresses', count: directors.length + addresses.length },
+    { id: 'evidence', label: 'Evidence', count: explanation?.reasons.length },
+    { id: 'history', label: 'History', count: history?.length },
+    { id: 'notes', label: 'Notes', count: notes?.length },
+  ]
 
   if (error && !entity) {
     return (
-      <div className="panel p-10 text-center">
-        <div className="text-risk-critical font-medium">{error}</div>
-        <Link to="/worklist" className="btn-secondary mt-4">Back to worklist</Link>
+      <div className="panel p-10 text-center" role="alert">
+        <p className="text-sm font-medium text-risk-critical">{error}</p>
+        <div className="mt-4 flex justify-center gap-2">
+          <Button variant="secondary" onClick={() => load(2)}>Retry</Button>
+          <Link to="/worklist"><Button variant="ghost">Back to worklist</Button></Link>
+        </div>
       </div>
     )
   }
 
-  const tabs = [
-    { key: 'network' as const, label: 'Network' },
-    { key: 'overview' as const, label: 'Overview' },
-    { key: 'evidence' as const, label: 'Evidence' },
-  ]
-
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">{entity?.name || 'Entity'}</h1>
-          <div className="flex items-center gap-3 mt-1">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="min-w-0">
+          <Link to="/worklist" className="text-xs text-text-secondary hover:text-accent-ring">← Risk worklist</Link>
+          <div className="mt-1 flex flex-wrap items-center gap-2">
+            <h1 className="text-2xl font-semibold tracking-tight">{entity?.name || 'Entity'}</h1>
+            {entity?.status && <Badge tone="neutral" dot>{titleCase(entity.status)}</Badge>}
+          </div>
+          <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-text-secondary">
             <span className="mono-id">{entity?.cin || entity?.id}</span>
-            {entity?.gstin && <span className="mono-id text-text-secondary">{entity?.gstin}</span>}
-            <RiskBadge score={entity?.risk_score} />
+            {entity?.gstin && (
+              <span className="inline-flex items-center gap-1">
+                <span className="mono-id">{entity.gstin}</span>
+                <InfoHint content="GSTIN is the 15-character GST registration number for this entity." />
+              </span>
+            )}
+            <span>{entityState}</span>
+            {entity?.roc && <span>ROC {entity.roc}</span>}
+            {entity?.incorporation_date && <span>Incorporated {formatDate(entity.incorporation_date)}</span>}
           </div>
         </div>
-        <div className="flex gap-2">
-          <button className="btn-secondary" onClick={() => { setShowExplain(true) }} disabled={!explanation}>
-            ⚠ Why flagged?
-          </button>
-          <button className="btn-primary" onClick={createCase} disabled={creatingCase}>
-            {creatingCase ? 'Opening…' : 'Open case'}
-          </button>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="secondary" onClick={addToWatchlist}>Watchlist</Button>
+          <Button variant="secondary" onClick={() => setShowExplain(true)} disabled={!explanation}>Why flagged?</Button>
+          <Button variant="secondary" onClick={() => setTab('notes')}>Add note</Button>
+          <Button onClick={createCase} loading={creatingCase}>Open case</Button>
         </div>
       </div>
 
-      <div className="flex gap-1 border-b border-border">
-        {tabs.map((t) => (
-          <button
-            key={t.key}
-            className={`px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${
-              tab === t.key ? 'border-accent-ring text-accent-ring' : 'border-transparent text-text-secondary hover:text-text-primary'
-            }`}
-            onClick={() => setTab(t.key)}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
-
-      {loading ? (
-        <div className="panel p-6 h-[560px]"><div className="skeleton h-full" /></div>
-      ) : tab === 'network' ? (
-        <div className="panel h-[560px] relative overflow-hidden">
-          <svg ref={svgRef} className="w-full h-full" />
-          <div className="absolute bottom-4 right-4 flex gap-2">
-            <button className="btn-secondary btn-compact" onClick={fitView}>Fit to view</button>
-            <button className="btn-secondary btn-compact" onClick={() => load(1)} disabled={hops === 1}>1-hop</button>
-            <button className="btn-secondary btn-compact" onClick={() => load(2)} disabled={hops === 2}>2-hop</button>
-            <button className="btn-secondary btn-compact" onClick={() => load(3)} disabled={hops === 3}>3-hop</button>
+      {loading && !entity ? (
+        <div className="space-y-4">
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            {Array.from({ length: 4 }).map((_, index) => (
+              <div key={index} className="panel p-4"><Skeleton className="h-3 w-24" /><Skeleton className="mt-3 h-7 w-20" /></div>
+            ))}
           </div>
-          <div className="absolute top-3 left-3 flex flex-wrap gap-3 text-[11px] text-text-secondary pointer-events-none">
-            <span><span className="inline-block w-2.5 h-2.5 rounded-full bg-accent mr-1" />Company</span>
-            <span><span className="inline-block w-2.5 h-2.5 rounded-full bg-amber mr-1" />Director</span>
-            <span><span className="inline-block w-2.5 h-2.5 rounded-full bg-text-secondary mr-1" />Address</span>
-            <span><span className="inline-block w-2.5 h-2.5 rounded-full bg-secondary-400 mr-1" />Bank account</span>
-            <span className="ml-2 text-risk-critical">red edges = flagged cycle</span>
-          </div>
-
-          {selectedNode && (
-            <div className="absolute bottom-4 left-4 panel-raised p-4 rounded-lg max-w-xs">
-              <h3 className="font-semibold text-sm">{selectedNode.label}</h3>
-              <p className="text-xs text-text-secondary mt-0.5">{selectedNode.type}</p>
-              <div className="mt-2 space-y-1 text-xs text-text-secondary max-h-40 overflow-y-auto">
-                {Object.entries(selectedNode.properties).slice(0, 12).map(([k, v]) => (
-                  <div key={k}><span className="text-text-primary font-medium">{k}:</span> <span className="font-mono">{String(v)}</span></div>
-                ))}
+          <div className="panel p-6"><SkeletonText lines={8} /></div>
+        </div>
+      ) : (
+        <>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="panel relative overflow-hidden p-4">
+              <span
+                className="absolute inset-x-0 top-0 h-0.5"
+                style={{ backgroundColor: riskColorForScore(entity?.risk_score ?? 0) }}
+                aria-hidden="true"
+              />
+              <div className="flex items-center justify-between">
+                <span className="micro-label">Risk score</span>
+                <InfoHint content="Model-assisted priority score from 0–100. It combines network evidence such as rings, shared directors, addresses and transaction behaviour." />
               </div>
-              {selectedNode.type === 'Company' && (
-                <Link
-                  to={`/entity/${selectedNode.properties.cin || selectedNode.id}/network`}
-                  className="mt-3 text-xs text-accent-ring hover:underline"
-                >
-                  View network →
-                </Link>
-              )}
-              <button onClick={() => setSelectedNode(null)} className="mt-2 text-xs text-text-secondary hover:text-text-primary">Close</button>
+              <div className="mt-2 flex items-end gap-2">
+                <span className="font-mono text-3xl font-medium" style={{ color: riskColorForScore(entity?.risk_score ?? 0) }}>
+                  {entity?.risk_score !== undefined ? Math.round(entity.risk_score) : '—'}
+                </span>
+                <span className="pb-1 text-xs text-text-secondary">/ 100 · {riskLevel(entity?.risk_score).label}</span>
+              </div>
+              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-raised">
+                <div
+                  className="h-full rounded-full transition-[width] duration-500"
+                  style={{ width: `${Math.min(100, Math.max(0, entity?.risk_score ?? 0))}%`, backgroundColor: riskColorForScore(entity?.risk_score ?? 0) }}
+                />
+              </div>
+              <p className="mt-2 text-xs text-text-secondary">Source: {entity?.risk_source || 'heuristic'}</p>
             </div>
-          )}
-        </div>
-      ) : tab === 'overview' ? (
-        <div className="grid grid-cols-2 gap-4">
-          <div className="panel p-5">
-            <div className="micro-label mb-3">Company details</div>
-            <dl className="space-y-2 text-sm">
-              {[
-                ['CIN', entity?.cin], ['GSTIN', entity?.gstin], ['Name', entity?.name],
-                ['Status', entity?.status], ['ROC', entity?.roc], ['NIC code', entity?.nic_code],
-                ['Incorporated', entity?.incorporation_date], ['Authorized capital', entity?.authorized_capital ? `₹${entity.authorized_capital.toLocaleString('en-IN')}` : '—'],
-                ['Paid-up capital', entity?.paid_up_capital ? `₹${entity.paid_up_capital.toLocaleString('en-IN')}` : '—'],
-              ].map(([k, v]) => (
-                <div key={k as string} className="flex justify-between border-b border-border pb-1.5">
-                  <dt className="text-text-secondary">{k}</dt>
-                  <dd className="font-mono text-[12px] text-right">{String(v ?? '—')}</dd>
-                </div>
-              ))}
-            </dl>
+
+            <div className="panel p-4">
+              <span className="micro-label">Paid-up capital</span>
+              <div className="mt-2 font-mono text-2xl">{formatInrCompact(entity?.paid_up_capital)}</div>
+              <p className="mt-2 text-xs text-text-secondary">Authorised {formatInrCompact(entity?.authorized_capital)}</p>
+            </div>
+
+            <div className="panel p-4">
+              <div className="flex items-center justify-between">
+                <span className="micro-label">Ring membership</span>
+                <InfoHint content="Number of closed invoice cycles (rings) this entity appears in. Rings are a strong circular-trading signal." />
+              </div>
+              <div className="mt-2 font-mono text-2xl text-amber">{explanation?.evidence.cycles.length ?? 0}</div>
+              <p className="mt-2 text-xs text-text-secondary">
+                {explanation?.evidence.cycles.length ? 'Detected invoice cycle(s)' : 'No closed cycle detected'}
+              </p>
+            </div>
+
+            <div className={`panel p-4 ${ewayCount > 0 ? 'border-risk-high/50' : ''}`}>
+              <div className="flex items-center justify-between">
+                <span className="micro-label">e-Way mismatches</span>
+                <InfoHint content="High-value invoices with no matching e-Way Bill movement record. A mismatch is a signal, not proof of evasion." />
+              </div>
+              <div className={`mt-2 font-mono text-2xl ${ewayCount > 0 ? 'text-risk-high' : ''}`}>{ewayCount}</div>
+              <p className="mt-2 text-xs text-text-secondary">
+                {ewayCount > 0 ? `${formatInr(ewayTotal)} across mismatched invoices` : 'All matched or none applicable'}
+              </p>
+            </div>
           </div>
-          <div className="space-y-4">
+
+          <div className="grid gap-4 lg:grid-cols-3">
+            <div className="panel p-5 lg:col-span-2">
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div>
+                  <h2 className="flex items-center gap-1.5 text-sm font-semibold">
+                    Risk drivers
+                    <InfoHint side="bottom" content="How the score decomposes into evidence. Contributions are points added by each signal; they may be capped before the total." />
+                  </h2>
+                  <p className="mt-0.5 text-xs text-text-secondary">Evidence contribution to the current score.</p>
+                </div>
+                <Badge tone={entity?.risk_source === 'gnn_v1' ? 'accent' : 'neutral'}>
+                  {entity?.risk_source === 'gnn_v1' ? 'GNN-assisted' : 'Structural'}
+                </Badge>
+              </div>
+
+              {driverEntries.length === 0 ? (
+                <EmptyState
+                  compact
+                  title="No driver breakdown"
+                  description={explanation ? 'This entity was scored before component attribution was recorded.' : 'The explanation API is unavailable; the score still stands.'}
+                />
+              ) : (
+                <div className="mt-4 space-y-2.5">
+                  {driverEntries.map((driver) => (
+                    <div key={driver.key}>
+                      <div className="flex items-center justify-between gap-2 text-xs">
+                        <span className="text-text-secondary">{driver.label}</span>
+                        <span className="font-mono text-text-primary">+{driver.value.toFixed(1)}</span>
+                      </div>
+                      <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-raised">
+                        <div
+                          className="h-full rounded-full bg-accent transition-[width] duration-500"
+                          style={{ width: `${Math.max(3, (driver.value / maxDriver) * 100)}%` }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {explanation && explanation.reasons.length > 0 && (
+                <ul className="mt-4 space-y-1.5 border-t border-border pt-3">
+                  {explanation.reasons.slice(0, 3).map((reason, index) => (
+                    <li key={index} className="flex gap-2 text-xs text-text-secondary">
+                      <span className="text-accent-ring">▸</span>{reason}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
             <div className="panel p-5">
-              <div className="micro-label mb-3">Risk features</div>
-              <dl className="space-y-2 text-sm">
+              <h2 className="text-sm font-semibold">Entity profile</h2>
+              <dl className="mt-3 space-y-2 text-sm">
                 {[
-                  ['Risk score', entity?.risk_score !== undefined ? `${Math.round(entity.risk_score)} / 100` : '—'],
-                  ['Community ID', entity?.community_id || '—'],
-                  ['PageRank', entity?.pagerank?.toFixed(4) || '—'],
-                  ['Betweenness', entity?.betweenness?.toFixed(4) || '—'],
-                  [
-                    'e-Way Bill mismatches',
-                    ewayCount > 0
-                      ? `${ewayCount} · ₹${ewayTotal.toLocaleString('en-IN')}`
-                      : '0',
-                  ],
-                ].map(([k, v]) => (
-                  <div key={k as string} className="flex justify-between border-b border-border pb-1.5">
-                    <dt className="text-text-secondary">{k}</dt>
-                    <dd className="font-mono text-[12px]">{String(v)}</dd>
+                  ['CIN', entity?.cin],
+                  ['GSTIN', entity?.gstin],
+                  ['NIC sector', entity?.nic_code],
+                  ['ROC', entity?.roc],
+                  ['Community', entity?.community_id],
+                  ['PageRank', entity?.pagerank !== undefined ? Number(entity.pagerank).toFixed(4) : null],
+                  ['Betweenness', entity?.betweenness !== undefined ? Number(entity.betweenness).toFixed(4) : null],
+                ].map(([label, value]) => (
+                  <div key={label as string} className="flex items-start justify-between gap-3 border-b border-border pb-1.5 last:border-0">
+                    <dt className="flex items-center gap-1 text-xs text-text-secondary">
+                      {label}
+                      {label === 'Betweenness' && (
+                        <InfoHint content="A graph-centrality measure: how often this entity sits on the shortest path between others. High betweenness can indicate a bridge between otherwise separate clusters." />
+                      )}
+                    </dt>
+                    <dd className="text-right font-mono text-[12px]">{String(value ?? '—')}</dd>
                   </div>
                 ))}
               </dl>
-              {ewayCount > 0 && (
-                <div className="mt-3 flex items-start gap-2 rounded border border-orange-500/40 bg-orange-500/10 p-2 text-[11px] text-text-primary">
-                  <span className="inline-block w-2 h-2 rounded-full bg-orange-500 mt-0.5 shrink-0" />
-                  <span>
-                    {ewayCount} high-value invoice{ewayCount === 1 ? '' : 's'} with no matching e-Way Bill
-                    movement record. Open <strong>Evidence</strong> for the per-invoice reason.
-                  </span>
-                </div>
-              )}
-              <div className="mt-4">
-                <div className="micro-label mb-2">Risk level</div>
-                <RiskBadge score={entity?.risk_score} />
+              <div className="mt-4 grid grid-cols-3 gap-2">
+                <Button size="sm" variant="secondary" onClick={() => submitFeedback('confirm_fraud')} loading={feedbackBusy === 'confirm_fraud'}>Confirm</Button>
+                <Button size="sm" variant="secondary" onClick={() => submitFeedback('needs_review')} loading={feedbackBusy === 'needs_review'}>Review</Button>
+                <Button size="sm" variant="secondary" onClick={() => submitFeedback('false_positive')} loading={feedbackBusy === 'false_positive'}>False +</Button>
               </div>
-            </div>
-            <div className="panel p-5">
-              <div className="micro-label mb-3">Quick actions</div>
-              <div className="flex flex-wrap gap-2">
-                <button className="btn-secondary btn-compact" onClick={() => { setShowExplain(true) }} disabled={!explanation}>Explain flag</button>
-                <button className="btn-secondary btn-compact" onClick={createCase} disabled={creatingCase}>Open case</button>
-                <button className="btn-secondary btn-compact" onClick={async()=>{try{await api.post(`/watchlist`,{entity_id:id, entity_cin:entity?.cin});alert('Added to watchlist');}catch(e:any){alert(e?.response?.data?.detail?.message||'Failed');}}}>Add to watchlist</button>
-                <button className="btn-secondary btn-compact" onClick={async()=>{try{await api.post(`/entities/${id}/feedback`,{label:'confirm_fraud'});alert('Labeled: Confirm fraud');}catch(e:any){alert(e?.response?.data?.detail?.message||'Failed');}}}>Confirm fraud</button>
-                <button className="btn-secondary btn-compact" onClick={async()=>{try{await api.post(`/entities/${id}/feedback`,{label:'false_positive'});alert('Labeled: False positive');}catch(e:any){alert(e?.response?.data?.detail?.message||'Failed');}}}>False positive</button>
-                <button className="btn-secondary btn-compact" onClick={async()=>{try{await api.post(`/entities/${id}/feedback`,{label:'needs_review'});alert('Labeled: Needs review');}catch(e:any){alert(e?.response?.data?.detail?.message||'Failed');}}}>Needs review</button>
-                <Link to="/worklist" className="btn-secondary btn-compact">Back to worklist</Link>
-              </div>
+              <p className="mt-2 text-[11px] text-text-disabled">Labels feed model feedback; they do not close the entity.</p>
             </div>
           </div>
-        </div>
-      ) : (
-        <div className="panel p-5 space-y-4">
-          <div className="micro-label">Why flagged?</div>
-          {explanation ? (
-            <>
-              <ul className="space-y-2">
-                {explanation.reasons.map((reason, i) => (
-                  <li key={i} className="flex gap-2 text-sm"><span className="text-accent-ring">▸</span>{reason}</li>
-                ))}
-              </ul>
-              {explanation.evidence.cycles.length > 0 && (
-                <div>
-                  <div className="micro-label mb-2">Detected loops</div>
-                  {explanation.evidence.cycles.map((cycle, i) => (
-                    <div key={i} className="panel p-3 mb-2">
-                      <div className="text-xs text-risk-critical font-semibold mb-1">
-                        {cycle.hop_count}-hop invoice cycle across {cycle.company_count} companies · ₹{Number(cycle.total_invoice_amount || 0).toLocaleString('en-IN')}
-                      </div>
-                      <div className="font-mono text-[11px] text-text-secondary">
-                        {cycle.companies?.map((m: any) => m.name).join(' → ')}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-              {explanation.evidence.shared_directors.length > 0 && (
-                <div>
-                  <div className="micro-label mb-2">Shared directors</div>
-                  {explanation.evidence.shared_directors.map((sd, i) => (
-                    <div key={i} className="text-sm mb-1">{sd.director} — {sd.companies?.join(', ')}</div>
-                  ))}
-                </div>
-              )}
-              {explanation.evidence.shared_addresses.length > 0 && (
-                <div>
-                  <div className="micro-label mb-2">Shared registered addresses</div>
-                  {explanation.evidence.shared_addresses.map((sa, i) => (
-                    <div key={i} className="text-sm mb-1 font-mono text-[12px]">{sa.address} ({sa.state}) — {sa.companies?.join(', ')}</div>
-                  ))}
-                </div>
-              )}
-              {ewayCount > 0 && (
-                <div>
-                  <div className="micro-label mb-2">e-Way Bill mismatches</div>
-                  {ewayMismatches.map((m, i) => (
-                    <div key={i} className="panel p-3 mb-2">
-                      <div className="text-xs font-semibold mb-1">
-                        {m.invoice_no || '—'} · ₹{Number(m.amount || 0).toLocaleString('en-IN')}
-                        {m.date ? ` · ${m.date}` : ''}
-                      </div>
-                      <div className="text-[11px] text-text-primary">{m.reason_label || m.reason}</div>
-                      {m.claimed_ref && (
-                        <div className="font-mono text-[11px] text-text-secondary">
-                          cites {m.claimed_ref}
-                          {m.movement_ref ? '' : ' — no movement record exists'}
-                        </div>
-                      )}
-                      {m.movement_ref && (
-                        <div className="font-mono text-[11px] text-text-secondary">
-                          {m.movement_ref}: ₹{Number(m.movement_amount || 0).toLocaleString('en-IN')}
-                          {m.movement_date ? ` on ${m.movement_date}` : ''}
-                          {m.from_state && m.to_state ? `, ${m.from_state} → ${m.to_state}` : ''}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </>
-          ) : (
-            <p className="text-sm text-text-secondary">No explanation available.</p>
+
+          <Tabs items={tabItems} value={tab} onChange={(next) => { setTab(next as TabId); setTabError(null) }} />
+          {tabError && (
+            <div className="panel border-risk-critical/40 p-4 text-sm text-risk-critical" role="alert">{tabError}</div>
           )}
-        </div>
+
+          {tab === 'network' && (
+            <div className="panel relative h-[560px] overflow-hidden">
+              {nodes.length === 0 ? (
+                <EmptyState
+                  title="No network found"
+                  description="This entity has no relationships in the graph yet. Ingest MCA/GST data to build its neighbourhood."
+                  action={<Link to="/ingest"><Button variant="secondary">Import data</Button></Link>}
+                />
+              ) : (
+                <>
+                  <svg ref={svgRef} className="h-full w-full" aria-label="Entity network graph" />
+                  <div className="absolute bottom-4 right-4 flex gap-2">
+                    <Button size="sm" variant="secondary" onClick={fitView}>Fit to view</Button>
+                    {[1, 2, 3].map((depth) => (
+                      <Button key={depth} size="sm" variant="secondary" onClick={() => load(depth)} disabled={hops === depth}>
+                        {depth}-hop
+                      </Button>
+                    ))}
+                  </div>
+                  <div className="pointer-events-none absolute left-3 top-3 flex flex-wrap gap-3 text-[11px] text-text-secondary">
+                    <span><span className="mr-1 inline-block h-2.5 w-2.5 rounded-full bg-accent" />Company</span>
+                    <span><span className="mr-1 inline-block h-2.5 w-2.5 rounded-full bg-amber" />Director</span>
+                    <span><span className="mr-1 inline-block h-2.5 w-2.5 rounded-full bg-text-secondary" />Address</span>
+                    <span><span className="mr-1 inline-block h-2.5 w-2.5 rounded-full bg-secondary-400" />Bank account</span>
+                    <span className="text-risk-critical">red edges = flagged cycle</span>
+                    <span className="text-risk-high">orange dot = e-Way mismatch</span>
+                  </div>
+                  {selectedNode && (
+                    <div className="panel-raised absolute bottom-4 left-4 max-w-xs rounded-lg p-4">
+                      <h3 className="text-sm font-semibold">{selectedNode.label}</h3>
+                      <p className="mt-0.5 text-xs text-text-secondary">{selectedNode.type}</p>
+                      <div className="mt-2 max-h-40 space-y-1 overflow-y-auto text-xs text-text-secondary">
+                        {Object.entries(selectedNode.properties).slice(0, 12).map(([key, value]) => (
+                          <div key={key}><span className="font-medium text-text-primary">{key}:</span> <span className="font-mono">{String(value)}</span></div>
+                        ))}
+                      </div>
+                      {selectedNode.type === 'Company' && (
+                        <Link
+                          to={`/entity/${selectedNode.properties.cin || selectedNode.id}/network`}
+                          className="mt-3 text-xs text-accent-ring hover:underline"
+                        >
+                          View network →
+                        </Link>
+                      )}
+                      <button type="button" onClick={() => setSelectedNode(null)} className="mt-2 text-xs text-text-secondary hover:text-text-primary">Close</button>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+
+          {tab === 'transactions' && (
+            <div className="panel overflow-hidden">
+              {timeline === null ? (
+                <div className="p-5"><SkeletonText lines={8} /></div>
+              ) : timeline.length === 0 ? (
+                <EmptyState
+                  title="No billed invoices"
+                  description="No outgoing invoices are attached to this entity in the graph. Invoices appear after GST ingestion."
+                />
+              ) : (
+                <>
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3">
+                    <div>
+                      <h2 className="text-sm font-semibold">Outgoing invoices</h2>
+                      <p className="text-xs text-text-secondary">Sorted by invoice date, oldest first.</p>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-mono text-sm">{formatInr(totalTransactions)}</div>
+                      <div className="text-[11px] text-text-secondary">{timeline.length} invoices</div>
+                    </div>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[720px] text-sm">
+                      <thead className="bg-raised/60 text-left text-micro uppercase tracking-micro text-text-secondary">
+                        <tr>
+                          <th className="px-4 py-2.5">Date</th>
+                          <th className="px-4 py-2.5">Counterparty</th>
+                          <th className="px-4 py-2.5">Seller GSTIN</th>
+                          <th className="px-4 py-2.5">Buyer GSTIN</th>
+                          <th className="px-4 py-2.5">Return period</th>
+                          <th className="px-4 py-2.5 text-right">Amount</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {timeline.map((invoice, index) => (
+                          <tr key={`${invoice.date}-${index}`} className="border-t border-border hover:bg-raised/40">
+                            <td className="px-4 py-2.5 text-xs text-text-secondary">{formatDate(invoice.date)}</td>
+                            <td className="px-4 py-2.5">
+                              {invoice.counterparty?.cin ? (
+                                <Link
+                                  to={`/entity/${invoice.counterparty.cin}/network`}
+                                  className="font-medium hover:text-accent-ring"
+                                >
+                                  {invoice.counterparty.name || invoice.counterparty.cin}
+                                </Link>
+                              ) : (
+                                <span className="font-medium">{invoice.counterparty?.name || '—'}</span>
+                              )}
+                            </td>
+                            <td className="px-4 py-2.5 font-mono text-data text-text-secondary">{invoice.seller_gstin || '—'}</td>
+                            <td className="px-4 py-2.5 font-mono text-data text-text-secondary">{invoice.buyer_gstin || '—'}</td>
+                            <td className="px-4 py-2.5 font-mono text-data text-text-secondary">{invoice.return_period || '—'}</td>
+                            <td className="px-4 py-2.5 text-right font-mono text-data">{formatInr(invoice.amount)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
+          {tab === 'people' && (
+            <div className="grid gap-4 lg:grid-cols-2">
+              <div className="panel p-5">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-sm font-semibold">Directors</h2>
+                  <Badge tone="neutral">{directors.length}</Badge>
+                </div>
+                {directors.length === 0 ? (
+                  <EmptyState compact title="No directors in this neighbourhood" description="Try a wider hop depth on the Network tab, or ingest MCA director records." />
+                ) : (
+                  <ul className="mt-3 divide-y divide-border">
+                    {directors.map((director) => {
+                      const companies = connectedCompanies(director.id)
+                      return (
+                        <li key={director.id} className="py-3">
+                          <div className="flex items-start justify-between gap-2">
+                            <div>
+                              <p className="text-sm font-medium">{director.label}</p>
+                              <p className="font-mono text-[11px] text-text-secondary">DIN {director.properties.din || '—'}</p>
+                            </div>
+                            <Badge tone={companies.length > 1 ? 'amber' : 'neutral'}>{companies.length} link{companies.length === 1 ? '' : 's'}</Badge>
+                          </div>
+                          {companies.length > 0 && (
+                            <p className="mt-1 text-xs text-text-secondary">
+                              Connected to {companies.slice(0, 3).join(', ')}{companies.length > 3 ? ` +${companies.length - 3}` : ''}
+                            </p>
+                          )}
+                        </li>
+                      )
+                    })}
+                  </ul>
+                )}
+              </div>
+              <div className="panel p-5">
+                <div className="flex items-center justify-between">
+                  <h2 className="flex items-center gap-1.5 text-sm font-semibold">
+                    Registered addresses
+                    <InfoHint content="Shared addresses across unrelated companies can indicate shell entities using the same premises." />
+                  </h2>
+                  <Badge tone="neutral">{addresses.length}</Badge>
+                </div>
+                {addresses.length === 0 ? (
+                  <EmptyState compact title="No addresses in this neighbourhood" description="Addresses appear when MCA records link companies to registered premises." />
+                ) : (
+                  <ul className="mt-3 divide-y divide-border">
+                    {addresses.map((address) => {
+                      const companies = connectedCompanies(address.id)
+                      return (
+                        <li key={address.id} className="py-3">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <p className="text-sm">{address.properties.normalized_address || address.label || 'Registered address'}</p>
+                              <p className="text-xs text-text-secondary">
+                                {[address.properties.state, address.properties.pincode].filter(Boolean).join(' · ') || 'State not recorded'}
+                              </p>
+                            </div>
+                            <Badge tone={companies.length > 1 ? 'amber' : 'neutral'}>{companies.length} compan{companies.length === 1 ? 'y' : 'ies'}</Badge>
+                          </div>
+                          {companies.length > 0 && (
+                            <p className="mt-1 truncate text-xs text-text-secondary">{companies.slice(0, 3).join(', ')}</p>
+                          )}
+                        </li>
+                      )
+                    })}
+                  </ul>
+                )}
+              </div>
+            </div>
+          )}
+
+          {tab === 'evidence' && (
+            <div className="space-y-4">
+              {!explanation ? (
+                <div className="panel p-5"><SkeletonText lines={5} /></div>
+              ) : (
+                <>
+                  <div className="panel p-5">
+                    <div className="flex items-center justify-between">
+                      <h2 className="text-sm font-semibold">Why this entity is flagged</h2>
+                      <Badge tone="accent">{explanation.reasons.length} signals</Badge>
+                    </div>
+                    {explanation.reasons.length === 0 ? (
+                      <EmptyState compact title="No positive evidence" description="The score may come from model priors rather than structural evidence." />
+                    ) : (
+                      <ul className="mt-3 space-y-2">
+                        {explanation.reasons.map((reason, index) => (
+                          <li key={index} className="flex gap-2 text-sm"><span className="text-accent-ring">▸</span>{reason}</li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+
+                  {explanation.evidence.cycles.length > 0 && (
+                    <div className="panel p-5">
+                      <h2 className="text-sm font-semibold">Detected invoice cycles</h2>
+                      <div className="mt-3 space-y-3">
+                        {explanation.evidence.cycles.map((cycle, index) => (
+                          <div key={index} className="rounded-lg border border-risk-critical/30 bg-risk-critical/5 p-3">
+                            <div className="text-xs font-semibold text-risk-critical">
+                              {cycle.hop_count}-hop cycle across {cycle.company_count} companies · {formatInr(cycle.total_invoice_amount)}
+                            </div>
+                            <div className="mt-1 font-mono text-[11px] text-text-secondary">
+                              {cycle.companies?.map((member) => member.name).join(' → ')}
+                            </div>
+                            {cycle.invoices?.length > 0 && (
+                              <div className="mt-2 space-y-1 border-t border-risk-critical/20 pt-2 text-[11px] text-text-secondary">
+                                {cycle.invoices.slice(0, 4).map((invoice, invoiceIndex) => (
+                                  <div key={invoiceIndex} className="flex justify-between gap-2">
+                                    <span className="truncate">{invoice.invoice_no || 'Invoice'} · {invoice.seller_name || invoice.seller_cin} → {invoice.buyer_name || invoice.buyer_cin}</span>
+                                    <span className="shrink-0 font-mono">{formatInr(invoice.amount)}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="grid gap-4 lg:grid-cols-2">
+                    <div className="panel p-5">
+                      <h2 className="text-sm font-semibold">Shared directors</h2>
+                      {explanation.evidence.shared_directors.length === 0 ? (
+                        <p className="mt-2 text-xs text-text-secondary">No shared-director links in the evidence set.</p>
+                      ) : (
+                        <ul className="mt-3 space-y-2">
+                          {explanation.evidence.shared_directors.map((director, index) => (
+                            <li key={index} className="rounded-lg border border-border bg-raised/40 p-2.5 text-xs">
+                              <p className="font-medium text-text-primary">{director.director}</p>
+                              <p className="mt-0.5 text-text-secondary">{director.companies?.join(', ')}</p>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                    <div className="panel p-5">
+                      <h2 className="text-sm font-semibold">Shared registered addresses</h2>
+                      {explanation.evidence.shared_addresses.length === 0 ? (
+                        <p className="mt-2 text-xs text-text-secondary">No shared-address links in the evidence set.</p>
+                      ) : (
+                        <ul className="mt-3 space-y-2">
+                          {explanation.evidence.shared_addresses.map((address, index) => (
+                            <li key={index} className="rounded-lg border border-border bg-raised/40 p-2.5 text-xs">
+                              <p className="font-mono text-[11px] text-text-primary">{address.address}</p>
+                              <p className="mt-0.5 text-text-secondary">{address.state} · {address.companies?.join(', ')}</p>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="panel p-5">
+                    <div className="flex items-center justify-between">
+                      <h2 className="flex items-center gap-1.5 text-sm font-semibold">
+                        e-Way Bill mismatches
+                        <InfoHint content="Invoices above the configured high-value threshold whose declared e-Way Bill reference has no matching movement record, or whose amount differs materially." />
+                      </h2>
+                      <Badge tone={ewayCount > 0 ? 'high' : 'neutral'}>{ewayCount}</Badge>
+                    </div>
+                    {ewayCount === 0 ? (
+                      <p className="mt-2 text-xs text-text-secondary">No e-Way mismatches recorded for this entity.</p>
+                    ) : (
+                      <div className="mt-3 space-y-2">
+                        {ewayMismatches.map((mismatch, index) => (
+                          <div key={index} className="rounded-lg border border-risk-high/30 bg-risk-high/5 p-3">
+                            <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-semibold">
+                              <span>{mismatch.invoice_no || 'Invoice'} · {formatInr(mismatch.amount)}</span>
+                              {mismatch.date && <span className="font-normal text-text-secondary">{formatDate(mismatch.date)}</span>}
+                            </div>
+                            <p className="mt-1 text-[11px] text-text-primary">{mismatch.reason_label || mismatch.reason}</p>
+                            {mismatch.claimed_ref && (
+                              <p className="font-mono text-[11px] text-text-secondary">
+                                Cites {mismatch.claimed_ref}{mismatch.movement_ref ? '' : ' — no movement record exists'}
+                              </p>
+                            )}
+                            {mismatch.movement_ref && (
+                              <p className="font-mono text-[11px] text-text-secondary">
+                                {mismatch.movement_ref}: {formatInr(mismatch.movement_amount)}
+                                {mismatch.movement_date ? ` on ${mismatch.movement_date}` : ''}
+                                {mismatch.from_state && mismatch.to_state ? `, ${mismatch.from_state} → ${mismatch.to_state}` : ''}
+                              </p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
+          {tab === 'history' && (
+            <div className="panel p-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-sm font-semibold">Entity history</h2>
+                  <p className="text-xs text-text-secondary">Analyst labels, case activity, notes and invoices, newest first.</p>
+                </div>
+                <Button size="sm" variant="ghost" onClick={() => setHistory(null)}>Refresh</Button>
+              </div>
+              {history === null ? (
+                <div className="mt-4"><SkeletonText lines={6} /></div>
+              ) : history.length === 0 ? (
+                <EmptyState compact title="No history yet" description="Labels, case events, notes and invoices will appear here as they are recorded." />
+              ) : (
+                <ol className="mt-4 space-y-0">
+                  {history.map((event, index) => (
+                    <li key={`${event.kind}-${index}`} className="relative flex gap-3 pb-4 last:pb-0">
+                      <span className="relative flex flex-col items-center">
+                        <span className="mt-1.5 h-2.5 w-2.5 rounded-full" style={{ backgroundColor: HISTORY_TONE[event.kind] || 'var(--color-text-disabled)' }} aria-hidden="true" />
+                        {index < history.length - 1 && <span className="mt-1 w-px flex-1 bg-border" aria-hidden="true" />}
+                      </span>
+                      <div className="min-w-0 flex-1 border-b border-border pb-3 last:border-0">
+                        <div className="flex flex-wrap items-baseline justify-between gap-2">
+                          <p className="text-sm font-medium">{event.title}</p>
+                          <time className="text-xs text-text-disabled" dateTime={event.at}>{relativeTime(event.at)}</time>
+                        </div>
+                        <p className="text-xs text-text-secondary">
+                          {titleCase(event.kind)}
+                          {event.actor ? ` · ${event.actor}` : ''}
+                          {event.amount !== undefined && event.amount !== null ? ` · ${formatInr(event.amount)}` : ''}
+                        </p>
+                        {event.detail && <p className="mt-1 text-xs text-text-secondary">{event.detail}</p>}
+                      </div>
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </div>
+          )}
+
+          {tab === 'notes' && (
+            <div className="grid gap-4 lg:grid-cols-3">
+              <div className="panel p-5 lg:col-span-1">
+                <h2 className="text-sm font-semibold">Add an analyst note</h2>
+                <p className="mt-0.5 text-xs text-text-secondary">Notes are visible to everyone working this entity and appear in its history.</p>
+                <textarea
+                  className="mt-3 min-h-32 w-full rounded-lg border border-border bg-canvas p-3 text-sm text-text-primary placeholder:text-text-disabled focus:border-accent-ring focus:outline-none focus:ring-2 focus:ring-accent-ring"
+                  placeholder="What did you verify? Include source references where possible."
+                  value={noteDraft}
+                  onChange={(event) => setNoteDraft(event.target.value)}
+                  maxLength={5000}
+                />
+                <div className="mt-2 flex items-center justify-between gap-2">
+                  <span className="text-[11px] text-text-disabled">{noteDraft.length}/5000</span>
+                  <Button size="sm" onClick={submitNote} loading={savingNote} disabled={!noteDraft.trim()}>Save note</Button>
+                </div>
+              </div>
+              <div className="panel p-5 lg:col-span-2">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-sm font-semibold">Notes</h2>
+                  <Badge tone="neutral">{notes?.length ?? 0}</Badge>
+                </div>
+                {notes === null ? (
+                  <div className="mt-4"><SkeletonText lines={5} /></div>
+                ) : notes.length === 0 ? (
+                  <EmptyState compact title="No notes yet" description="Record verification steps, source documents or handover context for the next analyst." />
+                ) : (
+                  <ul className="mt-3 divide-y divide-border">
+                    {notes.map((note) => (
+                      <li key={note.id} className="py-3">
+                        <div className="flex items-baseline justify-between gap-2">
+                          <span className="text-xs font-medium">{note.author_name || 'Analyst'}</span>
+                          <time className="text-[11px] text-text-disabled" dateTime={note.created_at}>{relativeTime(note.created_at)}</time>
+                        </div>
+                        <p className="mt-1 whitespace-pre-wrap text-sm text-text-secondary">{note.body}</p>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+          )}
+        </>
       )}
+
+      <p className="text-xs text-text-disabled">
+        Entity reference {truncateMiddle(entity?.cin || id || '', 28)} · scores are prioritisation aids; verify evidence before enforcement.
+      </p>
 
       {showExplain && explanation && (
         <ExplainDrawer data={explanation} entityId={id!} onClose={() => setShowExplain(false)} />

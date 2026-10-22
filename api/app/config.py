@@ -32,6 +32,9 @@ class Settings(BaseSettings):
     postgres_user: str = "dhanchakra"
     postgres_password: str
     postgres_db: str = "dhanchakra"
+    # Optional libpq-style SSL mode ("require" for Neon). Empty means: no SSL
+    # for local container hosts, "require" for any remote host.
+    postgres_ssl: str = ""
 
     # --- API ---
     api_host: str = "0.0.0.0"
@@ -103,6 +106,10 @@ class Settings(BaseSettings):
     risk_betweenness_weight: float = 100
     risk_betweenness_cap: float = 10
     risk_flag_threshold: float = 40
+    # Product risk bands (must match the frontend VITE_RISK_* thresholds).
+    risk_band_critical: float = 85
+    risk_band_high: float = 65
+    risk_band_medium: float = 40
     eway_high_value_threshold: float = 50000.0
     # How far a movement record's value may differ from the invoice value
     # before it counts as an amount mismatch: a share of the invoice, with an
@@ -139,6 +146,11 @@ class Settings(BaseSettings):
     # --- GDS (Neo4j Graph Data Science) ---
     gds_projection_name: str = "company_invoice_graph"
     gds_louvain_max_iterations: int = 20
+    # Graph algorithm backend: "auto" tries GDS and falls back to networkx,
+    # "gds" requires GDS, "networkx" always runs in-process (AuraDB Free).
+    graph_backend: str = "auto"
+    # The networkx betweenness fallback is O(n*m); skip it above this size.
+    networkx_betweenness_max_nodes: int = 5000
 
     # --- GNN training defaults ---
     gnn_default_epochs: int = 60
@@ -149,6 +161,9 @@ class Settings(BaseSettings):
     gnn_checkpoint_filename: str = "gnn_risk_v1.pt"
     gnn_metrics_filename: str = "gnn_metrics.json"
     gnn_checkpoint_path: Optional[str] = None  # overrides dir/filename when set
+    # Inference backend: "auto" (torch if installed, else numpy), "torch",
+    # or "numpy" (uses models/gnn_risk_v1.npz and needs no torch).
+    gnn_backend: str = "auto"
 
     # --- Agentic ingestion (MCA filing extraction) ---
     agent_ingest_backend: str = "rules"

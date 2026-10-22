@@ -1,0 +1,25 @@
+# Slim production image for Render (no torch / benchmark / test dependencies).
+# The GNN runs through numpy using models/gnn_risk_v1.npz, exported from the
+# torch checkpoint by scripts/export_gnn_npz.py.
+FROM python:3.11-slim
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1
+
+WORKDIR /app
+
+COPY requirements-prod.txt .
+RUN pip install --no-cache-dir -r requirements-prod.txt
+
+COPY app/ ./app/
+COPY models/ ./models/
+
+RUN useradd --create-home --uid 10001 appuser \
+    && chown -R appuser:appuser /app
+USER appuser
+
+EXPOSE 8000
+
+# Render sets PORT. Fall back to 8000 when running the image locally.
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]

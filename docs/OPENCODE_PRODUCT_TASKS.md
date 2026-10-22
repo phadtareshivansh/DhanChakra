@@ -55,7 +55,7 @@ This file extends `OPENCODE_TASKS.md`. Read both. Where they conflict, this file
 
 **Phase 2: UI/UX**
 - [x] P2.1 Design system and app shell
-- [ ] P2.2 Core screens redesign
+- [x] P2.2 Core screens redesign
 - [ ] P2.3 Graph investigation workspace
 - [ ] P2.4 Accessibility, responsive, i18n, visual tests
 

@@ -1,0 +1,76 @@
+# Render Blueprint for the Dhan-Chakra API.
+#
+# In Render: New -> Blueprint -> connect this repository. Render reads this
+# file, builds api/Dockerfile.render, and prompts for every `sync: false`
+# value. The free plan spins down after 15 minutes of inactivity; ping
+# /health from UptimeRobot every 10 minutes to keep it warm.
+services:
+  - type: web
+    name: dhan-chakra-api
+    runtime: docker
+    plan: free
+    region: singapore
+    dockerfilePath: ./api/Dockerfile.render
+    dockerContext: ./api
+    healthCheckPath: /health
+    autoDeployTrigger: commit
+    # Frontend-only commits shouldn't rebuild the API image.
+    buildFilter:
+      paths:
+        - api/**
+        - render.yaml
+    envVars:
+      - key: APP_ENV
+        value: production
+      # AuraDB Free has no GDS plugin; run the algorithms in-process.
+      - key: GRAPH_BACKEND
+        value: networkx
+      # Use the torch-free numpy checkpoint in models/gnn_risk_v1.npz.
+      - key: GNN_BACKEND
+        value: numpy
+      - key: GNN_CHECKPOINT_DIR
+        value: /app/models
+      - key: POSTGRES_SSL
+        value: require
+      # Trust Render's edge proxy so login rate limiting sees the real IP.
+      - key: FORWARDED_ALLOW_IPS
+        value: "*"
+
+      # Values entered in the Render dashboard (never committed).
+      - key: NEO4J_URI
+        sync: false
+      - key: NEO4J_USER
+        value: neo4j
+      - key: NEO4J_PASSWORD
+        sync: false
+      - key: POSTGRES_HOST
+        sync: false
+      - key: POSTGRES_PORT
+        value: "5432"
+      - key: POSTGRES_USER
+        sync: false
+      - key: POSTGRES_PASSWORD
+        sync: false
+      - key: POSTGRES_DB
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+      - key: SUPER_ADMIN_EMAIL
+        sync: false
+      - key: SUPER_ADMIN_PASSWORD
+        sync: false
+      - key: USER1_EMAIL
+        sync: false
+      - key: USER1_PASSWORD
+        sync: false
+      - key: USER2_EMAIL
+        sync: false
+      - key: USER2_PASSWORD
+        sync: false
+      # Set both to "true" for the first boot, then change them to "false".
+      - key: SEED_DEMO_USERS
+        sync: false
+      - key: ALLOW_DEMO_SEED
+        sync: false

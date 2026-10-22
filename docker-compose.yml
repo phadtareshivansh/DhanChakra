@@ -54,6 +54,9 @@ services:
     container_name: dhanchakra-api
     ports:
       - "8000:8000"
+    # The production Dockerfile runs without --reload; keep hot reload for
+    # local development.
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
     env_file:
       - .env
     environment:
