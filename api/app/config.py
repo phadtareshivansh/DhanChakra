@@ -103,6 +103,10 @@ class Settings(BaseSettings):
     risk_betweenness_weight: float = 100
     risk_betweenness_cap: float = 10
     risk_flag_threshold: float = 40
+    # Product risk bands (must match the frontend VITE_RISK_* thresholds).
+    risk_band_critical: float = 85
+    risk_band_high: float = 65
+    risk_band_medium: float = 40
     eway_high_value_threshold: float = 50000.0
     # How far a movement record's value may differ from the invoice value
     # before it counts as an amount mismatch: a share of the invoice, with an

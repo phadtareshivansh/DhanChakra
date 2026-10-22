@@ -12,7 +12,10 @@ from ..models.schemas import (
     RiskJobResponse, RiskResult, Case, CaseCreate, CaseUpdate,
     IngestionJobResponse, IngestionJobStatus, User, LoginRequest, TokenResponse, RefreshRequest,
     ExplainResponse, WorklistResponse, StatsOverview, ResolveResponse, CaseExportResponse,
-    ExportPreviewResponse, AuditLogEntry, GNNModelInfo, FeedbackCreate, FeedbackItem
+    ExportPreviewResponse, AuditLogEntry, GNNModelInfo, FeedbackCreate, FeedbackItem,
+    AssignableUser, CaseComment, CaseCommentCreate, CaseActivityEntry, CaseEntityAdd,
+    CaseEntityLink, EntityAssignmentOut, EntityNote, EntityNoteCreate,
+    WorklistBulkRequest, WorklistBulkResponse, WorklistFacets,
 )
 
 router = APIRouter(prefix="/api/v1", tags=["entities"])
@@ -265,6 +268,70 @@ async def list_entity_feedback(entity_id: str, db=Depends(get_db_session)):
     return await feedback_service.list_feedback(db, entity_id=entity_id)
 
 
+async def _resolve_entity_cin(entity_id: str) -> tuple[Optional[str], Optional[dict]]:
+    """Resolve a URL identifier (id, CIN or GSTIN) to (CIN, company node)."""
+    async with get_neo4j_session() as session:
+        node = await graph_service.get_entity(session, entity_id)
+        if not node:
+            node = await graph_service.get_entity_by_identifier(session, entity_id)
+        if not node:
+            return None, None
+        return node.get("cin") or entity_id, node
+
+
+@router.get("/entities/{entity_id}/notes", response_model=List[EntityNote])
+async def list_entity_notes(entity_id: str, db=Depends(get_db_session)):
+    cin, _node = await _resolve_entity_cin(entity_id)
+    if not cin:
+        raise HTTPException(status_code=404, detail={"code": "not_found", "message": "Entity not found"})
+    return await case_service.list_entity_notes(db, cin)
+
+
+@router.post("/entities/{entity_id}/notes", response_model=EntityNote, status_code=status.HTTP_201_CREATED)
+async def add_entity_note(
+    entity_id: str,
+    body: EntityNoteCreate,
+    user=Depends(get_current_user),
+    db=Depends(get_db_session),
+):
+    cin, _node = await _resolve_entity_cin(entity_id)
+    if not cin:
+        raise HTTPException(status_code=404, detail={"code": "not_found", "message": "Entity not found"})
+    note = await case_service.add_entity_note(db, cin, user["id"], body.body)
+    await case_service.log_audit(db, user["id"], "entity_note", "Company", cin, {"note_id": note["id"]})
+    return note
+
+
+@router.get("/entities/{entity_id}/history")
+async def get_entity_history(entity_id: str, db=Depends(get_db_session)):
+    """Merged analyst-facing history: labels, case activity and invoices."""
+    cin, node = await _resolve_entity_cin(entity_id)
+    if not cin or not node:
+        raise HTTPException(status_code=404, detail={"code": "not_found", "message": "Entity not found"})
+    events = await case_service.entity_history(db, cin)
+    try:
+        async with get_neo4j_session() as session:
+            for invoice in await graph_service.get_timeline(session, node["id"]):
+                events.append({
+                    "kind": "invoice",
+                    "at": invoice.get("date"),
+                    "title": f"Invoice to {invoice.get('counterparty', {}).get('name') or invoice.get('buyer_gstin')}",
+                    "detail": f"Return period {invoice.get('return_period') or 'n/a'}",
+                    "actor": None,
+                    "amount": invoice.get("amount"),
+                })
+    except Exception:
+        pass
+
+    def _iso(value):
+        return value.isoformat() if hasattr(value, "isoformat") else value
+
+    for event in events:
+        event["at"] = _iso(event.get("at"))
+    events.sort(key=lambda event: str(event.get("at") or ""), reverse=True)
+    return {"entity_cin": cin, "events": events}
+
+
 @router.get("/feedback/stats")
 async def feedback_stats(db=Depends(get_db_session)):
     return await feedback_service.feedback_counts(db)
@@ -424,6 +491,8 @@ async def get_worklist(
     sector: Optional[str] = None,
     min_score: Optional[float] = None,
     max_score: Optional[float] = None,
+    has_cycles: bool = False,
+    q: Optional[str] = None,
     page: int = 1,
     page_size: Optional[int] = None,
     db=Depends(get_db_session),
@@ -435,9 +504,79 @@ async def get_worklist(
 
         await gnn_predict.ensure_scored(session)
         data = await graph_service.get_worklist(
-            session, sort, direction, state, sector, min_score, max_score, page, page_size
+            session, sort, direction, state, sector, min_score, max_score, page, page_size,
+            has_cycles, q,
         )
         return WorklistResponse(**data)
+
+
+@router.get("/worklist/facets", response_model=WorklistFacets)
+async def worklist_facets():
+    """Distinct states/sectors plus the active risk-band boundaries."""
+    async with get_neo4j_session() as session:
+        return WorklistFacets(**await graph_service.get_worklist_facets(session))
+
+
+@router.get("/worklist/assignments", response_model=List[EntityAssignmentOut])
+async def worklist_assignments(cins: str = "", db=Depends(get_db_session)):
+    """Current owner for a comma-separated list of CINs (one page of results)."""
+    return await case_service.list_assignments(db, [c.strip() for c in cins.split(",") if c.strip()])
+
+
+@router.post("/worklist/bulk", response_model=WorklistBulkResponse)
+async def worklist_bulk(
+    body: WorklistBulkRequest,
+    user=Depends(get_current_user),
+    db=Depends(get_db_session),
+):
+    """Apply an action to a selection of worklist entities.
+
+    * ``label``       queue analyst feedback for every CIN.
+    * ``assign``      set the current owner of every CIN.
+    * ``add_to_case`` attach every CIN to an existing case.
+    """
+    cins = sorted({c.strip() for c in body.entity_cins if c and c.strip()})
+    if not cins:
+        raise HTTPException(status_code=422, detail={"code": "invalid_selection", "message": "no entities selected"})
+
+    if body.action == "label":
+        if body.label not in ("confirm_fraud", "false_positive", "needs_review"):
+            raise HTTPException(status_code=422, detail={"code": "invalid_label", "message": "invalid label"})
+        affected = await case_service.bulk_label(db, cins, body.label, user["id"])
+        # Mirror the label onto the graph for downstream models (best effort).
+        try:
+            async with get_neo4j_session() as session:
+                await session.run(
+                    "MATCH (c:Company) WHERE c.cin IN $cins "
+                    "SET c.last_feedback = $label, c.last_feedback_at = datetime(), "
+                    "c.feedback_count = coalesce(c.feedback_count, 0) + 1",
+                    cins=cins, label=body.label,
+                )
+        except Exception:
+            pass
+        return WorklistBulkResponse(action=body.action, affected=affected, skipped=[])
+
+    if body.action == "assign":
+        if not body.assignee_id:
+            raise HTTPException(status_code=422, detail={"code": "missing_assignee", "message": "assignee_id is required"})
+        row = (await db.execute(
+            text("SELECT id FROM users WHERE id = :id"), {"id": body.assignee_id}
+        )).first()
+        if not row:
+            raise HTTPException(status_code=404, detail={"code": "not_found", "message": "assignee not found"})
+        affected = await case_service.bulk_assign(db, cins, body.assignee_id, user["id"])
+        return WorklistBulkResponse(action=body.action, affected=affected, skipped=[])
+
+    if body.action == "add_to_case":
+        if not body.case_id:
+            raise HTTPException(status_code=422, detail={"code": "missing_case", "message": "case_id is required"})
+        case = await case_service.get_case(db, _valid_uuid_or_404(body.case_id))
+        if not case:
+            raise HTTPException(status_code=404, detail={"code": "not_found", "message": "Case not found"})
+        affected = await case_service.bulk_add_to_case(db, body.case_id, cins, user["id"])
+        return WorklistBulkResponse(action=body.action, affected=affected, skipped=[])
+
+    raise HTTPException(status_code=422, detail={"code": "invalid_action", "message": "unknown action"})
 
 
 @router.get("/stats/overview")
@@ -593,9 +732,14 @@ async def list_cases(status: Optional[str] = None, db=Depends(get_db_session)):
 @router.post("/cases", response_model=Case, status_code=status.HTTP_201_CREATED)
 async def create_case(case: CaseCreate, db=Depends(get_db_session)):
     new_case = await case_service.create_case(
-        db, case.title, case.description, case.company_cin, case.priority, None
+        db, case.title, case.description, case.company_cin, case.priority, None,
+        case.assignee_id,
     )
     await case_service.log_audit(db, None, "created_case", "case", new_case["id"], {"title": case.title})
+    await case_service.log_activity(
+        db, new_case["id"], None, "created",
+        {"title": case.title, "priority": case.priority, "company_cin": case.company_cin},
+    )
     return new_case
 
 
@@ -617,10 +761,97 @@ async def get_case(case_id: str, db=Depends(get_db_session)):
 
 @router.patch("/cases/{case_id}", response_model=Case)
 async def update_case(case_id: str, case: CaseUpdate, db=Depends(get_db_session)):
-    case = await case_service.update_case(db, _valid_uuid_or_404(case_id), case.model_dump(exclude_unset=True))
+    before = await case_service.get_case(db, _valid_uuid_or_404(case_id))
+    if not before:
+        raise HTTPException(status_code=404, detail={"code": "not_found", "message": "Case not found"})
+    changes = case.model_dump(exclude_unset=True)
+    if changes.get("assignee_id") == "":
+        changes["assignee_id"] = None
+    updated = await case_service.update_case(db, case_id, changes)
+    if not updated:
+        raise HTTPException(status_code=404, detail={"code": "not_found", "message": "Case not found"})
+    if "status" in changes and changes["status"] != before.get("status"):
+        action, detail = "status_changed", {"from": before.get("status"), "to": changes["status"]}
+    elif "assignee_id" in changes and changes["assignee_id"] != before.get("assignee_id"):
+        action, detail = "assigned", {"assignee_id": changes["assignee_id"]}
+    else:
+        action, detail = "updated", changes
+    await case_service.log_activity(db, case_id, None, action, detail)
+    return updated
+
+
+@router.get("/cases/{case_id}/comments", response_model=List[CaseComment])
+async def list_case_comments(case_id: str, db=Depends(get_db_session)):
+    case = await case_service.get_case(db, _valid_uuid_or_404(case_id))
     if not case:
         raise HTTPException(status_code=404, detail={"code": "not_found", "message": "Case not found"})
-    return case
+    return await case_service.list_comments(db, case_id)
+
+
+@router.post("/cases/{case_id}/comments", response_model=CaseComment, status_code=status.HTTP_201_CREATED)
+async def add_case_comment(
+    case_id: str,
+    body: CaseCommentCreate,
+    user=Depends(get_current_user),
+    db=Depends(get_db_session),
+):
+    case = await case_service.get_case(db, _valid_uuid_or_404(case_id))
+    if not case:
+        raise HTTPException(status_code=404, detail={"code": "not_found", "message": "Case not found"})
+    return await case_service.add_comment(db, case_id, user["id"], body.body)
+
+
+@router.get("/cases/{case_id}/activity", response_model=List[CaseActivityEntry])
+async def list_case_activity(case_id: str, db=Depends(get_db_session)):
+    case = await case_service.get_case(db, _valid_uuid_or_404(case_id))
+    if not case:
+        raise HTTPException(status_code=404, detail={"code": "not_found", "message": "Case not found"})
+    return await case_service.list_activity(db, case_id)
+
+
+@router.get("/cases/{case_id}/entities", response_model=List[CaseEntityLink])
+async def list_case_entities(case_id: str, db=Depends(get_db_session)):
+    case = await case_service.get_case(db, _valid_uuid_or_404(case_id))
+    if not case:
+        raise HTTPException(status_code=404, detail={"code": "not_found", "message": "Case not found"})
+    return await case_service.list_case_entities(db, case_id)
+
+
+@router.post("/cases/{case_id}/entities", response_model=CaseEntityLink, status_code=status.HTTP_201_CREATED)
+async def add_case_entity(
+    case_id: str,
+    body: CaseEntityAdd,
+    user=Depends(get_current_user),
+    db=Depends(get_db_session),
+):
+    case = await case_service.get_case(db, _valid_uuid_or_404(case_id))
+    if not case:
+        raise HTTPException(status_code=404, detail={"code": "not_found", "message": "Case not found"})
+    return await case_service.add_case_entity(db, case_id, body.entity_cin, user["id"])
+
+
+@router.delete("/cases/{case_id}/entities/{entity_cin}", status_code=status.HTTP_204_NO_CONTENT)
+async def remove_case_entity(
+    case_id: str,
+    entity_cin: str,
+    user=Depends(get_current_user),
+    db=Depends(get_db_session),
+):
+    case = await case_service.get_case(db, _valid_uuid_or_404(case_id))
+    if not case:
+        raise HTTPException(status_code=404, detail={"code": "not_found", "message": "Case not found"})
+    removed = await case_service.remove_case_entity(db, case_id, entity_cin, user["id"])
+    if not removed:
+        raise HTTPException(status_code=404, detail={"code": "not_found", "message": "Entity is not attached to this case"})
+
+
+@router.get("/users/assignable", response_model=List[AssignableUser])
+async def list_assignable_users(
+    user=Depends(get_current_user),
+    db=Depends(get_db_session),
+):
+    """Analysts and admins that cases/entities can be assigned to."""
+    return await case_service.list_assignable_users(db)
 
 
 @router.delete("/cases/{case_id}", status_code=status.HTTP_204_NO_CONTENT)

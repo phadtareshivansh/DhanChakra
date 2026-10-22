@@ -1040,6 +1040,50 @@ async def get_stats_overview(session, db) -> Dict[str, Any]:
     directors = await session.run("MATCH (d:Director) RETURN count(d) AS n")
     director_count = (await directors.single())["n"] if directors else 0
 
+    distribution = {"critical": 0, "high": 0, "medium": 0, "low": 0, "unscored": 0}
+    try:
+        band_result = await session.run("""
+        MATCH (c:Company)
+        RETURN
+          sum(CASE WHEN c.risk_score >= $critical THEN 1 ELSE 0 END) AS critical,
+          sum(CASE WHEN c.risk_score >= $high AND c.risk_score < $critical THEN 1 ELSE 0 END) AS high,
+          sum(CASE WHEN c.risk_score >= $medium AND c.risk_score < $high THEN 1 ELSE 0 END) AS medium,
+          sum(CASE WHEN c.risk_score < $medium THEN 1 ELSE 0 END) AS low,
+          sum(CASE WHEN c.risk_score IS NULL THEN 1 ELSE 0 END) AS unscored
+        """, critical=settings.risk_band_critical, high=settings.risk_band_high,
+             medium=settings.risk_band_medium)
+        row = await band_result.single()
+        if row:
+            distribution = {key: int(row[key] or 0) for key in distribution}
+    except Exception:
+        pass
+
+    exposure_trend: List[Dict[str, Any]] = []
+    try:
+        # Prefer the GST return period; sample/demo invoices sometimes carry
+        # only an invoice date, so fall back to its month rather than showing
+        # an empty trend.
+        trend_result = await session.run("""
+        MATCH (c:Company)-[:BILLED]->(t:Transaction)
+        WHERE c.risk_score >= $threshold
+        WITH c, t,
+             coalesce(nullIf(t.return_period, ''),
+                      CASE WHEN t.invoice_date IS NULL THEN NULL
+                           ELSE substring(toString(t.invoice_date), 0, 7) END) AS period
+        WHERE period IS NOT NULL AND period <> ''
+        RETURN period AS period,
+               sum(coalesce(t.amount, 0)) AS amount,
+               count(t) AS invoices
+        ORDER BY period
+        """, threshold=settings.risk_flag_threshold)
+        exposure_trend = [{
+            "period": str(r["period"]),
+            "amount": float(r["amount"] or 0),
+            "invoices": int(r["invoices"] or 0),
+        } for r in await trend_result.data()]
+    except Exception:
+        pass
+
     open_cases = 0
     try:
         result = await db.execute(text("SELECT count(*) FROM cases WHERE status IN ('open','in_progress')"))
@@ -1055,12 +1099,48 @@ async def get_stats_overview(session, db) -> Dict[str, Any]:
         "estimated_itc_at_risk": round(float(at_risk_total or 0), 2),
         "top_risk_state": top_state_name,
         "open_cases": open_cases,
+        "risk_distribution": distribution,
+        "exposure_trend": exposure_trend,
+    }
+
+
+async def get_worklist_facets(session) -> Dict[str, Any]:
+    """Distinct filter values for the worklist filter bar."""
+    states: List[str] = []
+    sectors: List[str] = []
+    try:
+        result = await session.run("""
+        MATCH (c:Company)-[:REGISTERED_AT]->(a:Address)
+        WHERE a.state IS NOT NULL AND a.state <> ''
+        RETURN DISTINCT a.state AS state ORDER BY state
+        """)
+        states = [r["state"] for r in await result.data()]
+    except Exception:
+        pass
+    try:
+        result = await session.run("""
+        MATCH (c:Company)
+        WHERE c.nic_code IS NOT NULL AND c.nic_code <> ''
+        RETURN DISTINCT c.nic_code AS sector ORDER BY sector
+        """)
+        sectors = [r["sector"] for r in await result.data()]
+    except Exception:
+        pass
+    return {
+        "states": states,
+        "sectors": sectors,
+        "risk_bands": {
+            "critical": settings.risk_band_critical,
+            "high": settings.risk_band_high,
+            "medium": settings.risk_band_medium,
+        },
     }
 
 
 async def get_worklist(session, sort: str, direction: str, state: Optional[str],
                        sector: Optional[str], min_score: Optional[float],
-                       max_score: Optional[float], page: int, page_size: int) -> Dict[str, Any]:
+                       max_score: Optional[float], page: int, page_size: int,
+                       has_cycles: bool = False, q: Optional[str] = None) -> Dict[str, Any]:
     allowed = {
         "risk_score": "c.risk_score",
         "name": "c.name",
@@ -1088,6 +1168,13 @@ async def get_worklist(session, sort: str, direction: str, state: Optional[str],
     if max_score is not None:
         where.append("c.risk_score <= $max_score")
         params["max_score"] = max_score
+    if has_cycles:
+        where.append("EXISTS { MATCH (c)-[:MEMBER_OF_CYCLE]->(:FraudCycle) }")
+    if q:
+        where.append(
+            "(toLower(c.name) CONTAINS toLower($q) OR c.cin CONTAINS $q OR c.gstin CONTAINS $q)"
+        )
+        params["q"] = q.strip()
 
     where_clause = " AND ".join(where)
     where_clause = f"WHERE {where_clause}" if where_clause else ""

@@ -179,6 +179,124 @@ export interface StatsOverview {
   estimated_itc_at_risk: number
   top_risk_state?: string
   open_cases: number
+  risk_distribution?: {
+    critical: number
+    high: number
+    medium: number
+    low: number
+    unscored?: number
+  }
+  exposure_trend?: ExposurePoint[]
+  feedback_counts?: { counts: Record<string, number>; total: number }
+  active_model?: { version_tag: string; trained_on?: string; deployed_at?: string } | null
+}
+
+export interface ExposurePoint {
+  period: string
+  amount: number
+  invoices: number
+}
+
+export interface WorklistFacets {
+  states: string[]
+  sectors: string[]
+  risk_bands: { critical: number; high: number; medium: number }
+}
+
+export interface AssignableUser {
+  id: string
+  email: string
+  display_name?: string
+  role: string
+}
+
+export interface EntityAssignment {
+  entity_cin: string
+  assignee_id?: string
+  assignee_name?: string
+  assigned_at?: string
+}
+
+export interface CaseComment {
+  id: string
+  case_id: string
+  author_id?: string
+  author_name?: string
+  body: string
+  created_at: string
+}
+
+export interface CaseActivityEntry {
+  id: string
+  case_id: string
+  actor_id?: string
+  actor_name?: string
+  action: string
+  detail: Record<string, any>
+  created_at: string
+}
+
+export interface CaseEntityLink {
+  case_id: string
+  entity_cin: string
+  added_by?: string
+  added_at: string
+}
+
+export interface EntityNote {
+  id: string
+  entity_cin: string
+  author_id?: string
+  author_name?: string
+  body: string
+  created_at: string
+}
+
+export interface EntityHistoryEvent {
+  kind: 'feedback' | 'case' | 'note' | 'invoice' | string
+  at?: string
+  title: string
+  detail?: string
+  actor?: string
+  amount?: number
+}
+
+export interface EntityHistoryResponse {
+  entity_cin: string
+  events: EntityHistoryEvent[]
+}
+
+export interface TimelineInvoice {
+  date: string
+  amount: number
+  seller_gstin: string
+  buyer_gstin: string
+  return_period: string
+  counterparty: {
+    id: string
+    name: string
+    cin: string
+  }
+}
+
+export interface TimelineResponse {
+  timeline: TimelineInvoice[]
+}
+
+export interface AuditLogEntry {
+  id: string
+  user_id?: string
+  action: string
+  entity_type?: string
+  entity_id?: string
+  details: Record<string, any>
+  timestamp: string
+}
+
+export interface WorklistBulkResponse {
+  action: string
+  affected: number
+  skipped: string[]
 }
 
 export interface Case {

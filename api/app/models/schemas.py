@@ -238,6 +238,7 @@ class CaseBase(BaseModel):
     description: Optional[str] = None
     company_cin: Optional[str] = None
     priority: int = 0
+    assignee_id: Optional[str] = None
 
 
 class CaseCreate(CaseBase):
@@ -382,3 +383,97 @@ class AuditLogEntry(BaseModel):
     entity_id: Optional[str] = None
     details: dict = {}
     timestamp: datetime
+
+
+# ---------------------------------------------------------------------------
+# Case collaboration, worklist bulk actions and entity notes (P2.2)
+# ---------------------------------------------------------------------------
+
+class AssignableUser(BaseModel):
+    id: str
+    email: str
+    display_name: Optional[str] = None
+    role: str
+
+
+class CaseCommentCreate(BaseModel):
+    body: str = Field(min_length=1, max_length=5000)
+
+
+class CaseComment(BaseModel):
+    id: str
+    case_id: str
+    author_id: Optional[str] = None
+    author_name: Optional[str] = None
+    body: str
+    created_at: datetime
+
+
+class CaseActivityEntry(BaseModel):
+    id: str
+    case_id: str
+    actor_id: Optional[str] = None
+    actor_name: Optional[str] = None
+    action: str
+    detail: dict = {}
+    created_at: datetime
+
+
+class CaseEntityAdd(BaseModel):
+    entity_cin: str
+
+
+class CaseEntityLink(BaseModel):
+    case_id: str
+    entity_cin: str
+    added_by: Optional[str] = None
+    added_at: datetime
+
+
+class EntityAssignmentOut(BaseModel):
+    entity_cin: str
+    assignee_id: Optional[str] = None
+    assignee_name: Optional[str] = None
+    assigned_at: Optional[datetime] = None
+
+
+class EntityNoteCreate(BaseModel):
+    body: str = Field(min_length=1, max_length=5000)
+
+
+class EntityNote(BaseModel):
+    id: str
+    entity_cin: str
+    author_id: Optional[str] = None
+    author_name: Optional[str] = None
+    body: str
+    created_at: datetime
+
+
+class WorklistBulkRequest(BaseModel):
+    action: str
+    entity_cins: List[str] = Field(min_length=1)
+    label: Optional[str] = None
+    assignee_id: Optional[str] = None
+    case_id: Optional[str] = None
+
+
+class WorklistBulkResponse(BaseModel):
+    action: str
+    affected: int
+    skipped: List[str] = []
+
+
+class WorklistFacets(BaseModel):
+    states: List[str]
+    sectors: List[str]
+    risk_bands: dict
+
+
+class EntityHistoryEvent(BaseModel):
+    kind: str
+    at: Optional[datetime] = None
+    title: str
+    detail: Optional[str] = None
+    actor: Optional[str] = None
+    amount: Optional[float] = None
