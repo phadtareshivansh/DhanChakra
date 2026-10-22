@@ -28,7 +28,14 @@ jobs:
           sed -i 's/^ALLOW_DEMO_SEED=.*/ALLOW_DEMO_SEED=false/' .env
 
       - name: Build and start stack
-        run: docker compose up -d --build
+        run: |
+          # Dump the service logs when the stack fails to come up: a bad
+          # migration aborts Postgres during init and the only useful
+          # evidence is in its log.
+          docker compose up -d --build || {
+            docker compose logs postgres neo4j api frontend >&2
+            exit 1
+          }
 
       - name: Wait for API health
         run: |
