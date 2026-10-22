@@ -95,6 +95,62 @@ def test_weak_labels_threshold():
     assert labels == [1, 1, 0]
 
 
+# --- Feature-column alignment (regression) ---
+#
+# The pretrained model is applied to the live graph, so the generator's
+# columns, the live extractor's columns and the trained checkpoint's columns
+# must all agree. When B1/B2 added features without retraining, the committed
+# checkpoint still expected 8 columns while the extractor produced 10, which
+# crashed every endpoint that calls ensure_scored(). These tests make that
+# drift visible in CI instead of at runtime.
+
+def test_generator_columns_match_live_extractor():
+    """The generator must emit exactly the columns the live extractor
+    produces -- same names, same order (train.py asserts this too)."""
+    assert synthetic.GENERATOR_FEATURE_COLS == features.FEATURE_COLS
+
+
+def test_generator_emits_one_column_per_declared_feature():
+    g = synthetic.generate_graph(seed=3, n_companies=12, n_rings=1)
+    assert g["x"].shape[1] == len(features.FEATURE_COLS)
+    assert g["feature_cols"] == features.FEATURE_COLS
+
+
+def test_checkpoint_columns_match_live_extractor():
+    """The committed checkpoint must be trained on the columns the live
+    extractor produces. Otherwise inference silently feeds the model a
+    misaligned feature matrix."""
+    from app.services.gnn import predict as gnn_predict
+
+    assert gnn_predict.is_available(), "checkpoint must exist"
+    ck = gnn_model.torch.load(gnn_predict.CHECKPOINT_PATH, map_location="cpu", weights_only=True)
+    assert list(ck["feature_cols"]) == features.FEATURE_COLS, (
+        "checkpoint columns differ from the live extractor; retrain with "
+        "python -m app.services.gnn.train"
+    )
+
+
+def test_feature_matrix_selects_columns_by_name():
+    """Inference selects the checkpoint's columns by NAME, so an unknown
+    column is 0.0 rather than a misaligned value."""
+    from app.services.gnn import predict as gnn_predict
+
+    companies = [
+        {"_feature_map": {"degree": 0.5, "eway_mismatch": 0.25}},
+        {"_feature_map": {"degree": 1.0, "eway_mismatch": 0.75}},
+    ]
+    m = gnn_predict.build_feature_matrix(companies, ["degree", "eway_mismatch"])
+    assert m == [[0.5, 0.25], [1.0, 0.75]]
+
+    # A column the extractor no longer produces is zero-filled, not shifted.
+    m2 = gnn_predict.build_feature_matrix(companies, ["degree", "gone"])
+    assert m2 == [[0.5, 0.0], [1.0, 0.0]]
+
+    # Column ORDER follows the requested list, not the map's insertion order.
+    m3 = gnn_predict.build_feature_matrix(companies, ["eway_mismatch", "degree"])
+    assert m3 == [[0.25, 0.5], [0.75, 1.0]]
+
+
 # --- Live: GNN predict write-back ---
 
 def test_predict_writeback_live():

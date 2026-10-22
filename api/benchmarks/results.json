@@ -291,7 +291,9 @@
             "cycle_member",
             "shared_director",
             "shared_address",
-            "community_share"
+            "community_share",
+            "eway_mismatch",
+            "burst_indicator"
           ],
           "models": {
             "logistic_regression": {
@@ -623,7 +625,9 @@
             "cycle_member",
             "shared_director",
             "shared_address",
-            "community_share"
+            "community_share",
+            "eway_mismatch",
+            "burst_indicator"
           ],
           "models": {
             "logistic_regression": {
@@ -955,7 +959,9 @@
             "cycle_member",
             "shared_director",
             "shared_address",
-            "community_share"
+            "community_share",
+            "eway_mismatch",
+            "burst_indicator"
           ],
           "models": {
             "logistic_regression": {
@@ -1287,7 +1293,9 @@
             "cycle_member",
             "shared_director",
             "shared_address",
-            "community_share"
+            "community_share",
+            "eway_mismatch",
+            "burst_indicator"
           ],
           "models": {
             "logistic_regression": {
@@ -1619,7 +1627,9 @@
             "cycle_member",
             "shared_director",
             "shared_address",
-            "community_share"
+            "community_share",
+            "eway_mismatch",
+            "burst_indicator"
           ],
           "models": {
             "logistic_regression": {
@@ -1701,12 +1711,12 @@
     "leak": {
       "prevalence": 0.3541666666666667,
       "logistic_regression": {
-        "auc_pr": 0.4187456631374684,
-        "auc_roc": 0.5137571157495257
+        "auc_pr": 0.3603773740607199,
+        "auc_roc": 0.523719165085389
       },
       "gradient_boosting": {
-        "auc_pr": 0.4620809770289769,
-        "auc_roc": 0.6233396584440228
+        "auc_pr": 0.38568723891526446,
+        "auc_roc": 0.4615749525616698
       }
     }
   }

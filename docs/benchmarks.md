@@ -28,7 +28,7 @@ This document reports **two datasets in two separate tables** — never blended:
 
 > **Generated block.** Everything between the BEGIN/END markers is rewritten by `make benchmark`. Edit text outside the markers, not inside.
 
-Results generated at commit: `ae01cd6-dirty`
+Results generated at commit: `c9c39fc-dirty`
 
 **Dataset: self-generated synthetic** (`--dataset synthetic`).
 
@@ -87,7 +87,7 @@ Only `total_degree` and `puc_log`; shows what learned models get without real st
 
 ### With-leak — sanity check only, NOT a result
 
-The generator's own 8 feature columns. **Seven of the eight are derived from the same `in_ring` flag that defines the label** (`cycle_member` is an exact copy), so this table only quantifies how inflated a naive evaluation would look. Never present these numbers as a result.
+The generator's own 10 feature columns. **Seven of the original eight are derived from the same `in_ring` flag that defines the label** (`cycle_member` is an exact copy), and the two later columns (`eway_mismatch`, `burst_indicator`) are stochastically correlated with it without being determined by it. So this table only quantifies how inflated a naive evaluation would look. Never present these numbers as a result.
 
 | Model | F1 | AUC-PR | AUC-ROC |
 |---|---|---|---|
@@ -126,8 +126,10 @@ Because ranking metrics saturate, **precision@k / recall@k are reported as the h
 | `shared_director` | disjoint ranges by `in_ring` |
 | `shared_address` | disjoint ranges by `in_ring` |
 | `community_share` | ring members share community 0 |
+| `eway_mismatch` | correlated but noisy — ring members draw `uniform(0.5,1.0)`, except 25% of them which draw `0.0` |
+| `burst_indicator` | correlated but noisy — `1.0` with probability 0.6 for ring members, 0.08 otherwise |
 
-**So 7 of 8 generator columns are label-derived** and the generator's feature matrix cannot be used for honest evaluation.
+**So all 10 generator columns are label-derived** (the first 8 directly, the last 2 stochastically) and the generator's feature matrix cannot be used for honest evaluation.
 
 **How it was excluded.** The headline view is recomputed from edges alone by `build_features(edges, n)`, whose signature cannot receive labels, ring membership, or the generator's matrix. `cycle_member` is excluded from the headline and appears only in the flagged `B + recomputed cycle feature` row, recomputed by real cycle detection.
 
@@ -145,10 +147,10 @@ After permuting labels, learned models should collapse to chance. If they do not
 | `edge` | `gradient_boosting` | 0.435 | 0.626 | 0.354 |
 | `floor` | `logistic_regression` | 0.430 | 0.538 | 0.354 |
 | `floor` | `gradient_boosting` | 0.406 | 0.499 | 0.354 |
-| `leak` | `logistic_regression` | 0.419 | 0.514 | 0.354 |
-| `leak` | `gradient_boosting` | 0.462 | 0.623 | 0.354 |
+| `leak` | `logistic_regression` | 0.360 | 0.524 | 0.354 |
+| `leak` | `gradient_boosting` | 0.386 | 0.462 | 0.354 |
 
-**Recommended follow-up (not done here).** `synthetic.py` should be changed to generate features independently of `in_ring` (e.g. draw structural properties from the graph topology after the labels are fixed), so its feature matrix becomes usable for evaluation. This task deliberately did **not** modify `synthetic.py`.
+**Recommended follow-up (still open).** `synthetic.py` should be changed to generate features independently of `in_ring` (e.g. draw structural properties from the graph topology after the labels are fixed), so its feature matrix becomes usable for evaluation. `synthetic.py` has since been extended with the `eway_mismatch` and `burst_indicator` columns so the pretrained model matches the live extractor's feature set — those two columns are correlated with `in_ring` by construction, so the leakage argument above is unchanged.
 
 ### PR curve
 
