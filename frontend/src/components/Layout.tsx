@@ -13,7 +13,14 @@ export default function Layout() {
   const [results, setResults] = useState<SearchResult[]>([])
   const [showResults, setShowResults] = useState(false)
   const [showLegend, setShowLegend] = useState(true)
+  const [notifs, setNotifs] = useState<any[]>([])
+  const [showNotifs, setShowNotifs] = useState(false)
   const searchRef = useRef<HTMLDivElement>(null)
+  const notifRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    api.get('/notifications?unread_only=false').then(r => setNotifs(r.data || [])).catch(() => {})
+  }, [])
 
   useEffect(() => {
     const stored = localStorage.getItem('dhanchakra_user')
@@ -24,6 +31,9 @@ export default function Layout() {
     const onClick = (e: MouseEvent) => {
       if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
         setShowResults(false)
+      }
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
+        setShowNotifs(false)
       }
     }
     document.addEventListener('mousedown', onClick)
@@ -157,6 +167,24 @@ export default function Layout() {
                         <span className="text-[10px] uppercase tracking-micro text-text-secondary">{r.type}</span>
                         {r.risk_score !== undefined && <RiskBadge score={r.risk_score} showScore={false} />}
                       </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div ref={notifRef} className="relative ml-2">
+              <button className="btn-ghost btn-compact relative" onClick={() => setShowNotifs(!showNotifs)}>
+                <span>🔔</span>
+                {notifs.some((n: any) => !n.read) && <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full" />}
+              </button>
+              {showNotifs && (
+                <div className="absolute top-9 right-0 w-80 panel-raised rounded-lg shadow-xl overflow-hidden">
+                  <div className="px-3 py-2 text-xs font-medium border-b border-border">Notifications</div>
+                  {notifs.length === 0 && <div className="px-3 py-2 text-xs text-text-secondary">No notifications</div>}
+                  {notifs.slice(0, 10).map((n: any) => (
+                    <button key={n.id} className="w-full text-left px-3 py-2 text-xs border-b border-border hover:bg-raised" onClick={async()=>{try{await api.post(`/notifications/${n.id}/read`); setNotifs(notifs.map(x=>x.id===n.id?{...x,read:true}:x));}catch{}}}>
+                      <div className={n.read ? 'text-text-secondary' : 'text-text-primary'}>{n.message}</div>
+                      <div className="text-[10px] text-text-disabled mt-0.5">{n.created_at?.slice(0,16)}</div>
                     </button>
                   ))}
                 </div>

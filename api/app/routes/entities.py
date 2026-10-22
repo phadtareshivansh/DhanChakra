@@ -6,7 +6,7 @@ import uuid
 from sqlalchemy import text
 from ..config import settings
 from ..deps import get_neo4j_session, get_db_session, get_current_user
-from ..services import graph_service, ingestion_service, auth_service, case_service, feedback_service, case_summary_service
+from ..services import graph_service, ingestion_service, auth_service, case_service, feedback_service, case_summary_service, watchlist_service
 from ..models.schemas import (
     Company, EntitySearchResponse, SearchResult, NetworkResponse, LoopResult, LoopsResponse,
     RiskJobResponse, RiskResult, Case, CaseCreate, CaseUpdate,
@@ -147,6 +147,31 @@ async def list_entity_feedback(entity_id: str, db=Depends(get_db_session)):
 @router.get("/feedback/stats")
 async def feedback_stats(db=Depends(get_db_session)):
     return await feedback_service.feedback_counts(db)
+
+
+@router.get("/watchlist")
+async def get_watchlist(user=Depends(get_current_user), db=Depends(get_db_session)):
+    return await watchlist_service.get_watchlist(db, user["id"])
+
+
+@router.post("/watchlist")
+async def add_watchlist(body: dict = Body(...), user=Depends(get_current_user), db=Depends(get_db_session)):
+    return await watchlist_service.add_to_watchlist(db, user["id"], body.get("entity_id"), body.get("entity_cin"))
+
+
+@router.delete("/watchlist/{entity_id}")
+async def remove_watchlist(entity_id: str, user=Depends(get_current_user), db=Depends(get_db_session)):
+    return await watchlist_service.remove_from_watchlist(db, user["id"], entity_id)
+
+
+@router.get("/notifications")
+async def get_notifications(unread_only: bool = False, user=Depends(get_current_user), db=Depends(get_db_session)):
+    return await watchlist_service.get_notifications(db, user["id"], unread_only)
+
+
+@router.post("/notifications/{notification_id}/read")
+async def read_notification(notification_id: str, user=Depends(get_current_user), db=Depends(get_db_session)):
+    return await watchlist_service.mark_read(db, user["id"], notification_id)
 
 
 # ---------------------------------------------------------------------------
