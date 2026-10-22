@@ -7,17 +7,17 @@ export default {
   theme: {
     extend: {
       colors: {
-        canvas: '#0B0F14',
-        surface: '#121821',
-        raised: '#1A2230',
-        border: '#26303E',
-        'text-primary': '#E7EDF3',
-        'text-secondary': '#8B99AB',
-        'text-disabled': '#4C5768',
+        canvas: 'var(--color-canvas)',
+        surface: 'var(--color-surface)',
+        raised: 'var(--color-raised)',
+        border: 'var(--color-border)',
+        'text-primary': 'var(--color-text-primary)',
+        'text-secondary': 'var(--color-text-secondary)',
+        'text-disabled': 'var(--color-text-disabled)',
         accent: {
-          DEFAULT: '#1F8A8C',
-          hover: '#26A3A6',
-          ring: '#4FD1D4',
+          DEFAULT: 'var(--color-accent)',
+          hover: 'var(--color-accent-hover)',
+          ring: 'var(--color-accent-ring)',
         },
         amber: '#D6A94A',
         risk: {
