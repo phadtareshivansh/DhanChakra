@@ -417,6 +417,7 @@ export default function EntityDetail() {
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Button variant="secondary" onClick={() => navigate(`/graph/${encodeURIComponent(entity?.id || id || '')}`)}>Graph workspace</Button>
           <Button variant="secondary" onClick={addToWatchlist}>Watchlist</Button>
           <Button variant="secondary" onClick={() => setShowExplain(true)} disabled={!explanation}>Why flagged?</Button>
           <Button variant="secondary" onClick={() => setTab('notes')}>Add note</Button>

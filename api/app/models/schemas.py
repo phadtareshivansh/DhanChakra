@@ -129,11 +129,39 @@ class NetworkEdge(BaseModel):
     # True when this edge carries an invoice whose high value has no matching
     # e-Way Bill movement record (TASK B1). The UI badges these edges.
     eway_mismatch: bool = False
+    # Invoice date when either endpoint is a Transaction; None for structural
+    # edges (director/address links). Powers the graph workspace time slider.
+    date: Optional[str] = None
 
 
 class NetworkResponse(BaseModel):
     nodes: List[NetworkNode]
     edges: List[NetworkEdge]
+
+
+class GraphPath(BaseModel):
+    node_ids: List[str]
+    length: int
+    total_amount: Optional[float] = None
+
+
+class GraphPathsResponse(BaseModel):
+    nodes: List[NetworkNode]
+    edges: List[NetworkEdge]
+    paths: List[GraphPath]
+
+
+class GraphTimelineBucket(BaseModel):
+    period: str
+    amount: float
+    count: int
+
+
+class GraphTimelineResponse(BaseModel):
+    start: Optional[str] = None
+    end: Optional[str] = None
+    bucket: str = "month"
+    buckets: List[GraphTimelineBucket]
 
 
 class LoopResult(BaseModel):
