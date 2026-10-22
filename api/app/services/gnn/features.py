@@ -7,6 +7,7 @@ directors/addresses) and balance-sheet signal (paid-up capital).
 from typing import Any, Dict, List, Optional
 
 from ...config import settings
+from .. import eway_service as eway
 
 
 FEATURE_COLS = [
@@ -60,7 +61,7 @@ async def extract_graph(session) -> Dict[str, Any]:
     else:
         cycle_cins = await _live_cycle_members(session)
 
-    comps_res = await session.run("""
+    comps_res = await session.run(eway.render("""
     MATCH (c:Company)
     OPTIONAL MATCH (c)-[:BILLED]->(:Transaction)-[:BILLED_TO]->(n:Company)
     WITH c, count(DISTINCT n) AS degree
@@ -73,8 +74,10 @@ async def extract_graph(session) -> Dict[str, Any]:
     WHERE sameaddr <> c
     WITH c, degree, cycle_member, shared_director, count(DISTINCT sameaddr) AS shared_address
     OPTIONAL MATCH (c)-[:BILLED]->(t:Transaction)
-    WHERE t.amount >= $eway_thresh AND (t.eway_bill_ref IS NULL OR t.eway_bill_ref = '')
-    WITH c, degree, cycle_member, shared_director, shared_address, count(DISTINCT t) AS eway_mismatch_count
+    WHERE t.amount >= $eway_thresh
+    /*EWAY_MOVEMENT_JOIN*/
+    WITH c, degree, cycle_member, shared_director, shared_address,
+         count(DISTINCT CASE WHEN /*EWAY_MISMATCH_REASON*/ IS NOT NULL THEN t END) AS eway_mismatch_count
     OPTIONAL MATCH (c)-[:BILLED]->(bt:Transaction)-[:BILLED_TO]->(:Company)
     OPTIONAL MATCH (:Company)-[:BILLED]->(bt2:Transaction)-[:BILLED_TO]->(c)
     WITH c, degree, cycle_member, shared_director, shared_address, eway_mismatch_count,
@@ -85,7 +88,7 @@ async def extract_graph(session) -> Dict[str, Any]:
            c.community_id AS community_id,
            degree, cycle_member, shared_director, shared_address,
            eway_mismatch_count, burst_volume
-    """, eway_thresh=settings.eway_high_value_threshold)
+    """), eway_thresh=settings.eway_high_value_threshold, **eway.mismatch_params())
     companies = [dict(r) for r in await comps_res.data()]
 
     if cycle_cins is not None:

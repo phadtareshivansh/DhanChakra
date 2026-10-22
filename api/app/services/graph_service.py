@@ -7,6 +7,7 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 from neo4j.time import DateTime, Date
 
 from ..config import settings
+from . import eway_service as eway
 
 
 def _node_to_dict(node: Any) -> Dict[str, Any]:
@@ -97,6 +98,36 @@ async def get_entity_by_identifier(session, identifier: str) -> Optional[Dict[st
     return data
 
 
+async def _eway_mismatch_transactions(session, entity_id: str, hops: int) -> Set[str]:
+    """Transaction ids in the entity's neighbourhood whose high-value invoice
+    has no matching e-Way Bill movement record.
+
+    The UI paints a badge on these invoices and on the edges that carry them,
+    so the analyst sees the gap without opening the explain drawer.
+    """
+    ids: Set[str] = set()
+    try:
+        query = eway.render(f"""
+        MATCH path = (n:Company {{id: $id}})-[*1..{hops}]-(t:Transaction)
+        WHERE n.id = $id
+        /*EWAY_MOVEMENT_JOIN*/
+        WITH t, m, /*EWAY_MISMATCH_REASON*/ AS reason
+        WHERE reason IS NOT NULL
+        RETURN DISTINCT t.id AS id
+        """)
+        result = await session.run(
+            query, id=entity_id,
+            thresh=settings.eway_high_value_threshold,
+            **eway.mismatch_params(),
+        )
+        for rec in await result.data():
+            if rec.get("id") is not None:
+                ids.add(str(rec["id"]))
+    except Exception:
+        pass
+    return ids
+
+
 async def get_network(session, entity_id: str, hops: int) -> Dict[str, Any]:
     if not (1 <= hops <= settings.max_neighborhood_hops):
         hops = settings.default_neighborhood_hops
@@ -150,8 +181,13 @@ async def get_network(session, entity_id: str, hops: int) -> Dict[str, Any]:
             unique_edges.append(e)
 
     flagged = await _flagged_cycle_edges(session, entity_id)
+    eway_txns = await _eway_mismatch_transactions(session, entity_id, hops)
     for e in unique_edges:
         e["flagged"] = (e["source"], e["target"], e["type"]) in flagged
+        e["eway_mismatch"] = e["source"] in eway_txns or e["target"] in eway_txns
+    for node in nodes_dict.values():
+        if node["id"] in eway_txns:
+            node["properties"]["eway_mismatch"] = True
 
     return {"nodes": list(nodes_dict.values()), "edges": unique_edges}
 
@@ -452,7 +488,7 @@ async def run_structural_analytics(session) -> Dict[str, Any]:
 
     # --- 4. Risk scoring (heuristic, explainable) ---
     try:
-        result = await session.run("""
+        result = await session.run(eway.render("""
         MATCH (c:Company)
         OPTIONAL MATCH (c)-[:MEMBER_OF_CYCLE]->(cy: FraudCycle)
         OPTIONAL MATCH (c)-[:BILLED]->(:Transaction)-[:BILLED_TO]->(nei:Company)
@@ -461,7 +497,8 @@ async def run_structural_analytics(session) -> Dict[str, Any]:
         OPTIONAL MATCH (c)-[:REGISTERED_AT]->(a:Address)<-[:REGISTERED_AT]-(sameaddr:Company)
         WHERE sameaddr <> c
         OPTIONAL MATCH (c)-[:BILLED]->(t:Transaction)
-        WHERE t.amount >= $eway_thresh AND (t.eway_bill_ref IS NULL OR t.eway_bill_ref = '')
+        WHERE t.amount >= $eway_thresh
+        /*EWAY_MOVEMENT_JOIN*/
         OPTIONAL MATCH (c)-[:BILLED]->(bt:Transaction)-[:BILLED_TO]->(:Company)
         OPTIONAL MATCH (:Company)-[:BILLED]->(bt2:Transaction)-[:BILLED_TO]->(c)
         WITH c,
@@ -469,7 +506,7 @@ async def run_structural_analytics(session) -> Dict[str, Any]:
              count(DISTINCT nei) AS degree,
              count(DISTINCT other) AS shared_director_count,
              count(DISTINCT sameaddr) AS shared_address_count,
-             count(DISTINCT t) AS eway_mismatch_count,
+             count(DISTINCT CASE WHEN /*EWAY_MISMATCH_REASON*/ IS NOT NULL THEN t END) AS eway_mismatch_count,
              count(DISTINCT bt) + count(DISTINCT bt2) AS burst_count,
              coalesce(c.pagerank, 0.0) AS pagerank,
              coalesce(c.betweenness, 0.0) AS betweenness,
@@ -477,7 +514,7 @@ async def run_structural_analytics(session) -> Dict[str, Any]:
         RETURN c.cin AS cin,
                cycle_count, degree, shared_director_count, shared_address_count,
                eway_mismatch_count, burst_count, pagerank, betweenness, puc
-        """, eway_thresh=settings.eway_high_value_threshold)
+        """), eway_thresh=settings.eway_high_value_threshold, **eway.mismatch_params())
         records = await result.data()
         for r in records:
             score = _heuristic_risk_score(r)
@@ -655,25 +692,46 @@ async def explain_entity(session, entity_id: str) -> Dict[str, Any]:
         )
 
     # --- e-Way Bill mismatch (high-value invoices with no movement record)
-    ewb = await session.run("""
+    ewb = await session.run(eway.render("""
     MATCH (c:Company {id: $id})-[:BILLED]->(t:Transaction)
-    WHERE t.amount >= $thresh AND (t.eway_bill_ref IS NULL OR t.eway_bill_ref = '')
-    RETURN t.invoice_no AS invoice_no, t.amount AS amount, t.date AS date
+    WHERE t.amount >= $thresh
+    /*EWAY_MOVEMENT_JOIN*/
+    WITH t, m, /*EWAY_MISMATCH_REASON*/ AS reason
+    WHERE reason IS NOT NULL
+    RETURN t.invoice_no AS invoice_no, t.amount AS amount, t.date AS date,
+           t.eway_bill_ref AS claimed_ref, reason,
+           m.ref AS movement_ref, m.amount AS movement_amount,
+           m.movement_date AS movement_date, m.from_state AS from_state,
+           m.to_state AS to_state, m.vehicle_no AS vehicle_no,
+           m.distance_km AS distance_km
     ORDER BY t.amount DESC, t.invoice_no
     LIMIT 25
-    """, id=entity_id, thresh=settings.eway_high_value_threshold)
+    """), id=entity_id, thresh=settings.eway_high_value_threshold, **eway.mismatch_params())
     for r in await ewb.data():
+        reason = r["reason"]
         evidence["eway_mismatches"].append(_sanitize({
             "invoice_no": r["invoice_no"],
             "amount": r["amount"],
             "date": r["date"].isoformat() if hasattr(r["date"], "isoformat") else r["date"],
+            "reason": reason,
+            "reason_label": eway.describe(reason),
+            "claimed_ref": r["claimed_ref"],
+            "movement_ref": r["movement_ref"],
+            "movement_amount": r["movement_amount"],
+            "movement_date": r["movement_date"].isoformat()
+            if hasattr(r["movement_date"], "isoformat") else r["movement_date"],
+            "from_state": r["from_state"],
+            "to_state": r["to_state"],
+            "vehicle_no": r["vehicle_no"],
+            "distance_km": r["distance_km"],
         }))
     if evidence["eway_mismatches"]:
         m = evidence["eway_mismatches"]
         total_m = sum((x.get("amount") or 0) for x in m)
         reasons.append(
             f"e-Way Bill mismatch signal: {len(m)} high-value invoice(s) (>= ₹{settings.eway_high_value_threshold:,.0f}) "
-            f"with no matching e-Way Bill movement record, totaling ₹{total_m:,.0f}."
+            f"with no matching e-Way Bill movement record, totaling ₹{total_m:,.0f} "
+            f"({eway.summarise(m)})."
         )
 
     # --- Temporal burst detection (z-score over rolling windows)

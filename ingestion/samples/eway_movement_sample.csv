@@ -1,0 +1,22 @@
+# name,simulated
+# covers_from,2024-01-01
+# covers_to,2024-06-30
+#
+# The SIMULATED e-Way Bill movement-record source (TASK B1). One row per
+# e-Way Bill that a movement record exists for, keyed by the reference the
+# invoice cites (Transaction.eway_bill_ref -> EWayBillMovement.ref).
+#
+# The coverage window in the comment header is what the source is allowed to
+# speak about. An invoice dated outside it is NOT flagged, because a feed
+# that does not cover a period cannot say that a movement record is missing.
+#
+# The point of the source is what it does NOT contain: a high-value invoice
+# may cite a reference that has no movement record here, and that gap is the
+# fraud signal. The sample deliberately leaves two hero-ring references out
+# and understates one, so the signal is neither silent nor universal.
+Eway Bill Ref,Movement Value,Movement Date,From State,To State,Vehicle No,Distance Km
+EWB-H1,900000,2024-01-11,Maharashtra,Maharashtra,MH01AB1234,48
+EWB-H2,850000,2024-01-13,Maharashtra,Karnataka,MH01CD5678,612
+EWB-H4,620000,2024-01-17,Maharashtra,Maharashtra,MH01EF9012,45
+EWB-H5,880000,2024-01-19,Maharashtra,Telangana,MH01GH3456,903
+EWB-1001,150000,2024-06-16,Karnataka,Karnataka,KA01JK7890,38

@@ -67,6 +67,10 @@ step "loading GST sample (transactions, GSTIN filings)"
 "${COMPOSE[@]}" exec -T "$API_SERVICE" \
   python /tmp/boot/load_sample.py --file /tmp/boot/samples/gst_sample.csv --type gst
 
+step "loading e-Way Bill movement records (simulated movement-record source)"
+"${COMPOSE[@]}" exec -T "$API_SERVICE" \
+  python /tmp/boot/load_sample.py --file /tmp/boot/samples/eway_movement_sample.csv --type eway
+
 step "structural analytics (rings, communities, centrality, heuristic risk)"
 curl -fsS -X POST "$API_BASE_URL/analytics/structural" >/dev/null
 echo "    ok"

@@ -67,7 +67,74 @@ Dhan-Chakra uses **two data stores**:
 | `tax_amount` | float | |
 | `date` | date | |
 | `hsn_sac_code` | string | |
-| `eway_bill_ref` | string, nullable | absence = red flag signal |
+| `eway_bill_ref` | string, nullable | the e-Way Bill the invoice cites; joins to `:EWayBillMovement.ref` |
+
+**`:EWayBillMovement`** *(the SIMULATED movement-record source — see §2.1.1)*
+| Property | Type | Notes |
+|---|---|---|
+| `id` | string (UUID) | internal primary key |
+| `ref` | string | the e-Way Bill reference (unique, indexed) — the join key |
+| `amount` | float | the value the movement record says actually moved |
+| `movement_date` | date, nullable | |
+| `from_state` / `to_state` | string, nullable | origin and destination state |
+| `vehicle_no` | string, nullable | |
+| `distance_km` | float, nullable | |
+| `source` | string | the source's name — always `simulated` here, not a live feed |
+
+**`:EWayBillMovementSource`** *(singleton — the feed's identity and coverage window)*
+| Property | Type | Notes |
+|---|---|---|
+| `id` | string | always `active` — the rule needs one authoritative feed |
+| `name` | string | the source's name (`simulated` for the sample feed) |
+| `covers_from` | date, nullable | first invoice date the feed covers |
+| `covers_to` | date, nullable | last invoice date the feed covers |
+| `record_count` | int | how many movement records the source loaded |
+| `loaded_at` | datetime | |
+
+### 2.1.1 The e-Way Bill movement-record source
+
+The fraud signal is **not** "this invoice has no e-Way Bill reference string". It is
+**"this high-value invoice has no matching e-Way Bill movement record"**.
+
+A reference is only a *claim* that goods moved; the movement record is the document
+that backs it. An invoice can cite a reference that no movement record supports, and
+that gap is the signal. The two are joined by property, not by relationship:
+
+```
+Transaction.eway_bill_ref  ->  EWayBillMovement.ref
+```
+
+There is deliberately no relationship between them: a property join cannot go stale,
+and an analyst can always see both sides of the gap without traversing a graph.
+
+A high-value invoice (`amount >= eway_high_value_threshold`, default ₹50,000) fails to
+match in one of three ways:
+
+| Reason | Meaning |
+|---|---|
+| `no_ref` | the invoice cites no e-Way Bill at all |
+| `no_movement_record` | the invoice cites one, but no movement record backs it |
+| `amount_mismatch` | a movement record exists, but its value differs from the invoice value by more than the tolerance |
+
+The tolerance is `eway_amount_tolerance_pct` (5%) of the invoice value, with an
+absolute floor of `eway_amount_tolerance_min` (₹1,000) so small invoices are not
+flagged on rounding. The rule is defined **once**, in
+`api/app/services/eway_service.py`, and is shared by the GNN feature extractor, the
+heuristic risk score and the explain endpoint.
+
+**The feed must declare what it covers.** The singleton `:EWayBillMovementSource`
+node records the invoice period the feed covers (`covers_from` / `covers_to`).
+"No matching movement record" is asserted **only** for invoices inside that
+window: a deployment with no feed at all, or a feed for a different quarter,
+cannot say that a record is missing. Without that guard the signal would fire on
+every high-value invoice the system ever sees — the difference between a signal
+and a false-positive generator.
+
+**The movement-record source is simulated.** No live e-Way Bill feed is connected.
+`ingestion/samples/eway_movement_sample.csv` stands in for one; it deliberately omits
+some references and understates one, so the signal is neither silent nor universal.
+A production deployment would replace the CSV with a real feed and keep the same
+node type and join.
 
 **`:GSTINFiling`**
 | Property | Type | Notes |
@@ -103,6 +170,11 @@ This lets the API answer "why was this entity flagged" (§TRD 4.6) by simply tra
 
 ### 2.4 Indexes & Constraints
 
+Base constraints and indexes live in `graph/cypher/constraints.cypher` and
+`graph/cypher/indexes.cypher`. Schema changes are added as **numbered migration
+files** in `graph/cypher/migrations/`, applied in filename order by
+`api/benchmarks/apply_schema.py`; a migration is never edited once applied.
+
 ```cypher
 CREATE CONSTRAINT company_cin IF NOT EXISTS FOR (c:Company) REQUIRE c.cin IS UNIQUE;
 CREATE CONSTRAINT company_gstin IF NOT EXISTS FOR (c:Company) REQUIRE c.gstin IS UNIQUE;
@@ -111,6 +183,23 @@ CREATE INDEX company_name_idx IF NOT EXISTS FOR (c:Company) ON (c.name);
 CREATE INDEX address_normalized_idx IF NOT EXISTS FOR (a:Address) ON (a.normalized_address);
 CREATE INDEX bank_ifsc_idx IF NOT EXISTS FOR (b:BankAccount) ON (b.ifsc, b.account_hash);
 CREATE INDEX company_risk_score_idx IF NOT EXISTS FOR (c:Company) ON (c.risk_score);
+```
+
+Migration `001_eway_bill_movement.cypher` adds the movement-record source's key and
+the lookup index the join depends on:
+
+```cypher
+CREATE CONSTRAINT eway_bill_movement_ref IF NOT EXISTS
+FOR (m:EWayBillMovement) REQUIRE m.ref IS UNIQUE;
+CREATE INDEX transaction_eway_bill_ref IF NOT EXISTS
+FOR (t:Transaction) ON (t.eway_bill_ref);
+```
+
+Migration `002_eway_bill_movement_source.cypher` adds the singleton source's key:
+
+```cypher
+CREATE CONSTRAINT eway_bill_movement_source_id IF NOT EXISTS
+FOR (s:EWayBillMovementSource) REQUIRE s.id IS UNIQUE;
 ```
 
 ## 3. PostgreSQL Schema (Application Layer)
@@ -191,5 +280,11 @@ CREATE TABLE model_versions (
 
 ## 5. Schema Evolution Notes
 
+- Schema changes are added as **new numbered files** in `graph/cypher/migrations/`
+  (`001_*.cypher`, `002_*.cypher`, …). An applied migration is never edited — a
+  correction goes in a new file. `api/benchmarks/apply_schema.py` applies the base
+  constraints/indexes first and then the migrations in filename order; every
+  statement is `IF NOT EXISTS`, so re-running is a no-op.
 - `risk_score`, `community_id`, `pagerank`, `betweenness` on `:Company` are **write-back fields** populated by scheduled/offline jobs (structural analytics + GNN inference), not computed at read time — keeps API latency low (see TRD §6 performance targets).
 - `:FraudCycle` / `:FraudCommunity` nodes are versioned by `algorithm_version` / `detected_at` so re-running analytics after a schema or algorithm change doesn't silently overwrite prior evidence used in an open case.
+- `:EWayBillMovement` nodes are **append-only evidence**: a movement record for a given `ref` describes what moved and when. Replacing one silently would change what the signal says about invoices already in a case, so a corrected movement record is a new node with the same `ref` only if the old one is removed in the same transaction.

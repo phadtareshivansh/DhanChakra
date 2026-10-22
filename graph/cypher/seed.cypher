@@ -30,6 +30,18 @@ CREATE (st1:Transaction {id: 'st1', invoice_no: 'INV-SMOKE-001', amount: 100000,
 CREATE (s1)-[:BILLED]->(st1)
 CREATE (st1)-[:BILLED_TO]->(s2)
 
+# ── E-WAY BILL MOVEMENT RECORD (simulated movement-record source) ─
+# The smoke invoice cites EWB-SMOKE-1 and is high value (₹100,000), so it
+# needs a movement record that backs it — otherwise the TASK B1 signal would
+# fire on the smoke data. The join is by reference:
+# Transaction.eway_bill_ref -> EWayBillMovement.ref (§2.1).
+CREATE (sm1:EWayBillMovement {id: 'sm1', ref: 'EWB-SMOKE-1', amount: 100000, movement_date: date('2023-06-11'), from_state: 'Tamil Nadu', to_state: 'Tamil Nadu', vehicle_no: 'TN01SM0001', distance_km: 22, source: 'simulated'})
+
+# The movement-record source is a singleton that declares which invoice
+# period it covers. Without it the rule cannot assert that a movement record
+# is missing (§2.1.1).
+CREATE (smsrc:EWayBillMovementSource {id: 'active', name: 'simulated', covers_from: date('2023-06-01'), covers_to: date('2023-06-30'), record_count: 1, loaded_at: datetime()})
+
 # ── GSTIN FILING ─────────────────────────────────────────────────
 CREATE (sf1:GSTINFiling {id: 'sf1', period: '2023-06', return_type: 'GSTR-3B', filed_on: date('2023-07-20'), reconciliation_status: 'matched'})
 CREATE (s1)-[:FILED_RETURN]->(sf1)

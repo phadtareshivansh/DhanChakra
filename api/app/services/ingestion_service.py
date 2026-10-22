@@ -84,6 +84,7 @@ async def ingest_gst_csv(session, rows: List[Dict[str, str]]) -> Tuple[int, int]
                 gstin_seller: $seller,
                 gstin_buyer: $buyer,
                 return_period: $ret_period,
+                eway_bill_ref: $eway_ref,
                 created_at: datetime()
             })
             CREATE (seller)-[:BILLED]->(t)
@@ -95,6 +96,10 @@ async def ingest_gst_csv(session, rows: List[Dict[str, str]]) -> Tuple[int, int]
                 amount=amount,
                 inv_date=r.get("invoice_date") or "",
                 ret_period=r.get("return_period") or "",
+                # The e-Way Bill reference the invoice cites. It is nullable:
+                # a high-value invoice with no reference has no movement
+                # record either, and that gap is the TASK B1 signal.
+                eway_ref=r.get("eway_bill_ref") or r.get("eway_bill") or None,
             )
             processed += 1
         except Exception:
