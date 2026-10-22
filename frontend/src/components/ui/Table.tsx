@@ -1,3 +1,4 @@
+import { t } from '../../i18n'
 import { ReactNode, useMemo, useState } from 'react'
 import { cn } from '../../utils/cn'
 
@@ -120,7 +121,7 @@ export default function Table<T>({
               <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" />
               </svg>
-              Columns
+              {t('Columns')}
             </summary>
             <div className="absolute right-0 z-20 mt-1 w-48 rounded-lg border border-border bg-surface p-1.5 shadow-lg">
               {hideableColumns.map((column) => {
@@ -211,7 +212,7 @@ export default function Table<T>({
               <tr>
                 <td colSpan={visibleColumns.length} className="px-4 py-2">
                   {emptyState ?? (
-                    <div className="py-10 text-center text-sm text-text-secondary">No rows to display.</div>
+                    <div className="py-10 text-center text-sm text-text-secondary">{t('No rows to display.')}</div>
                   )}
                 </td>
               </tr>

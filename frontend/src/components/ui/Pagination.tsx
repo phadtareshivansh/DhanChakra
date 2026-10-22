@@ -1,3 +1,4 @@
+import { t } from '../../i18n'
 import { cn } from '../../utils/cn'
 import Button from './Button'
 
@@ -30,8 +31,8 @@ export default function Pagination({ page, pageSize, total, onChange, className 
   return (
     <div className={cn('flex flex-wrap items-center justify-between gap-3', className)}>
       <p className="text-xs text-text-secondary">
-        Showing <span className="font-mono text-text-primary">{first}</span>–
-        <span className="font-mono text-text-primary">{last}</span> of{' '}
+        {t('Showing')} <span className="font-mono text-text-primary">{first}</span>–
+        <span className="font-mono text-text-primary">{last}</span> {t('of')}{' '}
         <span className="font-mono text-text-primary">{total}</span>
       </p>
       <div className="flex items-center gap-1">
@@ -40,9 +41,9 @@ export default function Pagination({ page, pageSize, total, onChange, className 
           size="sm"
           onClick={() => onChange(page - 1)}
           disabled={page <= 1}
-          aria-label="Previous page"
+          aria-label={t('Previous page')}
         >
-          Prev
+          {t('Prev')}
         </Button>
         {pageWindow(page, pageCount).map((item, index) =>
           item === 'ellipsis' ? (
@@ -67,9 +68,9 @@ export default function Pagination({ page, pageSize, total, onChange, className 
           size="sm"
           onClick={() => onChange(page + 1)}
           disabled={page >= pageCount}
-          aria-label="Next page"
+          aria-label={t('Next page')}
         >
-          Next
+          {t('Next')}
         </Button>
       </div>
     </div>

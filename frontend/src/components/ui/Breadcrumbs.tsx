@@ -1,3 +1,4 @@
+import { t } from '../../i18n'
 import { cn } from '../../utils/cn'
 
 export interface BreadcrumbItem {
@@ -14,7 +15,7 @@ export interface BreadcrumbsProps {
 
 export default function Breadcrumbs({ items, renderLink, className }: BreadcrumbsProps) {
   return (
-    <nav aria-label="Breadcrumb" className={cn('min-w-0', className)}>
+    <nav aria-label={t('Breadcrumb')} className={cn('min-w-0', className)}>
       <ol className="flex items-center gap-1.5 text-xs text-text-secondary">
         {items.map((item, index) => {
           const isLast = index === items.length - 1

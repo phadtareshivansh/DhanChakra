@@ -1,0 +1,20 @@
+[
+  {
+    "id": "d5f43af5-dcb1-4123-96aa-65047f32fb8e",
+    "email": "analyst@dggi.gov.in",
+    "display_name": "Analyst Gupta",
+    "role": "analyst"
+  },
+  {
+    "id": "80e7e214-122c-44ed-858a-b76bed68ebbd",
+    "email": "officer@dggi.gov.in",
+    "display_name": "Analyst Shivansh",
+    "role": "admin"
+  },
+  {
+    "id": "92e09281-cdec-4ab4-861f-b5a86228d9f6",
+    "email": "analyst2@dggi.gov.in",
+    "display_name": "Analyst Two",
+    "role": "analyst"
+  }
+]

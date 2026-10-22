@@ -1,0 +1,196 @@
+{
+  "entity": {
+    "risk_score": 100.0,
+    "roc": "Mumbai",
+    "cin": "L12345MH2023PLC900002",
+    "gstin": "27HEROA0000B2Z2",
+    "nic_code": "62099",
+    "feedback_count": 6,
+    "last_feedback_at": "2026-10-22T13:05:20.884000000+00:00",
+    "community_id": 4,
+    "paid_up_capital": 100000.0,
+    "updated_at": "2026-10-22T13:05:21.265000000+00:00",
+    "authorized_capital": 100000.0,
+    "risk_source": "gnn_v1",
+    "name": "Maya Trading Co Pvt Ltd",
+    "last_feedback": "needs_review",
+    "betweenness": 10.0,
+    "id": "30b3f8a0-36cc-54d0-b649-614d8c30f52f",
+    "pagerank": 0.9612404689154856,
+    "incorporation_date": "2023-04-02",
+    "status": "active"
+  },
+  "reasons": [
+    "Flagged because it forms a 6-hop invoice cycle across 6 companies, totaling ₹5,300,000, over 10 days (INV-HERO-001…INV-HERO-006)",
+    "Shares director 'Rakesh Malhotra' with 1 other company(ies)",
+    "Shares registered address '12 Vasant Vihar Lane' with 2 other company(ies)",
+    "Elevated network centrality (PageRank 0.961)"
+  ],
+  "evidence": {
+    "method": "subgraph_attribution",
+    "cycles": [
+      {
+        "cycle_id": "L12345MH2023PLC900001|L12345MH2023PLC900002|L12345MH2023PLC900003|L12345MH2023PLC900004|L12345MH2023PLC900005|L12345MH2023PLC900006",
+        "hop_count": 6,
+        "company_count": 6,
+        "total_invoice_amount": 5300000.0,
+        "date_span": {
+          "first": "2024-01-10",
+          "last": "2024-01-20",
+          "span_days": 10,
+          "invoice_dates": 6
+        },
+        "companies": [
+          {
+            "cin": "L12345MH2023PLC900001",
+            "name": "Maya Infra Projects Pvt Ltd",
+            "gstin": "27HEROA0000A1Z1"
+          },
+          {
+            "cin": "L12345MH2023PLC900002",
+            "name": "Maya Trading Co Pvt Ltd",
+            "gstin": "27HEROA0000B2Z2"
+          },
+          {
+            "cin": "L12345MH2023PLC900003",
+            "name": "Maya Logistics Pvt Ltd",
+            "gstin": "27HEROA0000C3Z3"
+          },
+          {
+            "cin": "L12345MH2023PLC900004",
+            "name": "Maya Exports Pvt Ltd",
+            "gstin": "27HEROA0000D4Z4"
+          },
+          {
+            "cin": "L12345MH2023PLC900005",
+            "name": "Maya Chemicals Pvt Ltd",
+            "gstin": "27HEROA0000E5Z5"
+          },
+          {
+            "cin": "L12345MH2023PLC900006",
+            "name": "Maya Steel Pvt Ltd",
+            "gstin": "27HEROA0000F6Z6"
+          }
+        ],
+        "invoices": [
+          {
+            "invoice_no": "INV-HERO-001",
+            "seller_cin": "L12345MH2023PLC900001",
+            "seller_name": "Maya Infra Projects Pvt Ltd",
+            "seller_gstin": "27HEROA0000A1Z1",
+            "buyer_cin": "L12345MH2023PLC900002",
+            "buyer_name": "Maya Trading Co Pvt Ltd",
+            "buyer_gstin": "27HEROA0000B2Z2",
+            "amount": 900000.0,
+            "invoice_date": "2024-01-10"
+          },
+          {
+            "invoice_no": "INV-HERO-002",
+            "seller_cin": "L12345MH2023PLC900002",
+            "seller_name": "Maya Trading Co Pvt Ltd",
+            "seller_gstin": "27HEROA0000B2Z2",
+            "buyer_cin": "L12345MH2023PLC900003",
+            "buyer_name": "Maya Logistics Pvt Ltd",
+            "buyer_gstin": "27HEROA0000C3Z3",
+            "amount": 850000.0,
+            "invoice_date": "2024-01-12"
+          },
+          {
+            "invoice_no": "INV-HERO-003",
+            "seller_cin": "L12345MH2023PLC900003",
+            "seller_name": "Maya Logistics Pvt Ltd",
+            "seller_gstin": "27HEROA0000C3Z3",
+            "buyer_cin": "L12345MH2023PLC900004",
+            "buyer_name": "Maya Exports Pvt Ltd",
+            "buyer_gstin": "27HEROA0000D4Z4",
+            "amount": 950000.0,
+            "invoice_date": "2024-01-14"
+          },
+          {
+            "invoice_no": "INV-HERO-004",
+            "seller_cin": "L12345MH2023PLC900004",
+            "seller_name": "Maya Exports Pvt Ltd",
+            "seller_gstin": "27HEROA0000D4Z4",
+            "buyer_cin": "L12345MH2023PLC900005",
+            "buyer_name": "Maya Chemicals Pvt Ltd",
+            "buyer_gstin": "27HEROA0000E5Z5",
+            "amount": 800000.0,
+            "invoice_date": "2024-01-16"
+          },
+          {
+            "invoice_no": "INV-HERO-005",
+            "seller_cin": "L12345MH2023PLC900005",
+            "seller_name": "Maya Chemicals Pvt Ltd",
+            "seller_gstin": "27HEROA0000E5Z5",
+            "buyer_cin": "L12345MH2023PLC900006",
+            "buyer_name": "Maya Steel Pvt Ltd",
+            "buyer_gstin": "27HEROA0000F6Z6",
+            "amount": 880000.0,
+            "invoice_date": "2024-01-18"
+          },
+          {
+            "invoice_no": "INV-HERO-006",
+            "seller_cin": "L12345MH2023PLC900006",
+            "seller_name": "Maya Steel Pvt Ltd",
+            "seller_gstin": "27HEROA0000F6Z6",
+            "buyer_cin": "L12345MH2023PLC900001",
+            "buyer_name": "Maya Infra Projects Pvt Ltd",
+            "buyer_gstin": "27HEROA0000A1Z1",
+            "amount": 920000.0,
+            "invoice_date": "2024-01-20"
+          }
+        ]
+      }
+    ],
+    "communities": [
+      {
+        "community_id": "4",
+        "member_count": 2,
+        "member_cins": [
+          "L12345MH2023PLC900001",
+          "L12345MH2023PLC900002"
+        ]
+      }
+    ],
+    "shared_directors": [
+      {
+        "director": "Rakesh Malhotra",
+        "din": "03460001",
+        "companies": [
+          "Maya Infra Projects Pvt Ltd"
+        ],
+        "cins": [
+          "L12345MH2023PLC900001"
+        ]
+      }
+    ],
+    "shared_addresses": [
+      {
+        "address": "12 Vasant Vihar Lane",
+        "state": "Maharashtra",
+        "companies": [
+          "Maya Logistics Pvt Ltd",
+          "Maya Infra Projects Pvt Ltd"
+        ]
+      }
+    ],
+    "shared_bank_accounts": [],
+    "eway_mismatches": [],
+    "bursts": [],
+    "risk": 100.0,
+    "risk_decomposition": {
+      "cycle": 45.0,
+      "shared_director": 5.0,
+      "shared_address": 4.0,
+      "eway_mismatch": 0.0,
+      "eway_mismatch_count": 0,
+      "burst": 0.0,
+      "burst_count": 0,
+      "degree": 0.0,
+      "degree_value": 1,
+      "pagerank": 15.0,
+      "betweenness": 10.0,
+      "source": "gnn_v1"
+    }
+  }
+}

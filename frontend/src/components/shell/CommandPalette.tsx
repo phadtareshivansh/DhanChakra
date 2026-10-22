@@ -1,3 +1,4 @@
+import { t } from '../../i18n'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
@@ -134,7 +135,7 @@ export default function CommandPalette({ open, onClose, isAdmin = false }: Comma
         ref={containerRef}
         role="dialog"
         aria-modal="true"
-        aria-label="Command palette"
+        aria-label={t('Command palette')}
         tabIndex={-1}
         onKeyDown={handleKeyDown}
         className="animate-scale-in relative w-full max-w-xl overflow-hidden rounded-xl border border-border bg-surface shadow-lg focus:outline-none"
@@ -153,13 +154,13 @@ export default function CommandPalette({ open, onClose, isAdmin = false }: Comma
             ref={inputRef}
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search entities or jump to a page…"
-            aria-label="Search entities or pages"
+            placeholder={t('Search entities or jump to a page…')}
+            aria-label={t('Search entities or pages')}
             aria-controls="command-palette-results"
             className="h-12 flex-1 bg-transparent text-sm text-text-primary placeholder:text-text-disabled focus:outline-none"
           />
           <kbd className="hidden rounded border border-border px-1.5 py-0.5 text-[10px] text-text-secondary sm:inline">
-            Esc
+            {t('Esc')}
           </kbd>
         </div>
 
@@ -205,7 +206,7 @@ export default function CommandPalette({ open, onClose, isAdmin = false }: Comma
                     </svg>
                   ) : (
                     <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-accent/20 text-[9px] font-semibold text-accent-ring">
-                      E
+                      {t('E')}
                     </span>
                   )}
                   <span className="min-w-0 flex-1">
@@ -224,7 +225,7 @@ export default function CommandPalette({ open, onClose, isAdmin = false }: Comma
             )
           })}
           {loading && items.length > 0 && (
-            <div className="px-3 py-2 text-center text-[11px] text-text-secondary">Searching…</div>
+            <div className="px-3 py-2 text-center text-[11px] text-text-secondary">{t('Searching…')}</div>
           )}
         </div>
 
@@ -232,13 +233,13 @@ export default function CommandPalette({ open, onClose, isAdmin = false }: Comma
           <span className="flex items-center gap-1">
             <kbd className="rounded border border-border px-1 py-0.5">↑</kbd>
             <kbd className="rounded border border-border px-1 py-0.5">↓</kbd>
-            navigate
+            {t('navigate')}
           </span>
           <span className="flex items-center gap-1">
             <kbd className="rounded border border-border px-1 py-0.5">↵</kbd>
-            open
+            {t('open')}
           </span>
-          <span className="ml-auto">Global search</span>
+          <span className="ml-auto">{t('Global search')}</span>
         </div>
       </div>
     </div>,

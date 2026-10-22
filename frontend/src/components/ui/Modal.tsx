@@ -1,3 +1,4 @@
+import { t } from '../../i18n'
 import { ReactNode, useId } from 'react'
 import { createPortal } from 'react-dom'
 import { cn } from '../../utils/cn'
@@ -76,7 +77,7 @@ export default function Modal({
           <button
             type="button"
             onClick={onClose}
-            aria-label="Close dialog"
+            aria-label={t('Close dialog')}
             className="-mr-1 -mt-1 rounded-md p-1.5 text-text-disabled transition-colors hover:bg-raised hover:text-text-primary"
           >
             <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">

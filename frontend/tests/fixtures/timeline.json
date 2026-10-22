@@ -1,0 +1,16 @@
+{
+  "timeline": [
+    {
+      "date": "",
+      "amount": 850000.0,
+      "seller_gstin": "",
+      "buyer_gstin": "",
+      "return_period": "",
+      "counterparty": {
+        "id": "def5007e-18bc-5b56-9fe4-afcc5849a23b",
+        "name": "Maya Logistics Pvt Ltd",
+        "cin": "L12345MH2023PLC900003"
+      }
+    }
+  ]
+}

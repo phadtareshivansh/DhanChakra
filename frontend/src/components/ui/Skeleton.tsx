@@ -1,3 +1,4 @@
+import { t } from '../../i18n'
 import { cn } from '../../utils/cn'
 
 export interface SkeletonProps {
@@ -18,21 +19,21 @@ export default function Skeleton({ className, circle = false }: SkeletonProps) {
 
 export function SkeletonText({ lines = 3, className }: { lines?: number; className?: string }) {
   return (
-    <div className={cn('space-y-2', className)} role="status" aria-label="Loading">
+    <div className={cn('space-y-2', className)} role="status" aria-label={t('Loading')}>
       {Array.from({ length: lines }).map((_, index) => (
         <Skeleton
           key={index}
           className={cn('h-3', index === lines - 1 ? 'w-2/3' : 'w-full')}
         />
       ))}
-      <span className="sr-only">Loading…</span>
+      <span className="sr-only">{t('Loading…')}</span>
     </div>
   )
 }
 
 export function SkeletonTable({ rows = 5, columns = 4 }: { rows?: number; columns?: number }) {
   return (
-    <div className="panel overflow-hidden" role="status" aria-label="Loading table">
+    <div className="panel overflow-hidden" role="status" aria-label={t('Loading table')}>
       <div className="flex gap-4 border-b border-border px-4 py-3">
         {Array.from({ length: columns }).map((_, index) => (
           <Skeleton key={index} className="h-3 flex-1" />
@@ -45,7 +46,7 @@ export function SkeletonTable({ rows = 5, columns = 4 }: { rows?: number; column
           ))}
         </div>
       ))}
-      <span className="sr-only">Loading…</span>
+      <span className="sr-only">{t('Loading…')}</span>
     </div>
   )
 }

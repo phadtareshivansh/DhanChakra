@@ -1,3 +1,4 @@
+import { t } from '../i18n'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import api from '../utils/api'
@@ -25,13 +26,13 @@ const STATUSES = ['open', 'in_progress', 'closed'] as const
 type Status = (typeof STATUSES)[number]
 
 const STATUS_META: Record<string, { label: string; tone: 'accent' | 'amber' | 'neutral'; accent: string }> = {
-  open: { label: 'Open', tone: 'accent', accent: 'var(--color-accent)' },
-  in_progress: { label: 'In progress', tone: 'amber', accent: 'var(--color-amber)' },
-  closed: { label: 'Closed', tone: 'neutral', accent: 'var(--color-text-disabled)' },
+  open: { label: t('Open'), tone: 'accent', accent: 'var(--color-accent)' },
+  in_progress: { label: t('In progress'), tone: 'amber', accent: 'var(--color-amber)' },
+  closed: { label: t('Closed'), tone: 'neutral', accent: 'var(--color-text-disabled)' },
 }
 
 function priorityLabel(priority: number): string {
-  return priority >= 2 ? 'P2 · Critical' : priority === 1 ? 'P1 · Priority' : 'P0 · Standard'
+  return priority >= 2 ? t('P2 · Critical') : priority === 1 ? t('P1 · Priority') : t('P0 · Standard')
 }
 
 export default function CasesView() {
@@ -84,7 +85,7 @@ export default function CasesView() {
         }
       }
     } catch (err: any) {
-      setError(err?.response?.data?.detail?.message || 'Could not load case files.')
+      setError(err?.response?.data?.detail?.message || t('Could not load case files.'))
     } finally {
       setLoading(false)
     }
@@ -110,7 +111,7 @@ export default function CasesView() {
       setActivity(activityRes.data)
       setCaseEntities(entitiesRes.data)
     } catch {
-      toast.push({ title: 'Could not load case details', tone: 'critical' })
+      toast.push({ title: t('Could not load case details'), tone: 'critical' })
     } finally {
       setDrawerLoading(false)
     }
@@ -131,7 +132,7 @@ export default function CasesView() {
       toast.push({ title: successTitle, tone: 'success' })
       loadDrawer(target.id)
     } catch (err: any) {
-      toast.push({ title: 'Update failed', description: err?.response?.data?.detail?.message, tone: 'critical' })
+      toast.push({ title: t('Update failed'), description: err?.response?.data?.detail?.message, tone: 'critical' })
     }
   }
 
@@ -149,10 +150,10 @@ export default function CasesView() {
       setCases((current) => [res.data, ...current])
       setCreateOpen(false)
       setNewCase({ title: '', description: '', company_cin: '', priority: 0, assignee_id: '' })
-      toast.push({ title: 'Case created', description: res.data.title, tone: 'success' })
+      toast.push({ title: t('Case created'), description: res.data.title, tone: 'success' })
       setSelected(res.data)
     } catch (err: any) {
-      toast.push({ title: 'Could not create case', description: err?.response?.data?.detail?.message, tone: 'critical' })
+      toast.push({ title: t('Could not create case'), description: err?.response?.data?.detail?.message, tone: 'critical' })
     } finally {
       setCreating(false)
     }
@@ -168,7 +169,7 @@ export default function CasesView() {
       const activityRes = await api.get<CaseActivityEntry[]>(`/cases/${selected.id}/activity`)
       setActivity(activityRes.data)
     } catch (err: any) {
-      toast.push({ title: 'Could not add comment', description: err?.response?.data?.detail?.message, tone: 'critical' })
+      toast.push({ title: t('Could not add comment'), description: err?.response?.data?.detail?.message, tone: 'critical' })
     } finally {
       setCommenting(false)
     }
@@ -181,11 +182,11 @@ export default function CasesView() {
       const res = await api.post<CaseEntityLink>(`/cases/${selected.id}/entities`, { entity_cin: entityCin.trim() })
       setCaseEntities((current) => [...current.filter((item) => item.entity_cin !== res.data.entity_cin), res.data])
       setEntityCin('')
-      toast.push({ title: 'Entity linked to case', tone: 'success' })
+      toast.push({ title: t('Entity linked to case'), tone: 'success' })
       const activityRes = await api.get<CaseActivityEntry[]>(`/cases/${selected.id}/activity`)
       setActivity(activityRes.data)
     } catch (err: any) {
-      toast.push({ title: 'Could not link entity', description: err?.response?.data?.detail?.message, tone: 'critical' })
+      toast.push({ title: t('Could not link entity'), description: err?.response?.data?.detail?.message, tone: 'critical' })
     } finally {
       setLinking(false)
     }
@@ -199,7 +200,7 @@ export default function CasesView() {
       const activityRes = await api.get<CaseActivityEntry[]>(`/cases/${selected.id}/activity`)
       setActivity(activityRes.data)
     } catch (err: any) {
-      toast.push({ title: 'Could not unlink entity', description: err?.response?.data?.detail?.message, tone: 'critical' })
+      toast.push({ title: t('Could not unlink entity'), description: err?.response?.data?.detail?.message, tone: 'critical' })
     }
   }
 
@@ -216,9 +217,9 @@ export default function CasesView() {
       URL.revokeObjectURL(url)
       setDone(target.id)
       setTimeout(() => setDone(null), 3000)
-      toast.push({ title: 'Case bundle exported', tone: 'success' })
+      toast.push({ title: t('Case bundle exported'), tone: 'success' })
     } catch (err: any) {
-      toast.push({ title: 'Export failed', description: err?.response?.data?.detail?.message, tone: 'critical' })
+      toast.push({ title: t('Export failed'), description: err?.response?.data?.detail?.message, tone: 'critical' })
     } finally {
       setExporting(null)
     }
@@ -242,7 +243,7 @@ export default function CasesView() {
     return user?.display_name || user?.email || 'Assigned'
   }
   const assigneeOptions = [
-    { value: '', label: 'Unassigned' },
+    { value: '', label: t('Unassigned') },
     ...users.map((user) => ({ value: user.id, label: `${user.display_name || user.email} · ${titleCase(user.role)}` })),
   ]
 
@@ -260,21 +261,21 @@ export default function CasesView() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <p className="micro-label text-accent-ring">Investigations</p>
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight">Case files</h1>
+          <p className="micro-label text-accent-ring">{t('Investigations')}</p>
+          <h1 className="mt-1 text-2xl font-semibold tracking-tight">{t('Case files')}</h1>
           <p className="mt-1 max-w-2xl text-sm text-text-secondary">
-            Open, assign and resolve investigations. Every status change, comment and label is preserved in the case timeline.
+            {t('Open, assign and resolve investigations. Every status change, comment and label is preserved in the case timeline.')}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <div className="flex rounded-lg border border-border p-0.5" role="group" aria-label="Case view">
+          <div className="flex rounded-lg border border-border p-0.5" role="group" aria-label={t('Case view')}>
             <button
               type="button"
               onClick={() => setView('board')}
               aria-pressed={view === 'board'}
               className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${view === 'board' ? 'bg-raised text-text-primary' : 'text-text-secondary hover:text-text-primary'}`}
             >
-              Board
+              {t('Board')}
             </button>
             <button
               type="button"
@@ -282,10 +283,10 @@ export default function CasesView() {
               aria-pressed={view === 'list'}
               className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${view === 'list' ? 'bg-raised text-text-primary' : 'text-text-secondary hover:text-text-primary'}`}
             >
-              List
+              {t('List')}
             </button>
           </div>
-          <Button onClick={() => setCreateOpen(true)}>New case</Button>
+          <Button onClick={() => setCreateOpen(true)}>{t('New case')}</Button>
         </div>
       </div>
 
@@ -293,7 +294,7 @@ export default function CasesView() {
         <div className="min-w-52 flex-1">
           <Input
             inputSize="sm"
-            placeholder="Search title, CIN or description"
+            placeholder={t('Search title, CIN or description')}
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             leadingIcon={
@@ -303,7 +304,7 @@ export default function CasesView() {
             }
           />
         </div>
-        <div className="flex flex-wrap gap-1.5" role="group" aria-label="Filter by status">
+        <div className="flex flex-wrap gap-1.5" role="group" aria-label={t('Filter by status')}>
           {['', ...STATUSES].map((status) => (
             <button
               key={status || 'all'}
@@ -325,7 +326,7 @@ export default function CasesView() {
         </div>
         {usersError && (
           <span className="text-xs text-risk-high">
-            Assignee list unavailable; check your session.
+            {t('Assignee list unavailable; check your session.')}
           </span>
         )}
       </div>
@@ -333,7 +334,7 @@ export default function CasesView() {
       {error ? (
         <div className="panel p-8 text-center" role="alert">
           <p className="text-sm font-medium text-risk-critical">{error}</p>
-          <Button variant="secondary" className="mt-4" onClick={fetchCases}>Retry</Button>
+          <Button variant="secondary" className="mt-4" onClick={fetchCases}>{t('Retry')}</Button>
         </div>
       ) : loading ? (
         view === 'board' ? (
@@ -376,7 +377,7 @@ export default function CasesView() {
                 <div className="flex-1 space-y-2">
                   {columnCases.length === 0 ? (
                     <div className="rounded-lg border border-dashed border-border px-3 py-8 text-center text-xs text-text-disabled">
-                      No {meta.label.toLowerCase()} cases
+                      {t('No')} {meta.label.toLowerCase()} {t('cases')}
                     </div>
                   ) : (
                     columnCases.map((caseItem) => (
@@ -438,13 +439,13 @@ export default function CasesView() {
             <table className="w-full min-w-[860px] text-sm">
               <thead className="bg-raised/60 text-left text-micro uppercase tracking-micro text-text-secondary">
                 <tr>
-                  <th className="px-4 py-2.5">Case</th>
-                  <th className="px-4 py-2.5">Status</th>
-                  <th className="px-4 py-2.5">Priority</th>
-                  <th className="px-4 py-2.5">Assignee</th>
-                  <th className="px-4 py-2.5">Company CIN</th>
-                  <th className="px-4 py-2.5">Updated</th>
-                  <th className="px-4 py-2.5 text-right">Actions</th>
+                  <th className="px-4 py-2.5">{t('Case')}</th>
+                  <th className="px-4 py-2.5">{t('Status')}</th>
+                  <th className="px-4 py-2.5">{t('Priority')}</th>
+                  <th className="px-4 py-2.5">{t('Assignee')}</th>
+                  <th className="px-4 py-2.5">{t('Company CIN')}</th>
+                  <th className="px-4 py-2.5">{t('Updated')}</th>
+                  <th className="px-4 py-2.5 text-right">{t('Actions')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -473,7 +474,7 @@ export default function CasesView() {
                     <td className="px-4 py-2.5 text-xs text-text-secondary">{formatDate(caseItem.updated_at)}</td>
                     <td className="px-4 py-2.5" onClick={(event) => event.stopPropagation()}>
                       <div className="flex justify-end gap-1.5">
-                        <Link to={`/case/${caseItem.id}/export`} className="btn-secondary btn-compact">Preview</Link>
+                        <Link to={`/case/${caseItem.id}/export`} className="btn-secondary btn-compact">{t('Preview')}</Link>
                         <Button size="sm" variant="secondary" onClick={() => exportCase(caseItem)} loading={exporting === caseItem.id}>
                           {done === caseItem.id ? 'Exported' : 'Export'}
                         </Button>
@@ -488,7 +489,7 @@ export default function CasesView() {
             <EmptyState
               title={cases.length === 0 ? 'No cases yet' : 'No cases match this view'}
               description={cases.length === 0 ? 'Open a case from the worklist or entity page, or create one here.' : 'Try a different status or clear the search.'}
-              action={cases.length === 0 ? <Button onClick={() => setCreateOpen(true)}>New case</Button> : <Button variant="secondary" onClick={() => { setSearch(''); setStatusFilter('') }}>Clear filters</Button>}
+              action={cases.length === 0 ? <Button onClick={() => setCreateOpen(true)}>{t('New case')}</Button> : <Button variant="secondary" onClick={() => { setSearch(''); setStatusFilter('') }}>{t('Clear filters')}</Button>}
             />
           )}
         </div>
@@ -497,60 +498,60 @@ export default function CasesView() {
       <Modal
         open={createOpen}
         onClose={() => setCreateOpen(false)}
-        title="New case"
-        description="Open an investigation against an entity or a ring."
+        title={t('New case')}
+        description={t('Open an investigation against an entity or a ring.')}
         footer={
           <div className="flex justify-end gap-2">
-            <Button variant="secondary" onClick={() => setCreateOpen(false)}>Cancel</Button>
-            <Button onClick={createCase} loading={creating} disabled={!newCase.title.trim()}>Create case</Button>
+            <Button variant="secondary" onClick={() => setCreateOpen(false)}>{t('Cancel')}</Button>
+            <Button onClick={createCase} loading={creating} disabled={!newCase.title.trim()}>{t('Create case')}</Button>
           </div>
         }
       >
         <div className="space-y-3">
           <Input
-            label="Title"
+            label={t('Title')}
             required
-            placeholder="e.g. Circular trading — Maya Trading cluster"
+            placeholder={t('e.g. Circular trading — Maya Trading cluster')}
             value={newCase.title}
             onChange={(event) => setNewCase({ ...newCase, title: event.target.value })}
             autoFocus
           />
           <div>
-            <label className="mb-1.5 block text-xs font-medium text-text-secondary" htmlFor="case-description">Description</label>
+            <label className="mb-1.5 block text-xs font-medium text-text-secondary" htmlFor="case-description">{t('Description')}</label>
             <textarea
               id="case-description"
               rows={3}
               className="w-full rounded-lg border border-border bg-canvas p-3 text-sm text-text-primary placeholder:text-text-disabled focus:border-accent-ring focus:outline-none focus:ring-2 focus:ring-accent-ring"
-              placeholder="What is the suspected conduct and what evidence should be checked first?"
+              placeholder={t('What is the suspected conduct and what evidence should be checked first?')}
               value={newCase.description}
               onChange={(event) => setNewCase({ ...newCase, description: event.target.value })}
             />
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <Input
-              label="Company CIN"
-              placeholder="L12345MH2020PLC123456"
+              label={t('Company CIN')}
+              placeholder={t('L12345MH2020PLC123456')}
               value={newCase.company_cin}
               onChange={(event) => setNewCase({ ...newCase, company_cin: event.target.value })}
               className="font-mono"
             />
             <Select
-              label="Priority"
+              label={t('Priority')}
               value={newCase.priority}
               onChange={(event) => setNewCase({ ...newCase, priority: Number(event.target.value) })}
               options={[
-                { value: '0', label: 'P0 · Standard' },
-                { value: '1', label: 'P1 · Priority' },
-                { value: '2', label: 'P2 · Critical' },
+                { value: '0', label: t('P0 · Standard') },
+                { value: '1', label: t('P1 · Priority') },
+                { value: '2', label: t('P2 · Critical') },
               ]}
             />
           </div>
           <Select
-            label="Assignee"
+            label={t('Assignee')}
             value={newCase.assignee_id}
             onChange={(event) => setNewCase({ ...newCase, assignee_id: event.target.value })}
             options={assigneeOptions}
-            hint="You can change ownership later."
+            hint={t('You can change ownership later.')}
           />
         </div>
       </Modal>
@@ -564,10 +565,10 @@ export default function CasesView() {
         footer={
           selected && (
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <Link to={`/case/${selected.id}/export`} className="btn-secondary btn-compact">Preview bundle</Link>
+              <Link to={`/case/${selected.id}/export`} className="btn-secondary btn-compact">{t('Preview bundle')}</Link>
               <div className="flex gap-2">
-                <Button variant="secondary" size="sm" onClick={() => exportCase(selected)} loading={exporting === selected.id}>Export JSON</Button>
-                <Button size="sm" onClick={() => setSelected(null)}>Done</Button>
+                <Button variant="secondary" size="sm" onClick={() => exportCase(selected)} loading={exporting === selected.id}>{t('Export JSON')}</Button>
+                <Button size="sm" onClick={() => setSelected(null)}>{t('Done')}</Button>
               </div>
             </div>
           )
@@ -577,23 +578,23 @@ export default function CasesView() {
           <div className="space-y-5">
             <div className="grid gap-3 sm:grid-cols-2">
               <Select
-                label="Status"
+                label={t('Status')}
                 value={selected.status}
                 onChange={(event) => patchCase(selected, { status: event.target.value }, 'Status updated')}
                 options={STATUSES.map((status) => ({ value: status, label: STATUS_META[status].label }))}
               />
               <Select
-                label="Assignee"
+                label={t('Assignee')}
                 value={selected.assignee_id || ''}
                 onChange={(event) => patchCase(selected, { assignee_id: event.target.value }, 'Assignee updated')}
                 options={assigneeOptions}
               />
               <div>
-                <span className="micro-label">Priority</span>
+                <span className="micro-label">{t('Priority')}</span>
                 <div className="mt-1.5"><Badge tone={selected.priority >= 2 ? 'critical' : selected.priority === 1 ? 'amber' : 'neutral'}>{priorityLabel(selected.priority)}</Badge></div>
               </div>
               <div>
-                <span className="micro-label">Opened</span>
+                <span className="micro-label">{t('Opened')}</span>
                 <p className="mt-1.5 text-sm">{formatDate(selected.created_at, true)}</p>
               </div>
             </div>
@@ -607,24 +608,24 @@ export default function CasesView() {
             <div>
               <div className="flex items-center justify-between">
                 <h3 className="flex items-center gap-1.5 text-sm font-semibold">
-                  Linked entities
-                  <InfoHint content="Entities attached to this case. Linking does not change their score; it keeps evidence together for the investigation." />
+                  {t('Linked entities')}
+                  <InfoHint content={t('Entities attached to this case. Linking does not change their score; it keeps evidence together for the investigation.')} />
                 </h3>
                 <Badge tone="neutral">{caseEntities.length}</Badge>
               </div>
               <div className="mt-2 flex gap-2">
                 <Input
                   inputSize="sm"
-                  placeholder="CIN to link"
+                  placeholder={t('CIN to link')}
                   value={entityCin}
                   onChange={(event) => setEntityCin(event.target.value)}
                   onKeyDown={(event) => { if (event.key === 'Enter') linkEntity() }}
                   className="font-mono"
                 />
-                <Button size="sm" variant="secondary" onClick={linkEntity} loading={linking} disabled={!entityCin.trim()}>Link</Button>
+                <Button size="sm" variant="secondary" onClick={linkEntity} loading={linking} disabled={!entityCin.trim()}>{t('Link')}</Button>
               </div>
               {caseEntities.length === 0 ? (
-                <p className="mt-2 text-xs text-text-secondary">No entities linked yet. The primary company CIN is in the case metadata.</p>
+                <p className="mt-2 text-xs text-text-secondary">{t('No entities linked yet. The primary company CIN is in the case metadata.')}</p>
               ) : (
                 <ul className="mt-2 divide-y divide-border">
                   {caseEntities.map((link) => (
@@ -633,7 +634,7 @@ export default function CasesView() {
                         {link.entity_cin}
                       </Link>
                       <button type="button" onClick={() => unlinkEntity(link.entity_cin)} className="text-xs text-text-secondary hover:text-risk-critical">
-                        Remove
+                        {t('Remove')}
                       </button>
                     </li>
                   ))}
@@ -641,7 +642,7 @@ export default function CasesView() {
               )}
               {selected.company_cin && (
                 <div className="mt-2 flex items-center gap-2 text-xs text-text-secondary">
-                  Primary entity:
+                  {t('Primary entity:')}
                   <Link to={`/entity/${selected.company_cin}/network`} className="font-mono text-accent-ring hover:underline">
                     {selected.company_cin}
                   </Link>
@@ -651,13 +652,13 @@ export default function CasesView() {
 
             <div>
               <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold">Comments</h3>
+                <h3 className="text-sm font-semibold">{t('Comments')}</h3>
                 <Badge tone="neutral">{comments.length}</Badge>
               </div>
               {drawerLoading ? (
                 <div className="mt-3"><SkeletonText lines={3} /></div>
               ) : comments.length === 0 ? (
-                <p className="mt-2 text-xs text-text-secondary">No comments yet. Add the first note for the investigating team.</p>
+                <p className="mt-2 text-xs text-text-secondary">{t('No comments yet. Add the first note for the investigating team.')}</p>
               ) : (
                 <ul className="mt-2 divide-y divide-border">
                   {comments.map((comment) => (
@@ -675,7 +676,7 @@ export default function CasesView() {
                 <textarea
                   rows={2}
                   className="w-full rounded-lg border border-border bg-canvas p-2.5 text-sm text-text-primary placeholder:text-text-disabled focus:border-accent-ring focus:outline-none focus:ring-2 focus:ring-accent-ring"
-                  placeholder="Add a comment for the case team…"
+                  placeholder={t('Add a comment for the case team…')}
                   value={commentDraft}
                   onChange={(event) => setCommentDraft(event.target.value)}
                   onKeyDown={(event) => {
@@ -683,18 +684,18 @@ export default function CasesView() {
                   }}
                 />
                 <div className="mt-1.5 flex items-center justify-between">
-                  <span className="text-[11px] text-text-disabled">⌘/Ctrl + Enter to post</span>
-                  <Button size="sm" onClick={addComment} loading={commenting} disabled={!commentDraft.trim()}>Post comment</Button>
+                  <span className="text-[11px] text-text-disabled">{t('⌘/Ctrl + Enter to post')}</span>
+                  <Button size="sm" onClick={addComment} loading={commenting} disabled={!commentDraft.trim()}>{t('Post comment')}</Button>
                 </div>
               </div>
             </div>
 
             <div>
-              <h3 className="text-sm font-semibold">Activity timeline</h3>
+              <h3 className="text-sm font-semibold">{t('Activity timeline')}</h3>
               {drawerLoading ? (
                 <div className="mt-3"><SkeletonText lines={4} /></div>
               ) : activity.length === 0 ? (
-                <p className="mt-2 text-xs text-text-secondary">No recorded activity yet.</p>
+                <p className="mt-2 text-xs text-text-secondary">{t('No recorded activity yet.')}</p>
               ) : (
                 <ol className="mt-3">
                   {activity.map((entry, index) => (

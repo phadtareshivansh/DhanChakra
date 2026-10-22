@@ -1,3 +1,4 @@
+import { t } from '../../i18n'
 import { useEffect, useRef, useState } from 'react'
 import { cn } from '../../utils/cn'
 
@@ -75,11 +76,11 @@ export default function OrgSwitcher() {
       {open && (
         <div
           role="listbox"
-          aria-label="Organisations"
+          aria-label={t('Organisations')}
           className="absolute right-0 top-11 z-50 w-64 overflow-hidden rounded-lg border border-border bg-surface py-1 shadow-lg"
         >
           <div className="px-3 pb-1 pt-1 text-[10px] font-semibold uppercase tracking-micro text-text-disabled">
-            Organisation
+            {t('Organisation')}
           </div>
           <div
             role="option"
@@ -96,7 +97,7 @@ export default function OrgSwitcher() {
             <span className="text-accent-ring">✓</span>
           </div>
           <div className="border-t border-border px-3 py-2 text-[10px] leading-relaxed text-text-secondary">
-            Switching organisations arrives with multi-tenant provisioning.
+            {t('Switching organisations arrives with multi-tenant provisioning.')}
           </div>
         </div>
       )}

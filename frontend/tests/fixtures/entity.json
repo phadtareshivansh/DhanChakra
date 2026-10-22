@@ -1,0 +1,19 @@
+{
+  "cin": "L12345MH2023PLC900002",
+  "gstin": "27HEROA0000B2Z2",
+  "name": "Maya Trading Co Pvt Ltd",
+  "incorporation_date": "2023-04-02",
+  "status": "active",
+  "authorized_capital": 100000.0,
+  "paid_up_capital": 100000.0,
+  "nic_code": "62099",
+  "roc": "Mumbai",
+  "id": "30b3f8a0-36cc-54d0-b649-614d8c30f52f",
+  "risk_score": 100.0,
+  "risk_source": "gnn_v1",
+  "community_id": 4,
+  "pagerank": 0.9612404689154856,
+  "betweenness": 10.0,
+  "created_at": null,
+  "updated_at": "2026-10-22T13:05:21.265000Z"
+}

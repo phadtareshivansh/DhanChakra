@@ -1,0 +1,15 @@
+{
+  "states": [
+    "Karnataka",
+    "Maharashtra"
+  ],
+  "sectors": [
+    "49299",
+    "62099"
+  ],
+  "risk_bands": {
+    "critical": 85.0,
+    "high": 65.0,
+    "medium": 40.0
+  }
+}

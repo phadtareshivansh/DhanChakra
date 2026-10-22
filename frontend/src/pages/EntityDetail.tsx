@@ -1,3 +1,4 @@
+import { t } from '../i18n'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import * as d3 from 'd3'
@@ -114,7 +115,7 @@ export default function EntityDetail() {
       setEdges(net.edges)
       setHops(depth)
     } catch (err: any) {
-      setError(err?.response?.data?.detail?.message || 'Failed to load entity')
+      setError(err?.response?.data?.detail?.message || t('Failed to load entity'))
     } finally {
       setLoading(false)
     }
@@ -295,10 +296,10 @@ export default function EntityDetail() {
         company_cin: entity.cin,
         priority: entity.risk_score && entity.risk_score >= RISK_THRESHOLDS.high ? 2 : entity.risk_score && entity.risk_score >= RISK_THRESHOLDS.medium ? 1 : 0,
       })
-      toast.push({ title: 'Case opened', description: res.data.title, tone: 'success' })
+      toast.push({ title: t('Case opened'), description: res.data.title, tone: 'success' })
       navigate(`/cases?highlight=${res.data.id}`)
     } catch (err: any) {
-      toast.push({ title: 'Failed to open case', description: err?.response?.data?.detail?.message, tone: 'critical' })
+      toast.push({ title: t('Failed to open case'), description: err?.response?.data?.detail?.message, tone: 'critical' })
     } finally {
       setCreatingCase(false)
     }
@@ -309,10 +310,10 @@ export default function EntityDetail() {
     setFeedbackBusy(label)
     try {
       await api.post(`/entities/${id}/feedback`, { label })
-      toast.push({ title: 'Label recorded', description: titleCase(label), tone: 'success' })
+      toast.push({ title: t('Label recorded'), description: titleCase(label), tone: 'success' })
       setHistory(null)
     } catch (err: any) {
-      toast.push({ title: 'Could not record label', description: err?.response?.data?.detail?.message, tone: 'critical' })
+      toast.push({ title: t('Could not record label'), description: err?.response?.data?.detail?.message, tone: 'critical' })
     } finally {
       setFeedbackBusy(null)
     }
@@ -321,9 +322,9 @@ export default function EntityDetail() {
   const addToWatchlist = async () => {
     try {
       await api.post('/watchlist', { entity_id: id, entity_cin: entity?.cin })
-      toast.push({ title: 'Added to watchlist', tone: 'success' })
+      toast.push({ title: t('Added to watchlist'), tone: 'success' })
     } catch (err: any) {
-      toast.push({ title: 'Could not update watchlist', description: err?.response?.data?.detail?.message, tone: 'critical' })
+      toast.push({ title: t('Could not update watchlist'), description: err?.response?.data?.detail?.message, tone: 'critical' })
     }
   }
 
@@ -335,9 +336,9 @@ export default function EntityDetail() {
       setNotes((current) => [res.data, ...(current || [])])
       setNoteDraft('')
       setHistory(null)
-      toast.push({ title: 'Note added', tone: 'success' })
+      toast.push({ title: t('Note added'), tone: 'success' })
     } catch (err: any) {
-      toast.push({ title: 'Could not save note', description: err?.response?.data?.detail?.message, tone: 'critical' })
+      toast.push({ title: t('Could not save note'), description: err?.response?.data?.detail?.message, tone: 'critical' })
     } finally {
       setSavingNote(false)
     }
@@ -374,12 +375,12 @@ export default function EntityDetail() {
   }
 
   const tabItems = [
-    { id: 'network', label: 'Network', count: nodes.length },
-    { id: 'transactions', label: 'Transactions', count: timeline?.length },
-    { id: 'people', label: 'Directors & addresses', count: directors.length + addresses.length },
-    { id: 'evidence', label: 'Evidence', count: explanation?.reasons.length },
-    { id: 'history', label: 'History', count: history?.length },
-    { id: 'notes', label: 'Notes', count: notes?.length },
+    { id: 'network', label: t('Network'), count: nodes.length },
+    { id: 'transactions', label: t('Transactions'), count: timeline?.length },
+    { id: 'people', label: t('Directors & addresses'), count: directors.length + addresses.length },
+    { id: 'evidence', label: t('Evidence'), count: explanation?.reasons.length },
+    { id: 'history', label: t('History'), count: history?.length },
+    { id: 'notes', label: t('Notes'), count: notes?.length },
   ]
 
   if (error && !entity) {
@@ -387,8 +388,8 @@ export default function EntityDetail() {
       <div className="panel p-10 text-center" role="alert">
         <p className="text-sm font-medium text-risk-critical">{error}</p>
         <div className="mt-4 flex justify-center gap-2">
-          <Button variant="secondary" onClick={() => load(2)}>Retry</Button>
-          <Link to="/worklist"><Button variant="ghost">Back to worklist</Button></Link>
+          <Button variant="secondary" onClick={() => load(2)}>{t('Retry')}</Button>
+          <Link to="/worklist"><Button variant="ghost">{t('Back to worklist')}</Button></Link>
         </div>
       </div>
     )
@@ -398,9 +399,9 @@ export default function EntityDetail() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
-          <Link to="/worklist" className="text-xs text-text-secondary hover:text-accent-ring">← Risk worklist</Link>
+          <Link to="/worklist" className="text-xs text-text-secondary hover:text-accent-ring">{t('← Risk worklist')}</Link>
           <div className="mt-1 flex flex-wrap items-center gap-2">
-            <h1 className="text-2xl font-semibold tracking-tight">{entity?.name || 'Entity'}</h1>
+            <h1 className="text-2xl font-semibold tracking-tight">{entity?.name || t('Entity')}</h1>
             {entity?.status && <Badge tone="neutral" dot>{titleCase(entity.status)}</Badge>}
           </div>
           <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-text-secondary">
@@ -408,20 +409,20 @@ export default function EntityDetail() {
             {entity?.gstin && (
               <span className="inline-flex items-center gap-1">
                 <span className="mono-id">{entity.gstin}</span>
-                <InfoHint content="GSTIN is the 15-character GST registration number for this entity." />
+                <InfoHint content={t('GSTIN is the 15-character GST registration number for this entity.')} />
               </span>
             )}
             <span>{entityState}</span>
-            {entity?.roc && <span>ROC {entity.roc}</span>}
-            {entity?.incorporation_date && <span>Incorporated {formatDate(entity.incorporation_date)}</span>}
+            {entity?.roc && <span>{t('ROC')} {entity.roc}</span>}
+            {entity?.incorporation_date && <span>{t('Incorporated')} {formatDate(entity.incorporation_date)}</span>}
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="secondary" onClick={() => navigate(`/graph/${encodeURIComponent(entity?.id || id || '')}`)}>Graph workspace</Button>
-          <Button variant="secondary" onClick={addToWatchlist}>Watchlist</Button>
-          <Button variant="secondary" onClick={() => setShowExplain(true)} disabled={!explanation}>Why flagged?</Button>
-          <Button variant="secondary" onClick={() => setTab('notes')}>Add note</Button>
-          <Button onClick={createCase} loading={creatingCase}>Open case</Button>
+          <Button variant="secondary" onClick={() => navigate(`/graph/${encodeURIComponent(entity?.id || id || '')}`)}>{t('Graph workspace')}</Button>
+          <Button variant="secondary" onClick={addToWatchlist}>{t('Watchlist')}</Button>
+          <Button variant="secondary" onClick={() => setShowExplain(true)} disabled={!explanation}>{t('Why flagged?')}</Button>
+          <Button variant="secondary" onClick={() => setTab('notes')}>{t('Add note')}</Button>
+          <Button onClick={createCase} loading={creatingCase}>{t('Open case')}</Button>
         </div>
       </div>
 
@@ -444,8 +445,8 @@ export default function EntityDetail() {
                 aria-hidden="true"
               />
               <div className="flex items-center justify-between">
-                <span className="micro-label">Risk score</span>
-                <InfoHint content="Model-assisted priority score from 0–100. It combines network evidence such as rings, shared directors, addresses and transaction behaviour." />
+                <span className="micro-label">{t('Risk score')}</span>
+                <InfoHint content={t('Model-assisted priority score from 0–100. It combines network evidence such as rings, shared directors, addresses and transaction behaviour.')} />
               </div>
               <div className="mt-2 flex items-end gap-2">
                 <span className="font-mono text-3xl font-medium" style={{ color: riskColorForScore(entity?.risk_score ?? 0) }}>
@@ -459,19 +460,19 @@ export default function EntityDetail() {
                   style={{ width: `${Math.min(100, Math.max(0, entity?.risk_score ?? 0))}%`, backgroundColor: riskColorForScore(entity?.risk_score ?? 0) }}
                 />
               </div>
-              <p className="mt-2 text-xs text-text-secondary">Source: {entity?.risk_source || 'heuristic'}</p>
+              <p className="mt-2 text-xs text-text-secondary">{t('Source:')} {entity?.risk_source || 'heuristic'}</p>
             </div>
 
             <div className="panel p-4">
-              <span className="micro-label">Paid-up capital</span>
+              <span className="micro-label">{t('Paid-up capital')}</span>
               <div className="mt-2 font-mono text-2xl">{formatInrCompact(entity?.paid_up_capital)}</div>
-              <p className="mt-2 text-xs text-text-secondary">Authorised {formatInrCompact(entity?.authorized_capital)}</p>
+              <p className="mt-2 text-xs text-text-secondary">{t('Authorised')} {formatInrCompact(entity?.authorized_capital)}</p>
             </div>
 
             <div className="panel p-4">
               <div className="flex items-center justify-between">
-                <span className="micro-label">Ring membership</span>
-                <InfoHint content="Number of closed invoice cycles (rings) this entity appears in. Rings are a strong circular-trading signal." />
+                <span className="micro-label">{t('Ring membership')}</span>
+                <InfoHint content={t('Number of closed invoice cycles (rings) this entity appears in. Rings are a strong circular-trading signal.')} />
               </div>
               <div className="mt-2 font-mono text-2xl text-amber">{explanation?.evidence.cycles.length ?? 0}</div>
               <p className="mt-2 text-xs text-text-secondary">
@@ -481,8 +482,8 @@ export default function EntityDetail() {
 
             <div className={`panel p-4 ${ewayCount > 0 ? 'border-risk-high/50' : ''}`}>
               <div className="flex items-center justify-between">
-                <span className="micro-label">e-Way mismatches</span>
-                <InfoHint content="High-value invoices with no matching e-Way Bill movement record. A mismatch is a signal, not proof of evasion." />
+                <span className="micro-label">{t('e-Way mismatches')}</span>
+                <InfoHint content={t('High-value invoices with no matching e-Way Bill movement record. A mismatch is a signal, not proof of evasion.')} />
               </div>
               <div className={`mt-2 font-mono text-2xl ${ewayCount > 0 ? 'text-risk-high' : ''}`}>{ewayCount}</div>
               <p className="mt-2 text-xs text-text-secondary">
@@ -496,10 +497,10 @@ export default function EntityDetail() {
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div>
                   <h2 className="flex items-center gap-1.5 text-sm font-semibold">
-                    Risk drivers
-                    <InfoHint side="bottom" content="How the score decomposes into evidence. Contributions are points added by each signal; they may be capped before the total." />
+                    {t('Risk drivers')}
+                    <InfoHint side="bottom" content={t('How the score decomposes into evidence. Contributions are points added by each signal; they may be capped before the total.')} />
                   </h2>
-                  <p className="mt-0.5 text-xs text-text-secondary">Evidence contribution to the current score.</p>
+                  <p className="mt-0.5 text-xs text-text-secondary">{t('Evidence contribution to the current score.')}</p>
                 </div>
                 <Badge tone={entity?.risk_source === 'gnn_v1' ? 'accent' : 'neutral'}>
                   {entity?.risk_source === 'gnn_v1' ? 'GNN-assisted' : 'Structural'}
@@ -509,7 +510,7 @@ export default function EntityDetail() {
               {driverEntries.length === 0 ? (
                 <EmptyState
                   compact
-                  title="No driver breakdown"
+                  title={t('No driver breakdown')}
                   description={explanation ? 'This entity was scored before component attribution was recorded.' : 'The explanation API is unavailable; the score still stands.'}
                 />
               ) : (
@@ -542,7 +543,7 @@ export default function EntityDetail() {
             </div>
 
             <div className="panel p-5">
-              <h2 className="text-sm font-semibold">Entity profile</h2>
+              <h2 className="text-sm font-semibold">{t('Entity profile')}</h2>
               <dl className="mt-3 space-y-2 text-sm">
                 {[
                   ['CIN', entity?.cin],
@@ -557,7 +558,7 @@ export default function EntityDetail() {
                     <dt className="flex items-center gap-1 text-xs text-text-secondary">
                       {label}
                       {label === 'Betweenness' && (
-                        <InfoHint content="A graph-centrality measure: how often this entity sits on the shortest path between others. High betweenness can indicate a bridge between otherwise separate clusters." />
+                        <InfoHint content={t('A graph-centrality measure: how often this entity sits on the shortest path between others. High betweenness can indicate a bridge between otherwise separate clusters.')} />
                       )}
                     </dt>
                     <dd className="text-right font-mono text-[12px]">{String(value ?? '—')}</dd>
@@ -565,11 +566,11 @@ export default function EntityDetail() {
                 ))}
               </dl>
               <div className="mt-4 grid grid-cols-3 gap-2">
-                <Button size="sm" variant="secondary" onClick={() => submitFeedback('confirm_fraud')} loading={feedbackBusy === 'confirm_fraud'}>Confirm</Button>
-                <Button size="sm" variant="secondary" onClick={() => submitFeedback('needs_review')} loading={feedbackBusy === 'needs_review'}>Review</Button>
-                <Button size="sm" variant="secondary" onClick={() => submitFeedback('false_positive')} loading={feedbackBusy === 'false_positive'}>False +</Button>
+                <Button size="sm" variant="secondary" onClick={() => submitFeedback('confirm_fraud')} loading={feedbackBusy === 'confirm_fraud'}>{t('Confirm')}</Button>
+                <Button size="sm" variant="secondary" onClick={() => submitFeedback('needs_review')} loading={feedbackBusy === 'needs_review'}>{t('Review')}</Button>
+                <Button size="sm" variant="secondary" onClick={() => submitFeedback('false_positive')} loading={feedbackBusy === 'false_positive'}>{t('False +')}</Button>
               </div>
-              <p className="mt-2 text-[11px] text-text-disabled">Labels feed model feedback; they do not close the entity.</p>
+              <p className="mt-2 text-[11px] text-text-disabled">{t('Labels feed model feedback; they do not close the entity.')}</p>
             </div>
           </div>
 
@@ -582,28 +583,28 @@ export default function EntityDetail() {
             <div className="panel relative h-[560px] overflow-hidden">
               {nodes.length === 0 ? (
                 <EmptyState
-                  title="No network found"
-                  description="This entity has no relationships in the graph yet. Ingest MCA/GST data to build its neighbourhood."
-                  action={<Link to="/ingest"><Button variant="secondary">Import data</Button></Link>}
+                  title={t('No network found')}
+                  description={t('This entity has no relationships in the graph yet. Ingest MCA/GST data to build its neighbourhood.')}
+                  action={<Link to="/ingest"><Button variant="secondary">{t('Import data')}</Button></Link>}
                 />
               ) : (
                 <>
-                  <svg ref={svgRef} className="h-full w-full" aria-label="Entity network graph" />
+                  <svg ref={svgRef} className="h-full w-full" aria-label={t('Entity network graph')} />
                   <div className="absolute bottom-4 right-4 flex gap-2">
-                    <Button size="sm" variant="secondary" onClick={fitView}>Fit to view</Button>
+                    <Button size="sm" variant="secondary" onClick={fitView}>{t('Fit to view')}</Button>
                     {[1, 2, 3].map((depth) => (
                       <Button key={depth} size="sm" variant="secondary" onClick={() => load(depth)} disabled={hops === depth}>
-                        {depth}-hop
+                        {depth}{t('-hop')}
                       </Button>
                     ))}
                   </div>
                   <div className="pointer-events-none absolute left-3 top-3 flex flex-wrap gap-3 text-[11px] text-text-secondary">
-                    <span><span className="mr-1 inline-block h-2.5 w-2.5 rounded-full bg-accent" />Company</span>
-                    <span><span className="mr-1 inline-block h-2.5 w-2.5 rounded-full bg-amber" />Director</span>
-                    <span><span className="mr-1 inline-block h-2.5 w-2.5 rounded-full bg-text-secondary" />Address</span>
-                    <span><span className="mr-1 inline-block h-2.5 w-2.5 rounded-full bg-secondary-400" />Bank account</span>
-                    <span className="text-risk-critical">red edges = flagged cycle</span>
-                    <span className="text-risk-high">orange dot = e-Way mismatch</span>
+                    <span><span className="mr-1 inline-block h-2.5 w-2.5 rounded-full bg-accent" />{t('Company')}</span>
+                    <span><span className="mr-1 inline-block h-2.5 w-2.5 rounded-full bg-amber" />{t('Director')}</span>
+                    <span><span className="mr-1 inline-block h-2.5 w-2.5 rounded-full bg-text-secondary" />{t('Address')}</span>
+                    <span><span className="mr-1 inline-block h-2.5 w-2.5 rounded-full bg-secondary-400" />{t('Bank account')}</span>
+                    <span className="text-risk-critical">{t('red edges = flagged cycle')}</span>
+                    <span className="text-risk-high">{t('orange dot = e-Way mismatch')}</span>
                   </div>
                   {selectedNode && (
                     <div className="panel-raised absolute bottom-4 left-4 max-w-xs rounded-lg p-4">
@@ -619,10 +620,10 @@ export default function EntityDetail() {
                           to={`/entity/${selectedNode.properties.cin || selectedNode.id}/network`}
                           className="mt-3 text-xs text-accent-ring hover:underline"
                         >
-                          View network →
+                          {t('View network →')}
                         </Link>
                       )}
-                      <button type="button" onClick={() => setSelectedNode(null)} className="mt-2 text-xs text-text-secondary hover:text-text-primary">Close</button>
+                      <button type="button" onClick={() => setSelectedNode(null)} className="mt-2 text-xs text-text-secondary hover:text-text-primary">{t('Close')}</button>
                     </div>
                   )}
                 </>
@@ -636,31 +637,31 @@ export default function EntityDetail() {
                 <div className="p-5"><SkeletonText lines={8} /></div>
               ) : timeline.length === 0 ? (
                 <EmptyState
-                  title="No billed invoices"
-                  description="No outgoing invoices are attached to this entity in the graph. Invoices appear after GST ingestion."
+                  title={t('No billed invoices')}
+                  description={t('No outgoing invoices are attached to this entity in the graph. Invoices appear after GST ingestion.')}
                 />
               ) : (
                 <>
                   <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3">
                     <div>
-                      <h2 className="text-sm font-semibold">Outgoing invoices</h2>
-                      <p className="text-xs text-text-secondary">Sorted by invoice date, oldest first.</p>
+                      <h2 className="text-sm font-semibold">{t('Outgoing invoices')}</h2>
+                      <p className="text-xs text-text-secondary">{t('Sorted by invoice date, oldest first.')}</p>
                     </div>
                     <div className="text-right">
                       <div className="font-mono text-sm">{formatInr(totalTransactions)}</div>
-                      <div className="text-[11px] text-text-secondary">{timeline.length} invoices</div>
+                      <div className="text-[11px] text-text-secondary">{timeline.length} {t('invoices')}</div>
                     </div>
                   </div>
                   <div className="overflow-x-auto">
                     <table className="w-full min-w-[720px] text-sm">
                       <thead className="bg-raised/60 text-left text-micro uppercase tracking-micro text-text-secondary">
                         <tr>
-                          <th className="px-4 py-2.5">Date</th>
-                          <th className="px-4 py-2.5">Counterparty</th>
-                          <th className="px-4 py-2.5">Seller GSTIN</th>
-                          <th className="px-4 py-2.5">Buyer GSTIN</th>
-                          <th className="px-4 py-2.5">Return period</th>
-                          <th className="px-4 py-2.5 text-right">Amount</th>
+                          <th className="px-4 py-2.5">{t('Date')}</th>
+                          <th className="px-4 py-2.5">{t('Counterparty')}</th>
+                          <th className="px-4 py-2.5">{t('Seller GSTIN')}</th>
+                          <th className="px-4 py-2.5">{t('Buyer GSTIN')}</th>
+                          <th className="px-4 py-2.5">{t('Return period')}</th>
+                          <th className="px-4 py-2.5 text-right">{t('Amount')}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -697,11 +698,11 @@ export default function EntityDetail() {
             <div className="grid gap-4 lg:grid-cols-2">
               <div className="panel p-5">
                 <div className="flex items-center justify-between">
-                  <h2 className="text-sm font-semibold">Directors</h2>
+                  <h2 className="text-sm font-semibold">{t('Directors')}</h2>
                   <Badge tone="neutral">{directors.length}</Badge>
                 </div>
                 {directors.length === 0 ? (
-                  <EmptyState compact title="No directors in this neighbourhood" description="Try a wider hop depth on the Network tab, or ingest MCA director records." />
+                  <EmptyState compact title={t('No directors in this neighbourhood')} description={t('Try a wider hop depth on the Network tab, or ingest MCA director records.')} />
                 ) : (
                   <ul className="mt-3 divide-y divide-border">
                     {directors.map((director) => {
@@ -711,13 +712,13 @@ export default function EntityDetail() {
                           <div className="flex items-start justify-between gap-2">
                             <div>
                               <p className="text-sm font-medium">{director.label}</p>
-                              <p className="font-mono text-[11px] text-text-secondary">DIN {director.properties.din || '—'}</p>
+                              <p className="font-mono text-[11px] text-text-secondary">{t('DIN')} {director.properties.din || '—'}</p>
                             </div>
-                            <Badge tone={companies.length > 1 ? 'amber' : 'neutral'}>{companies.length} link{companies.length === 1 ? '' : 's'}</Badge>
+                            <Badge tone={companies.length > 1 ? 'amber' : 'neutral'}>{companies.length} {t('link')}{companies.length === 1 ? '' : 's'}</Badge>
                           </div>
                           {companies.length > 0 && (
                             <p className="mt-1 text-xs text-text-secondary">
-                              Connected to {companies.slice(0, 3).join(', ')}{companies.length > 3 ? ` +${companies.length - 3}` : ''}
+                              {t('Connected to')} {companies.slice(0, 3).join(', ')}{companies.length > 3 ? ` +${companies.length - 3}` : ''}
                             </p>
                           )}
                         </li>
@@ -729,13 +730,13 @@ export default function EntityDetail() {
               <div className="panel p-5">
                 <div className="flex items-center justify-between">
                   <h2 className="flex items-center gap-1.5 text-sm font-semibold">
-                    Registered addresses
-                    <InfoHint content="Shared addresses across unrelated companies can indicate shell entities using the same premises." />
+                    {t('Registered addresses')}
+                    <InfoHint content={t('Shared addresses across unrelated companies can indicate shell entities using the same premises.')} />
                   </h2>
                   <Badge tone="neutral">{addresses.length}</Badge>
                 </div>
                 {addresses.length === 0 ? (
-                  <EmptyState compact title="No addresses in this neighbourhood" description="Addresses appear when MCA records link companies to registered premises." />
+                  <EmptyState compact title={t('No addresses in this neighbourhood')} description={t('Addresses appear when MCA records link companies to registered premises.')} />
                 ) : (
                   <ul className="mt-3 divide-y divide-border">
                     {addresses.map((address) => {
@@ -749,7 +750,7 @@ export default function EntityDetail() {
                                 {[address.properties.state, address.properties.pincode].filter(Boolean).join(' · ') || 'State not recorded'}
                               </p>
                             </div>
-                            <Badge tone={companies.length > 1 ? 'amber' : 'neutral'}>{companies.length} compan{companies.length === 1 ? 'y' : 'ies'}</Badge>
+                            <Badge tone={companies.length > 1 ? 'amber' : 'neutral'}>{companies.length} {t('compan')}{companies.length === 1 ? 'y' : 'ies'}</Badge>
                           </div>
                           {companies.length > 0 && (
                             <p className="mt-1 truncate text-xs text-text-secondary">{companies.slice(0, 3).join(', ')}</p>
@@ -771,11 +772,11 @@ export default function EntityDetail() {
                 <>
                   <div className="panel p-5">
                     <div className="flex items-center justify-between">
-                      <h2 className="text-sm font-semibold">Why this entity is flagged</h2>
-                      <Badge tone="accent">{explanation.reasons.length} signals</Badge>
+                      <h2 className="text-sm font-semibold">{t('Why this entity is flagged')}</h2>
+                      <Badge tone="accent">{explanation.reasons.length} {t('signals')}</Badge>
                     </div>
                     {explanation.reasons.length === 0 ? (
-                      <EmptyState compact title="No positive evidence" description="The score may come from model priors rather than structural evidence." />
+                      <EmptyState compact title={t('No positive evidence')} description={t('The score may come from model priors rather than structural evidence.')} />
                     ) : (
                       <ul className="mt-3 space-y-2">
                         {explanation.reasons.map((reason, index) => (
@@ -787,12 +788,12 @@ export default function EntityDetail() {
 
                   {explanation.evidence.cycles.length > 0 && (
                     <div className="panel p-5">
-                      <h2 className="text-sm font-semibold">Detected invoice cycles</h2>
+                      <h2 className="text-sm font-semibold">{t('Detected invoice cycles')}</h2>
                       <div className="mt-3 space-y-3">
                         {explanation.evidence.cycles.map((cycle, index) => (
                           <div key={index} className="rounded-lg border border-risk-critical/30 bg-risk-critical/5 p-3">
                             <div className="text-xs font-semibold text-risk-critical">
-                              {cycle.hop_count}-hop cycle across {cycle.company_count} companies · {formatInr(cycle.total_invoice_amount)}
+                              {cycle.hop_count}{t('-hop cycle across')} {cycle.company_count} {t('companies ·')} {formatInr(cycle.total_invoice_amount)}
                             </div>
                             <div className="mt-1 font-mono text-[11px] text-text-secondary">
                               {cycle.companies?.map((member) => member.name).join(' → ')}
@@ -815,9 +816,9 @@ export default function EntityDetail() {
 
                   <div className="grid gap-4 lg:grid-cols-2">
                     <div className="panel p-5">
-                      <h2 className="text-sm font-semibold">Shared directors</h2>
+                      <h2 className="text-sm font-semibold">{t('Shared directors')}</h2>
                       {explanation.evidence.shared_directors.length === 0 ? (
-                        <p className="mt-2 text-xs text-text-secondary">No shared-director links in the evidence set.</p>
+                        <p className="mt-2 text-xs text-text-secondary">{t('No shared-director links in the evidence set.')}</p>
                       ) : (
                         <ul className="mt-3 space-y-2">
                           {explanation.evidence.shared_directors.map((director, index) => (
@@ -830,9 +831,9 @@ export default function EntityDetail() {
                       )}
                     </div>
                     <div className="panel p-5">
-                      <h2 className="text-sm font-semibold">Shared registered addresses</h2>
+                      <h2 className="text-sm font-semibold">{t('Shared registered addresses')}</h2>
                       {explanation.evidence.shared_addresses.length === 0 ? (
-                        <p className="mt-2 text-xs text-text-secondary">No shared-address links in the evidence set.</p>
+                        <p className="mt-2 text-xs text-text-secondary">{t('No shared-address links in the evidence set.')}</p>
                       ) : (
                         <ul className="mt-3 space-y-2">
                           {explanation.evidence.shared_addresses.map((address, index) => (
@@ -849,13 +850,13 @@ export default function EntityDetail() {
                   <div className="panel p-5">
                     <div className="flex items-center justify-between">
                       <h2 className="flex items-center gap-1.5 text-sm font-semibold">
-                        e-Way Bill mismatches
-                        <InfoHint content="Invoices above the configured high-value threshold whose declared e-Way Bill reference has no matching movement record, or whose amount differs materially." />
+                        {t('e-Way Bill mismatches')}
+                        <InfoHint content={t('Invoices above the configured high-value threshold whose declared e-Way Bill reference has no matching movement record, or whose amount differs materially.')} />
                       </h2>
                       <Badge tone={ewayCount > 0 ? 'high' : 'neutral'}>{ewayCount}</Badge>
                     </div>
                     {ewayCount === 0 ? (
-                      <p className="mt-2 text-xs text-text-secondary">No e-Way mismatches recorded for this entity.</p>
+                      <p className="mt-2 text-xs text-text-secondary">{t('No e-Way mismatches recorded for this entity.')}</p>
                     ) : (
                       <div className="mt-3 space-y-2">
                         {ewayMismatches.map((mismatch, index) => (
@@ -867,7 +868,7 @@ export default function EntityDetail() {
                             <p className="mt-1 text-[11px] text-text-primary">{mismatch.reason_label || mismatch.reason}</p>
                             {mismatch.claimed_ref && (
                               <p className="font-mono text-[11px] text-text-secondary">
-                                Cites {mismatch.claimed_ref}{mismatch.movement_ref ? '' : ' — no movement record exists'}
+                                {t('Cites')} {mismatch.claimed_ref}{mismatch.movement_ref ? '' : ' — no movement record exists'}
                               </p>
                             )}
                             {mismatch.movement_ref && (
@@ -891,15 +892,15 @@ export default function EntityDetail() {
             <div className="panel p-5">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-sm font-semibold">Entity history</h2>
-                  <p className="text-xs text-text-secondary">Analyst labels, case activity, notes and invoices, newest first.</p>
+                  <h2 className="text-sm font-semibold">{t('Entity history')}</h2>
+                  <p className="text-xs text-text-secondary">{t('Analyst labels, case activity, notes and invoices, newest first.')}</p>
                 </div>
-                <Button size="sm" variant="ghost" onClick={() => setHistory(null)}>Refresh</Button>
+                <Button size="sm" variant="ghost" onClick={() => setHistory(null)}>{t('Refresh')}</Button>
               </div>
               {history === null ? (
                 <div className="mt-4"><SkeletonText lines={6} /></div>
               ) : history.length === 0 ? (
-                <EmptyState compact title="No history yet" description="Labels, case events, notes and invoices will appear here as they are recorded." />
+                <EmptyState compact title={t('No history yet')} description={t('Labels, case events, notes and invoices will appear here as they are recorded.')} />
               ) : (
                 <ol className="mt-4 space-y-0">
                   {history.map((event, index) => (
@@ -930,29 +931,29 @@ export default function EntityDetail() {
           {tab === 'notes' && (
             <div className="grid gap-4 lg:grid-cols-3">
               <div className="panel p-5 lg:col-span-1">
-                <h2 className="text-sm font-semibold">Add an analyst note</h2>
-                <p className="mt-0.5 text-xs text-text-secondary">Notes are visible to everyone working this entity and appear in its history.</p>
+                <h2 className="text-sm font-semibold">{t('Add an analyst note')}</h2>
+                <p className="mt-0.5 text-xs text-text-secondary">{t('Notes are visible to everyone working this entity and appear in its history.')}</p>
                 <textarea
                   className="mt-3 min-h-32 w-full rounded-lg border border-border bg-canvas p-3 text-sm text-text-primary placeholder:text-text-disabled focus:border-accent-ring focus:outline-none focus:ring-2 focus:ring-accent-ring"
-                  placeholder="What did you verify? Include source references where possible."
+                  placeholder={t('What did you verify? Include source references where possible.')}
                   value={noteDraft}
                   onChange={(event) => setNoteDraft(event.target.value)}
                   maxLength={5000}
                 />
                 <div className="mt-2 flex items-center justify-between gap-2">
                   <span className="text-[11px] text-text-disabled">{noteDraft.length}/5000</span>
-                  <Button size="sm" onClick={submitNote} loading={savingNote} disabled={!noteDraft.trim()}>Save note</Button>
+                  <Button size="sm" onClick={submitNote} loading={savingNote} disabled={!noteDraft.trim()}>{t('Save note')}</Button>
                 </div>
               </div>
               <div className="panel p-5 lg:col-span-2">
                 <div className="flex items-center justify-between">
-                  <h2 className="text-sm font-semibold">Notes</h2>
+                  <h2 className="text-sm font-semibold">{t('Notes')}</h2>
                   <Badge tone="neutral">{notes?.length ?? 0}</Badge>
                 </div>
                 {notes === null ? (
                   <div className="mt-4"><SkeletonText lines={5} /></div>
                 ) : notes.length === 0 ? (
-                  <EmptyState compact title="No notes yet" description="Record verification steps, source documents or handover context for the next analyst." />
+                  <EmptyState compact title={t('No notes yet')} description={t('Record verification steps, source documents or handover context for the next analyst.')} />
                 ) : (
                   <ul className="mt-3 divide-y divide-border">
                     {notes.map((note) => (
@@ -973,7 +974,7 @@ export default function EntityDetail() {
       )}
 
       <p className="text-xs text-text-disabled">
-        Entity reference {truncateMiddle(entity?.cin || id || '', 28)} · scores are prioritisation aids; verify evidence before enforcement.
+        {t('Entity reference')} {truncateMiddle(entity?.cin || id || '', 28)} {t('· scores are prioritisation aids; verify evidence before enforcement.')}
       </p>
 
       {showExplain && explanation && (

@@ -1,0 +1,28 @@
+{
+  "companies": 8,
+  "directors": 6,
+  "flagged_entities": 6,
+  "cycles_detected": 1,
+  "estimated_itc_at_risk": 600000.0,
+  "top_risk_state": "Maharashtra",
+  "open_cases": 18,
+  "risk_distribution": {
+    "critical": 6,
+    "high": 0,
+    "medium": 0,
+    "low": 2,
+    "unscored": 0
+  },
+  "exposure_trend": [],
+  "feedback_counts": {
+    "counts": {
+      "needs_review": 6
+    },
+    "total": 6
+  },
+  "active_model": {
+    "version_tag": "structural-v1",
+    "trained_on": "synthetic demo graph",
+    "deployed_at": "2026-10-22T08:11:05.477469+00:00"
+  }
+}

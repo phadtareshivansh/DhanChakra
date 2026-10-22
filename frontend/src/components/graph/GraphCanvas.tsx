@@ -1,3 +1,4 @@
+import { t } from '../../i18n'
 import {
   forwardRef,
   useCallback,
@@ -511,10 +512,24 @@ const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(function Gra
       .force('charge', d3.forceManyBody().strength(nodes.length > 2000 ? -60 : -320).theta(0.9))
       .force('center', d3.forceCenter(width / 2, height / 2))
       .alphaDecay(nodes.length > 2000 ? 0.08 : 0.05)
-    if (nodes.length <= 2000) {
+    if (nodes.length <= 2000 && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
       simulation.force('collision', d3.forceCollide().radius(26))
     }
     simulationRef.current = simulation
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      // Settle the layout immediately instead of animating it.
+      simulation.stop()
+      simulation.tick(160)
+      updatePositions()
+      minimapDrawRef.current?.()
+      const reducedTimer = window.setTimeout(() => applyFit(nodes.map((item) => item.id)), 30)
+      return () => {
+        window.clearTimeout(reducedTimer)
+        simulation.stop()
+        simulationRef.current = null
+        svg.on('.zoom', null)
+      }
+    }
     let tickCount = 0
     simulation.on('tick', () => {
       updatePositions()
@@ -792,10 +807,29 @@ const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(function Gra
       .force('charge', d3.forceManyBody().strength(nodes.length > 2000 ? -60 : -320).theta(0.9))
       .force('center', d3.forceCenter(width / 2, height / 2))
       .alphaDecay(nodes.length > 2000 ? 0.08 : 0.05)
-    if (nodes.length <= 2000) {
+    if (nodes.length <= 2000 && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
       simulation.force('collision', d3.forceCollide().radius(26))
     }
     simulationRef.current = simulation
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      // Settle the layout immediately instead of animating it.
+      simulation.stop()
+      simulation.tick(160)
+      draw()
+      minimapDrawRef.current?.()
+      const reducedTimer = window.setTimeout(() => applyFit(nodes.map((item) => item.id)), 30)
+      return () => {
+        window.clearTimeout(reducedTimer)
+        simulation.stop()
+        simulationRef.current = null
+        canvas.removeEventListener('wheel', onWheel)
+        canvas.removeEventListener('pointerdown', onPointerDown)
+        canvas.removeEventListener('pointermove', onPointerMove)
+        canvas.removeEventListener('pointerup', onPointerUp)
+        canvas.removeEventListener('pointerleave', onPointerLeave)
+        drawRef.current = null
+      }
+    }
     let tickCount = 0
     simulation.on('tick', () => {
       draw()
@@ -902,7 +936,7 @@ const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(function Gra
         node.fy = null
       }
     }
-    if (simulationRef.current) {
+    if (simulationRef.current && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
       simulationRef.current.alpha(0.35).restart()
     } else if (mode === 'canvas') {
       drawRef.current?.()
@@ -942,9 +976,9 @@ const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(function Gra
   return (
     <div ref={containerRef} className="relative h-full w-full overflow-hidden bg-canvas">
       {mode === 'svg' ? (
-        <svg ref={svgRef} className="h-full w-full" role="img" aria-label="Investigation network graph" />
+        <svg ref={svgRef} className="h-full w-full" role="img" aria-label={t('Investigation network graph')} />
       ) : (
-        <canvas ref={canvasRef} className="h-full w-full touch-none" aria-label="Investigation network graph" role="img" />
+        <canvas ref={canvasRef} className="h-full w-full touch-none" aria-label={t('Investigation network graph')} role="img" />
       )}
       <canvas
         ref={minimapRef}

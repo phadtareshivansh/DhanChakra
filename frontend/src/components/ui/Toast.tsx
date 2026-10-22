@@ -1,3 +1,4 @@
+import { t } from '../../i18n'
 import {
   createContext,
   ReactNode,
@@ -121,7 +122,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               <button
                 type="button"
                 onClick={() => dismiss(toast.id)}
-                aria-label="Dismiss notification"
+                aria-label={t('Dismiss notification')}
                 className="rounded p-1 text-text-disabled transition-colors hover:bg-raised hover:text-text-primary"
               >
                 <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">

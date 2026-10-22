@@ -1,3 +1,4 @@
+import { t } from '../i18n'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { LoopsResponse } from '../types/api'
@@ -28,9 +29,9 @@ export default function LoopsView() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Circular Trading Loops</h1>
+          <h1 className="text-3xl font-bold">{t('Circular Trading Loops')}</h1>
           <p className="text-sm text-text-secondary mt-1">
-            Invoice cycles detected in the transaction graph (A→B→C→A). Red edges in the network view mark these paths.
+            {t('Invoice cycles detected in the transaction graph (A→B→C→A). Red edges in the network view mark these paths.')}
           </p>
         </div>
         <select
@@ -39,7 +40,7 @@ export default function LoopsView() {
           onChange={(e) => setMaxLength(Number(e.target.value))}
         >
           {[3, 4, 5, 6, 8].map((n) => (
-            <option key={n} value={n}>Max length: {n}</option>
+            <option key={n} value={n}>{t('Max length:')} {n}</option>
           ))}
         </select>
       </div>
@@ -57,7 +58,7 @@ export default function LoopsView() {
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-3">
                     <span className="px-2 py-0.5 rounded-full bg-risk-critical/15 text-risk-critical text-micro font-bold">
-                      {loop.length}-hop cycle
+                      {loop.length}{t('-hop cycle')}
                     </span>
                     <span className="font-mono text-data">₹{Number(loop.total_amount || 0).toLocaleString('en-IN')}</span>
                   </div>
@@ -65,7 +66,7 @@ export default function LoopsView() {
                     to={`/entity/${first?.cin || first?.id}/network`}
                     className="text-sm text-accent-ring hover:underline"
                   >
-                    Open in network →
+                    {t('Open in network →')}
                   </Link>
                 </div>
                 <div className="flex flex-wrap items-center gap-1.5">
@@ -93,7 +94,7 @@ export default function LoopsView() {
           })}
           {data?.loops.length === 0 && (
             <div className="panel p-12 text-center text-text-secondary">
-              No circular loops detected at this length. Run <span className="mono-id">POST /analytics/structural</span> or ingest more transaction data.
+              {t('No circular loops detected at this length. Run')} <span className="mono-id">{t('POST /analytics/structural')}</span> {t('or ingest more transaction data.')}
             </div>
           )}
         </div>

@@ -1,3 +1,4 @@
+import { t } from './i18n'
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { lazy, Suspense, useEffect, useState } from 'react'
 import Dashboard from './pages/Dashboard'
@@ -23,7 +24,7 @@ function GraphWorkspaceRoute() {
         <div className="flex h-[calc(100vh-8rem)] items-center justify-center">
           <div className="text-center">
             <div className="mx-auto h-9 w-9 animate-spin rounded-full border-2 border-border border-t-accent-ring" />
-            <p className="mt-3 text-sm text-text-secondary">Loading graph workspace…</p>
+            <p className="mt-3 text-sm text-text-secondary">{t('Loading graph workspace…')}</p>
           </div>
         </div>
       }
