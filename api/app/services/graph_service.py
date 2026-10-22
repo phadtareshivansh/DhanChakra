@@ -2,12 +2,16 @@
 entity resolution, and explainability. Each function returns plain dicts consumed
 by the API layer."""
 
+import logging
 from typing import Any, Dict, List, Optional, Set, Tuple
 
+import networkx as nx
 from neo4j.time import DateTime, Date
 
 from ..config import settings
 from . import eway_service as eway
+
+logger = logging.getLogger(__name__)
 
 
 def _node_to_dict(node: Any) -> Dict[str, Any]:
@@ -337,52 +341,252 @@ async def _ensure_invoice_graph(session, name: Optional[str] = None) -> None:
     )
 
 
+def _graph_backend() -> str:
+    return (settings.graph_backend or "auto").strip().lower()
+
+
+def _use_networkx() -> bool:
+    return _graph_backend() == "networkx"
+
+
+def _gds_only() -> bool:
+    return _graph_backend() == "gds"
+
+
+def _allow_fallback() -> bool:
+    return not _gds_only()
+
+
+async def _load_company_graph(session) -> nx.DiGraph:
+    """Load the invoice graph in the same shape as the GDS projection.
+
+    Nodes are keyed by CIN (the identifier the rest of the service writes
+    back to); edges are one per company -> transaction -> company path, with
+    a weight equal to the number of invoices on that pair. Companies with no
+    invoice edge are still added so WCC/Louvain see them as singletons.
+    """
+    graph = nx.DiGraph()
+    result = await session.run("""
+    MATCH (c:Company)
+    WHERE c.cin IS NOT NULL
+    OPTIONAL MATCH (c)-[:BILLED]->(:Transaction)-[:BILLED_TO]->(b:Company)
+    WHERE b.cin IS NOT NULL
+    RETURN c.cin AS source, b.cin AS target, count(*) AS weight
+    """)
+    async for record in result:
+        source = record["source"]
+        if source is None:
+            continue
+        graph.add_node(source)
+        target = record["target"]
+        if target is None:
+            continue
+        weight = float(record["weight"] or 1.0)
+        if graph.has_edge(source, target):
+            graph[source][target]["weight"] += weight
+        else:
+            graph.add_edge(source, target, weight=weight)
+    return graph
+
+
+async def _write_company_metrics(
+    session, rows: List[Dict[str, Any]]
+) -> int:
+    """Write community_id / pagerank / betweenness back in one round trip."""
+    if not rows:
+        return 0
+    result = await session.run("""
+    UNWIND $rows AS row
+    MATCH (c:Company {cin: row.cin})
+    SET c.community_id = coalesce(row.community_id, c.community_id),
+        c.pagerank = coalesce(row.pagerank, c.pagerank),
+        c.betweenness = coalesce(row.betweenness, c.betweenness)
+    """, rows=rows)
+    await result.consume()
+    return len(rows)
+
+
+async def _write_louvain_communities(
+    session, communities: List[set], algorithm_version: str, id_prefix: str
+) -> int:
+    """MERGE FraudCommunity nodes + MEMBER_OF_COMMUNITY edges."""
+    created = 0
+    for index, members in enumerate(communities):
+        cins = sorted(cin for cin in members if cin)
+        if not cins:
+            continue
+        result = await session.run("""
+        MERGE (fc: FraudCommunity {id: $cid})
+        SET fc.member_count = $member_count,
+            fc.member_cins = $cins,
+            fc.detected_at = datetime(),
+            fc.algorithm_version = $algorithm_version
+        WITH fc
+        UNWIND $cins AS cin
+        MATCH (c:Company {cin: cin})
+        MERGE (c)-[:MEMBER_OF_COMMUNITY]->(fc)
+        """, cid=f"{id_prefix}{index}", member_count=len(cins),
+             cins=cins, algorithm_version=algorithm_version)
+        await result.consume()
+        created += 1
+    return created
+
+
+def _pagerank_python(
+    graph: nx.DiGraph,
+    alpha: float = 0.85,
+    max_iter: int = 100,
+    tol: float = 1e-06,
+    weight: str = "weight",
+) -> Dict[str, float]:
+    """Weighted PageRank power iteration without scipy.
+
+    networkx 3.2's nx.pagerank() imports scipy, and the production image is
+    deliberately scipy-free. This mirrors the same update rule (including
+    uniform dangling-node redistribution) in plain Python, which is more
+    than fast enough for the demo graph and O(E) per iteration.
+    """
+    nodes = list(graph)
+    n = len(nodes)
+    if n == 0:
+        return {}
+    successors: Dict[str, List[Tuple[str, float]]] = {}
+    out_weight: Dict[str, float] = {}
+    for node in nodes:
+        edges: List[Tuple[str, float]] = []
+        total = 0.0
+        for target, data in graph[node].items():
+            w = float(data.get(weight, 1.0)) if weight else 1.0
+            if w <= 0:
+                continue
+            edges.append((target, w))
+            total += w
+        successors[node] = edges
+        out_weight[node] = total
+
+    dangling = [node for node in nodes if out_weight[node] == 0.0]
+    score = {node: 1.0 / n for node in nodes}
+    for _ in range(max_iter):
+        previous = score
+        dangling_mass = sum(previous[node] for node in dangling)
+        base = (1.0 - alpha) / n + alpha * dangling_mass / n
+        score = {node: base for node in nodes}
+        for node in nodes:
+            total = out_weight[node]
+            if total == 0.0:
+                continue
+            factor = alpha * previous[node] / total
+            for target, w in successors[node]:
+                score[target] += factor * w
+        error = sum(abs(score[node] - previous[node]) for node in nodes)
+        if error < n * tol:
+            break
+    return score
+
+
 async def compute_wcc(session) -> Dict[str, Any]:
+    if not _use_networkx():
+        try:
+            await _ensure_invoice_graph(session)
+            result = await session.run(f"""
+            CALL gds.wcc.write('{settings.gds_projection_name}', {{
+                writeProperty: 'community_id'
+            }})
+            YIELD componentCount, nodePropertiesWritten
+            RETURN componentCount, nodePropertiesWritten
+            """)
+            record = await result.single()
+            return {
+                "message": "WCC computed",
+                "components": record["componentCount"] if record else 0,
+                "nodes_written": record["nodePropertiesWritten"] if record else 0,
+                "engine": "gds",
+            }
+        except Exception as e:
+            if not _allow_fallback():
+                return {"error": str(e), "message": "GDS may not be available"}
+            logger.warning("GDS WCC unavailable, using networkx: %s", e)
+
     try:
-        await _ensure_invoice_graph(session)
-        result = await session.run(f"""
-        CALL gds.wcc.write('{settings.gds_projection_name}', {{
-            writeProperty: 'community_id'
-        }})
-        YIELD componentCount, nodePropertiesWritten
-        RETURN componentCount, nodePropertiesWritten
-        """)
-        record = await result.single()
+        graph = await _load_company_graph(session)
+        components = list(nx.weakly_connected_components(graph))
+        rows = [
+            {"cin": cin, "community_id": index}
+            for index, component in enumerate(components)
+            for cin in component
+        ]
+        written = await _write_company_metrics(session, rows)
         return {
             "message": "WCC computed",
-            "components": record["componentCount"] if record else 0,
-            "nodes_written": record["nodePropertiesWritten"] if record else 0,
+            "components": len(components),
+            "nodes_written": written,
+            "engine": "networkx",
         }
     except Exception as e:
-        return {"error": str(e), "message": "GDS may not be available"}
+        return {"error": str(e), "message": "WCC computation failed"}
 
 
 async def compute_centrality(session, cin: str) -> Dict[str, Any]:
+    if not _use_networkx():
+        try:
+            await _ensure_invoice_graph(session)
+            pr_result = await session.run(f"""
+            CALL gds.pageRank.stream('{settings.gds_projection_name}')
+            YIELD nodeId, score
+            WHERE gds.util.asNode(nodeId).cin = $cin
+            RETURN score
+            """, cin=cin)
+            pr_record = await pr_result.single()
+
+            bt_result = await session.run(f"""
+            CALL gds.betweenness.stream('{settings.gds_projection_name}')
+            YIELD nodeId, score
+            WHERE gds.util.asNode(nodeId).cin = $cin
+            RETURN score
+            """, cin=cin)
+            bt_record = await bt_result.single()
+
+            return {
+                "cin": cin,
+                "pagerank": pr_record["score"] if pr_record else None,
+                "betweenness": bt_record["score"] if bt_record else None,
+                "engine": "gds",
+            }
+        except Exception as e:
+            if not _allow_fallback():
+                return {"error": str(e), "message": "GDS may not be available"}
+            logger.warning("GDS centrality unavailable, using networkx: %s", e)
+
     try:
-        await _ensure_invoice_graph(session)
-        pr_result = await session.run(f"""
-        CALL gds.pageRank.stream('{settings.gds_projection_name}')
-        YIELD nodeId, score
-        WHERE gds.util.asNode(nodeId).cin = $cin
-        RETURN score
-        """, cin=cin)
-        pr_record = await pr_result.single()
-
-        bt_result = await session.run(f"""
-        CALL gds.betweenness.stream('{settings.gds_projection_name}')
-        YIELD nodeId, score
-        WHERE gds.util.asNode(nodeId).cin = $cin
-        RETURN score
-        """, cin=cin)
-        bt_record = await bt_result.single()
-
+        graph = await _load_company_graph(session)
+        if cin not in graph:
+            return {
+                "cin": cin,
+                "pagerank": None,
+                "betweenness": None,
+                "engine": "networkx",
+            }
+        pagerank = _pagerank_python(
+            graph, weight="weight", alpha=0.85, max_iter=100, tol=1e-06
+        )
+        if graph.number_of_nodes() <= settings.networkx_betweenness_max_nodes:
+            betweenness = nx.betweenness_centrality(graph)
+            bt_value = betweenness.get(cin)
+        else:
+            stored = await session.run(
+                "MATCH (c:Company {cin: $cin}) RETURN c.betweenness AS betweenness",
+                cin=cin,
+            )
+            record = await stored.single()
+            bt_value = record["betweenness"] if record else None
         return {
             "cin": cin,
-            "pagerank": pr_record["score"] if pr_record else None,
-            "betweenness": bt_record["score"] if bt_record else None,
+            "pagerank": pagerank.get(cin),
+            "betweenness": bt_value,
+            "engine": "networkx",
         }
     except Exception as e:
-        return {"error": str(e), "message": "GDS may not be available"}
+        return {"error": str(e), "message": "Centrality computation failed"}
 
 
 async def run_structural_analytics(session) -> Dict[str, Any]:
@@ -390,12 +594,20 @@ async def run_structural_analytics(session) -> Dict[str, Any]:
     write back community_id + centrality + risk_score per company."""
     summary = {"cycles_created": 0, "communities_created": 0, "scored": 0}
 
-    # Project the transaction graph once, reuse for all GDS calls
-    try:
-        await _ensure_invoice_graph(session)
-        summary["graph_projected"] = True
-    except Exception as e:
-        summary["graph_projection_error"] = str(e)
+    # In "auto" mode, a missing GDS plugin is detected once here and the
+    # remaining sections use networkx. "networkx" skips GDS entirely;
+    # "gds" reports errors instead of silently falling back.
+    gds_available = not _use_networkx()
+    summary["engine"] = "gds" if gds_available else "networkx"
+    if gds_available:
+        try:
+            await _ensure_invoice_graph(session)
+            summary["graph_projected"] = True
+        except Exception as e:
+            summary["graph_projection_error"] = str(e)
+            if _allow_fallback():
+                gds_available = False
+                summary["engine"] = "networkx"
 
     # --- 1. Detect and materialize cycles ---
     try:
@@ -439,52 +651,157 @@ async def run_structural_analytics(session) -> Dict[str, Any]:
         summary["cycles_error"] = str(e)
 
     # --- 2. Louvain communities, write back community_id ---
-    try:
-        result = await session.run(f"""
-        CALL gds.louvain.write('{settings.gds_projection_name}', {{
-            writeProperty: 'community_id',
-            maxIterations: {settings.gds_louvain_max_iterations}
-        }})
-        YIELD communityCount, nodePropertiesWritten
-        RETURN communityCount, nodePropertiesWritten
-        """)
-        record = await result.single()
-        summary["communities"] = record["communityCount"] if record else 0
-        summary["community_nodes_written"] = record["nodePropertiesWritten"] if record else 0
+    if gds_available:
+        try:
+            result = await session.run(f"""
+            CALL gds.louvain.write('{settings.gds_projection_name}', {{
+                writeProperty: 'community_id',
+                maxIterations: {settings.gds_louvain_max_iterations}
+            }})
+            YIELD communityCount, nodePropertiesWritten
+            RETURN communityCount, nodePropertiesWritten
+            """)
+            record = await result.single()
+            summary["communities"] = record["communityCount"] if record else 0
+            summary["community_nodes_written"] = record["nodePropertiesWritten"] if record else 0
 
-        comm_result = await session.run(f"""
-        CALL gds.louvain.stream('{settings.gds_projection_name}', {{maxIterations: {settings.gds_louvain_max_iterations}}})
-        YIELD nodeId, communityId
-        WITH communityId, collect(gds.util.asNode(nodeId)) AS members
-        RETURN communityId, size(members) AS member_count,
-               [m IN members | m.cin] AS cins
-        """)
-        for r in await comm_result.data():
-            await session.run("""
-            MERGE (fc: FraudCommunity {id: $cid})
-            SET fc.member_count = $member_count,
-                fc.member_cins = $cins,
-                fc.detected_at = datetime(),
-                fc.algorithm_version = 'louvain-v1'
-            WITH fc
-            UNWIND $cins AS cin
-            MATCH (c:Company {cin: cin})
-            MERGE (c)-[:MEMBER_OF_COMMUNITY]->(fc)
-            """, cid=str(r["communityId"]), member_count=r["member_count"], cins=r["cins"])
-            summary["communities_created"] += 1
-    except Exception as e:
-        summary["communities_error"] = str(e)
+            comm_result = await session.run(f"""
+            CALL gds.louvain.stream('{settings.gds_projection_name}', {{maxIterations: {settings.gds_louvain_max_iterations}}})
+            YIELD nodeId, communityId
+            WITH communityId, collect(gds.util.asNode(nodeId)) AS members
+            RETURN communityId, size(members) AS member_count,
+                   [m IN members | m.cin] AS cins
+            """)
+            for r in await comm_result.data():
+                await session.run("""
+                MERGE (fc: FraudCommunity {id: $cid})
+                SET fc.member_count = $member_count,
+                    fc.member_cins = $cins,
+                    fc.detected_at = datetime(),
+                    fc.algorithm_version = 'louvain-v1'
+                WITH fc
+                UNWIND $cins AS cin
+                MATCH (c:Company {cin: cin})
+                MERGE (c)-[:MEMBER_OF_COMMUNITY]->(fc)
+                """, cid=str(r["communityId"]), member_count=r["member_count"], cins=r["cins"])
+                summary["communities_created"] += 1
+        except Exception as e:
+            summary["communities_error"] = str(e)
+            if _allow_fallback():
+                gds_available = False
+                summary["engine"] = "networkx"
+                logger.warning("GDS Louvain unavailable, using networkx: %s", e)
 
-    # --- 3. Centrality write-back ---
-    try:
-        await session.run(f"""
-        CALL gds.pageRank.write('{settings.gds_projection_name}', {{writeProperty: 'pagerank'}})
-        YIELD nodePropertiesWritten
-        RETURN nodePropertiesWritten
-        """)
-        summary["pagerank_written"] = True
-    except Exception as e:
-        summary["pagerank_error"] = str(e)
+    if not gds_available:
+        try:
+            graph = await _load_company_graph(session)
+            if graph.number_of_nodes() == 0:
+                summary["communities"] = 0
+                summary["community_nodes_written"] = 0
+            else:
+                communities = nx.algorithms.community.louvain_communities(
+                    graph.to_undirected(), weight="weight", seed=42
+                )
+                rows = [
+                    {"cin": cin, "community_id": index}
+                    for index, members in enumerate(communities)
+                    for cin in members
+                    if cin
+                ]
+                summary["community_nodes_written"] = await _write_company_metrics(
+                    session, rows
+                )
+                summary["communities"] = len(communities)
+                summary["communities_created"] += await _write_louvain_communities(
+                    session, communities,
+                    algorithm_version="louvain-networkx-v1",
+                    id_prefix="nx-",
+                )
+            summary["engine"] = "networkx"
+        except Exception as e:
+            summary["communities_error"] = str(e)
+
+    # --- 3. Centrality write-back (PageRank + betweenness) ---
+    if gds_available:
+        try:
+            result = await session.run(f"""
+            CALL gds.pageRank.write('{settings.gds_projection_name}', {{writeProperty: 'pagerank'}})
+            YIELD nodePropertiesWritten
+            RETURN nodePropertiesWritten
+            """)
+            record = await result.single()
+            summary["pagerank_written"] = True
+            summary["pagerank_nodes_written"] = (
+                record["nodePropertiesWritten"] if record else 0
+            )
+        except Exception as e:
+            summary["pagerank_error"] = str(e)
+            if _allow_fallback():
+                gds_available = False
+                summary["engine"] = "networkx"
+                logger.warning("GDS PageRank unavailable, using networkx: %s", e)
+
+        if gds_available:
+            try:
+                result = await session.run(f"""
+                CALL gds.betweenness.write('{settings.gds_projection_name}', {{writeProperty: 'betweenness'}})
+                YIELD nodePropertiesWritten
+                RETURN nodePropertiesWritten
+                """)
+                record = await result.single()
+                summary["betweenness_written"] = True
+                summary["betweenness_nodes_written"] = (
+                    record["nodePropertiesWritten"] if record else 0
+                )
+            except Exception as e:
+                summary["betweenness_error"] = str(e)
+                if _allow_fallback():
+                    gds_available = False
+                    summary["engine"] = "networkx"
+                    logger.warning(
+                        "GDS betweenness unavailable, using networkx: %s", e
+                    )
+
+    if not gds_available:
+        try:
+            graph = await _load_company_graph(session)
+            if graph.number_of_nodes() == 0:
+                summary["pagerank_written"] = False
+                summary["betweenness_written"] = False
+            else:
+                scores = _pagerank_python(
+                    graph, weight="weight", alpha=0.85, max_iter=100, tol=1e-06
+                )
+                rows = [
+                    {"cin": cin, "pagerank": float(score)}
+                    for cin, score in scores.items()
+                ]
+                summary["pagerank_nodes_written"] = await _write_company_metrics(
+                    session, rows
+                )
+                summary["pagerank_written"] = True
+
+                if graph.number_of_nodes() <= settings.networkx_betweenness_max_nodes:
+                    betweenness = nx.betweenness_centrality(graph)
+                    bt_rows = [
+                        {"cin": cin, "betweenness": float(score)}
+                        for cin, score in betweenness.items()
+                    ]
+                    summary["betweenness_nodes_written"] = await _write_company_metrics(
+                        session, bt_rows
+                    )
+                    summary["betweenness_written"] = True
+                else:
+                    summary["betweenness_skipped"] = (
+                        f"graph has {graph.number_of_nodes()} nodes > "
+                        f"networkx_betweenness_max_nodes="
+                        f"{settings.networkx_betweenness_max_nodes}"
+                    )
+                    summary["betweenness_written"] = False
+            summary["engine"] = "networkx"
+        except Exception as e:
+            summary["pagerank_error"] = summary.get("pagerank_error") or str(e)
+            summary["betweenness_error"] = summary.get("betweenness_error") or str(e)
 
     # --- 4. Risk scoring (heuristic, explainable) ---
     try:

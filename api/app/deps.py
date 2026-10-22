@@ -1,3 +1,5 @@
+from urllib.parse import quote_plus
+
 from neo4j import AsyncGraphDatabase
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from contextlib import asynccontextmanager
@@ -8,8 +10,40 @@ neo4j_driver = AsyncGraphDatabase.driver(
     auth=(settings.neo4j_user, settings.neo4j_password)
 )
 
-postgres_url = f"postgresql+asyncpg://{settings.postgres_user}:{settings.postgres_password}@{settings.postgres_host}:{settings.postgres_port}/{settings.postgres_db}"
-engine = create_async_engine(postgres_url, echo=False)
+postgres_url = (
+    f"postgresql+asyncpg://{quote_plus(settings.postgres_user)}:"
+    f"{quote_plus(settings.postgres_password)}@"
+    f"{settings.postgres_host}:{settings.postgres_port}/"
+    f"{quote_plus(settings.postgres_db)}"
+)
+
+# Neon (and most managed Postgres) require TLS. Local/compose Postgres does
+# not use it, so only enable it for non-local hosts unless POSTGRES_SSL says
+# otherwise.
+_ssl_mode = (settings.postgres_ssl or "").strip()
+if not _ssl_mode and settings.postgres_host not in {
+    "postgres", "localhost", "127.0.0.1", "::1",
+}:
+    _ssl_mode = "require"
+
+_connect_args = {"ssl": _ssl_mode} if _ssl_mode else {}
+if "-pooler" in settings.postgres_host:
+    # Neon's pooled endpoint runs PgBouncer in transaction mode, which does
+    # not support asyncpg's prepared-statement cache. This is an asyncpg
+    # connect() argument, not a SQLAlchemy dialect argument.
+    _connect_args["statement_cache_size"] = 0
+
+_engine_kwargs = {
+    "echo": False,
+    # Neon suspends idle compute; a pooled connection can be dead when the
+    # next request arrives. Pre-ping transparently reconnects instead of
+    # failing that first query.
+    "pool_pre_ping": True,
+    "pool_recycle": 300,
+    "connect_args": _connect_args,
+}
+
+engine = create_async_engine(postgres_url, **_engine_kwargs)
 async_session_maker = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
 @asynccontextmanager

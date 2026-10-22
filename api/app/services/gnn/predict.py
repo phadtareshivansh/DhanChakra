@@ -1,8 +1,13 @@
 """Phase 3 inference: load the persisted checkpoint, score the live graph,
 and write Company.risk_score back to Neo4j (Implementation Plan Phase 3).
 
-The model loads lazily and caches; absence of torch or the checkpoint is
-handled gracefully so the rest of the app keeps working (feature flag).
+Two backends are supported:
+- torch, when the training dependency and the .pt checkpoint are present;
+- numpy, using a small .npz exported from the same checkpoint. The Render
+  production image ships only numpy, so it avoids torch's import/RAM cost.
+
+The model loads lazily and caches; absence of both backends is handled
+gracefully so the rest of the app keeps working (feature flag).
 """
 
 import asyncio
@@ -11,16 +16,21 @@ import logging
 import os
 from typing import Any, Dict, Optional
 
+import numpy as np
+
 from ...config import settings
 
 logger = logging.getLogger(__name__)
 
 CHECKPOINT_PATH = settings.gnn_checkpoint_file
+NPZ_PATH = os.path.splitext(CHECKPOINT_PATH)[0] + ".npz"
 
 _model: Optional[Any] = None
 _checkpoint: Optional[Dict[str, Any]] = None
+_np_weights: Optional[Dict[str, np.ndarray]] = None
+_np_meta: Optional[Dict[str, Any]] = None
 
-try:  # torch is optional: the stack works without the GNN layer
+try:  # torch is optional: the numpy backend keeps the GNN layer working
     import torch
 except ImportError:
     torch = None
@@ -28,14 +38,28 @@ except ImportError:
 _scoring_lock: Optional[asyncio.Lock] = None
 
 
+def _backend() -> Optional[str]:
+    """Which inference backend to use, or None when no weights exist."""
+    preference = (settings.gnn_backend or "auto").strip().lower()
+    has_torch = torch is not None and os.path.exists(CHECKPOINT_PATH)
+    has_numpy = os.path.exists(NPZ_PATH)
+    if preference == "numpy":
+        return "numpy" if has_numpy else None
+    if preference == "torch":
+        return "torch" if has_torch else None
+    if has_torch:
+        return "torch"
+    if has_numpy:
+        return "numpy"
+    return None
+
+
 def is_available() -> bool:
-    return torch is not None and os.path.exists(CHECKPOINT_PATH)
+    return _backend() is not None
 
 
-def _load():
+def _load_torch() -> bool:
     global _model, _checkpoint
-    if not is_available():
-        return False
     if _model is None:
         from .model import GraphSAGE
 
@@ -49,18 +73,63 @@ def _load():
         _model = GraphSAGE(in_dim=len(_checkpoint["feature_cols"]))
         _model.load_state_dict(_checkpoint["model_state"])
         _model.eval()
-        logger.info("GNN checkpoint loaded: %s", CHECKPOINT_PATH)
+        logger.info("GNN torch checkpoint loaded: %s", CHECKPOINT_PATH)
     return True
+
+
+def _load_numpy() -> bool:
+    global _np_weights, _np_meta
+    if _np_weights is None:
+        with np.load(NPZ_PATH, allow_pickle=False) as data:
+            _np_weights = {
+                "conv1_weight": data["conv1_weight"].astype(np.float32),
+                "conv1_bias": data["conv1_bias"].astype(np.float32),
+                "conv2_weight": data["conv2_weight"].astype(np.float32),
+                "conv2_bias": data["conv2_bias"].astype(np.float32),
+            }
+            _np_meta = {
+                "version": str(data["version"].item()),
+                "trained_at": str(data["trained_at"].item()),
+                "feature_cols": json.loads(str(data["feature_cols"].item())),
+            }
+        logger.info("GNN numpy weights loaded: %s", NPZ_PATH)
+    return True
+
+
+def _load() -> bool:
+    backend = _backend()
+    if backend == "torch":
+        return _load_torch()
+    if backend == "numpy":
+        return _load_numpy()
+    return False
+
+
+def _metrics() -> Dict[str, Any]:
+    metrics_path = os.path.join(
+        os.path.dirname(CHECKPOINT_PATH), settings.gnn_metrics_filename
+    )
+    if not os.path.exists(metrics_path):
+        return {}
+    try:
+        with open(metrics_path) as f:
+            return json.load(f)
+    except Exception:
+        return {}
 
 
 def model_meta() -> Optional[Dict[str, Any]]:
     if not _load():
         return None
-    metrics = {}
-    if os.path.exists(os.path.join(os.path.dirname(CHECKPOINT_PATH), "gnn_metrics.json")):
-        with open(os.path.join(os.path.dirname(CHECKPOINT_PATH), "gnn_metrics.json")) as f:
-            metrics = json.load(f)
-    return {"version": _checkpoint.get("version"), "feature_cols": _checkpoint.get("feature_cols"), "metrics": metrics}
+    if _backend() == "numpy":
+        return {**_np_meta, "metrics": _metrics(), "backend": "numpy"}
+    return {
+        "version": _checkpoint.get("version"),
+        "trained_at": _checkpoint.get("trained_at"),
+        "feature_cols": _checkpoint.get("feature_cols"),
+        "metrics": _metrics(),
+        "backend": "torch",
+    }
 
 
 def build_feature_matrix(companies: list, cols: list) -> "Any":
@@ -75,16 +144,44 @@ def build_feature_matrix(companies: list, cols: list) -> "Any":
     ]
 
 
+def _build_adjacency_numpy(edges: list, n: int) -> np.ndarray:
+    """Row-normalized directed adjacency (self-loops included), mirroring
+    gnn.model.build_adjacency exactly."""
+    a = np.zeros((n, n), dtype=np.float32)
+    for src, dst in edges:
+        if 0 <= src < n and 0 <= dst < n:
+            a[src, dst] += 1.0
+    a += np.eye(n, dtype=np.float32)
+    row_sum = np.clip(a.sum(axis=1, keepdims=True), 1.0, None)
+    return a / row_sum
+
+
+def _forward_numpy(x: np.ndarray, a_norm: np.ndarray) -> np.ndarray:
+    """GraphSAGE forward pass without torch. Dropout is identity in eval mode."""
+    assert _np_weights is not None
+    h = np.concatenate([x, a_norm @ x], axis=1)
+    h = h @ _np_weights["conv1_weight"].T + _np_weights["conv1_bias"]
+    h = np.maximum(h, 0.0)
+    logits = (
+        np.concatenate([h, a_norm @ h], axis=1)
+        @ _np_weights["conv2_weight"].T
+        + _np_weights["conv2_bias"]
+    )
+    logits = logits.squeeze(-1)
+    return 1.0 / (1.0 + np.exp(-logits))
+
+
 async def predict_and_writeback(session) -> Dict[str, Any]:
     """Score all companies and write Company.risk_score = GNN score * 100."""
-    if not _load():
+    backend = _backend()
+    if backend is None or not _load():
         raise RuntimeError(
-            "GNN layer unavailable: install torch and train a checkpoint "
-            "(python -m app.services.gnn.train)"
+            "GNN layer unavailable: train a checkpoint (python -m "
+            "app.services.gnn.train) and either install torch or export "
+            "models/gnn_risk_v1.npz with scripts/export_gnn_npz.py"
         )
 
     from . import features as feat
-    from .model import build_adjacency
 
     data = await feat.extract_graph(session)
     companies = data["companies"]
@@ -102,7 +199,8 @@ async def predict_and_writeback(session) -> Dict[str, Any]:
     # features (and used to crash the whole API with a shape mismatch); by
     # name, an unknown column is simply 0.0 and a new column is ignored until
     # the model is retrained.
-    cols = list(_checkpoint.get("feature_cols") or feat.FEATURE_COLS)
+    meta = _np_meta if backend == "numpy" else _checkpoint
+    cols = list((meta or {}).get("feature_cols") or feat.FEATURE_COLS)
     unknown = [c for c in cols if c not in feat.FEATURE_COLS]
     if unknown:
         logger.warning(
@@ -116,11 +214,19 @@ async def predict_and_writeback(session) -> Dict[str, Any]:
             "checkpoint does not use these live features: %s",
             ", ".join(missing),
         )
-    x = torch.tensor(build_feature_matrix(companies, cols), dtype=torch.float32)
-    a_norm = build_adjacency(edges, n)
 
-    with torch.no_grad():
-        scores = torch.sigmoid(_model(x, a_norm)).tolist()
+    x_list = build_feature_matrix(companies, cols)
+    if backend == "numpy":
+        x = np.asarray(x_list, dtype=np.float32)
+        a_norm = _build_adjacency_numpy(edges, n)
+        scores = _forward_numpy(x, a_norm).tolist()
+    else:
+        from .model import build_adjacency
+
+        x = torch.tensor(x_list, dtype=torch.float32)
+        a_norm = build_adjacency(edges, n)
+        with torch.no_grad():
+            scores = torch.sigmoid(_model(x, a_norm)).tolist()
 
     written = 0
     for c, s in zip(companies, scores):
