@@ -11,7 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from ..deps import get_db_session, require_admin
 from ..models.schemas import AdminUserList, AdminUserOut, AdminUserUpdate, PasswordReset
-from ..services import auth_service
+from ..services import auth_service, audit_service
 
 router = APIRouter(prefix="/api/v1/admin", tags=["admin"])
 
@@ -61,6 +61,16 @@ async def update_user(
     if not updated:
         raise HTTPException(status_code=404, detail={"code": "not_found",
                                                      "message": "User not found"})
+    # Every admin action is recorded: who did it, to whom, and what changed.
+    await audit_service.log_event(
+        db, audit_service.USER_UPDATED, user_id=admin["id"],
+        entity_type="user", entity_id=user_id,
+        details={
+            "email_changed": body.email is not None,
+            "display_name_changed": body.display_name is not None,
+            "password_changed": body.password is not None,
+        },
+    )
     return _out(updated)
 
 
@@ -90,5 +100,15 @@ async def reset_password(
         if not target:
             raise HTTPException(status_code=404, detail={"code": "not_found",
                                                          "message": "User not found"})
+        await audit_service.log_event(
+            db, audit_service.PASSWORD_RESET, user_id=admin["id"],
+            entity_type="user", entity_id=user_id,
+            details={"generated": False},
+        )
         return {"status": "ok", "user_id": user_id}
+    await audit_service.log_event(
+        db, audit_service.PASSWORD_RESET, user_id=admin["id"],
+        entity_type="user", entity_id=user_id,
+        details={"generated": True},
+    )
     return {"status": "ok", "user_id": user_id, "generated_password": generated}

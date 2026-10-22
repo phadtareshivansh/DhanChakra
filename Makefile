@@ -71,6 +71,9 @@ benchmark-amlworld: ## Run the benchmark on the real IBM AMLworld file (set AMLW
 apply-schema: ## Apply Neo4j constraints/indexes (idempotent; needs a running stack)
 	$(COMPOSE) exec -T $(API_SERVICE) python /benchmarks/apply_schema.py
 
+migrate: ## Apply the Postgres schema migrations that have not been applied yet
+	./scripts/apply_migrations.sh
+
 scale-test: ## Run the A3 scale test (writes api/benchmarks/scale_results.json + docs/performance.md)
 	$(COMPOSE) exec -T $(API_SERVICE) sh -c 'python /benchmarks/run_scale_test.py --sizes 10000 100000 500000 --endpoint-repeats 20 --stage-timeout 300 --profile --out /tmp/scale_results.json --doc /tmp/performance.md --commit-hash "$(shell git describe --always --dirty)"'
 	$(COMPOSE) cp $(API_SERVICE):/tmp/scale_results.json api/benchmarks/scale_results.json

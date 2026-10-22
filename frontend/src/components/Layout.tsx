@@ -73,8 +73,20 @@ export default function Layout() {
     path: '/' + arr.slice(0, i + 1).join('/'),
   }))
 
-  const logout = () => {
+  const logout = async () => {
+    // Revoke the refresh token server-side first, so the session really
+    // ends rather than merely being forgotten here (TASK C1). The access
+    // token dies on its own within minutes.
+    const refreshToken = localStorage.getItem('dhanchakra_refresh_token')
+    if (refreshToken) {
+      try {
+        await api.post('/auth/logout', { refresh_token: refreshToken })
+      } catch {
+        // A failed revoke must not trap the user in the app.
+      }
+    }
     localStorage.removeItem('dhanchakra_token')
+    localStorage.removeItem('dhanchakra_refresh_token')
     localStorage.removeItem('dhanchakra_user')
     navigate('/login')
   }

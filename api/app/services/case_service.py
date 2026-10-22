@@ -7,6 +7,8 @@ from typing import Any, Dict, List, Optional
 
 from sqlalchemy import text
 
+from . import audit_service
+
 
 async def _row_to_case(row) -> Dict[str, Any]:
     return {
@@ -111,12 +113,7 @@ async def list_exports(db, case_id: str) -> List[Dict[str, Any]]:
 
 async def log_audit(db, user_id: Optional[str], action: str, entity_type: Optional[str],
                     entity_id: Optional[str], details: Optional[Dict[str, Any]] = None) -> None:
-    await db.execute(
-        text("""
-        INSERT INTO audit_log (user_id, action, entity_type, entity_id, details)
-        VALUES (:user_id, :action, :entity_type, :entity_id, :details)
-        """),
-        {"user_id": user_id, "action": action, "entity_type": entity_type,
-         "entity_id": entity_id, "details": json.dumps(details or {})},
+    await audit_service.log_event(
+        db, action, user_id=user_id, entity_type=entity_type,
+        entity_id=entity_id, details=details,
     )
-    await db.commit()

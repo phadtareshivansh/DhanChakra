@@ -317,6 +317,16 @@ class TokenResponse(BaseModel):
     access_token: str
     token_type: str
     user: dict
+    # The session credential (TASK C1). It is opaque, revocable and
+    # short-lived; the access token above is what is sent on each request.
+    refresh_token: Optional[str] = None
+    # Lifetime of the access token in seconds, so a client knows when to
+    # refresh instead of guessing.
+    expires_in: Optional[int] = None
+
+
+class RefreshRequest(BaseModel):
+    refresh_token: str
 
 
 # --- Admin user management (Super Admin only) --------------------------------

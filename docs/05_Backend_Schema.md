@@ -211,7 +211,45 @@ CREATE TABLE users (
     email         TEXT UNIQUE NOT NULL,
     display_name  TEXT NOT NULL,
     role          TEXT NOT NULL CHECK (role IN ('officer','auditor','analyst','admin')),
-    created_at    TIMESTAMPTZ DEFAULT now()
+    created_at    TIMESTAMPTZ DEFAULT now(),
+    -- Bumped whenever the password changes. Access tokens carry the version
+    -- they were minted with, so a bump ends every session the old password
+    -- had (TASK C1).
+    token_version INTEGER NOT NULL DEFAULT 1
+);
+
+-- Refresh tokens: opaque random strings, stored only as a SHA-256 digest, so
+-- a database dump cannot be replayed as a login. Revocation is server-side —
+-- "log out" really ends the session (TASK C1).
+CREATE TABLE refresh_tokens (
+    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    token_hash  TEXT NOT NULL UNIQUE,
+    issued_at   TIMESTAMPTZ DEFAULT now(),
+    expires_at  TIMESTAMPTZ NOT NULL,
+    revoked_at  TIMESTAMPTZ,
+    replaced_by UUID REFERENCES refresh_tokens(id) ON DELETE SET NULL,
+    client_ip   TEXT,
+    user_agent  TEXT
+);
+
+-- Login attempts. The rate limiter and the lockout read from here, so the
+-- decision survives an API restart and can be audited afterwards (TASK C1).
+CREATE TABLE login_attempts (
+    id         BIGSERIAL PRIMARY KEY,
+    email      TEXT NOT NULL,
+    client_ip  TEXT NOT NULL,
+    succeeded  BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- Which migration files have been applied. The Postgres schema is created by
+-- docker-entrypoint-initdb.d, which only runs on the FIRST start of an empty
+-- volume, so a new migration file would otherwise be silently ignored by an
+-- existing stack (TASK C1 — see scripts/apply_migrations.sh).
+CREATE TABLE schema_migrations (
+    name       TEXT PRIMARY KEY,
+    applied_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 -- Case files opened against a flagged entity/ring

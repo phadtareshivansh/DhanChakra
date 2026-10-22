@@ -113,11 +113,50 @@ async def log_requests(request, call_next):
 
 app.add_middleware(
     CORSMiddleware,
+    # An explicit allowlist read from the environment. Credentials are
+    # allowed, so a wildcard origin would be a real vulnerability -- it is
+    # never used, not even in development.
     allow_origins=settings.cors_origin_list,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-Requested-With"],
+    max_age=600,
 )
+
+
+@app.middleware("http")
+async def security_headers(request, call_next):
+    """Add the response headers a browser-facing API should always send.
+
+    The API returns JSON, never markup, so the policy can be maximally
+    restrictive: nothing may be loaded, nothing may be framed, nothing may
+    be sniffed into a different type.
+    """
+    response = await call_next(request)
+
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "no-referrer"
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'none'; frame-ancestors 'none'; base-uri 'none'"
+    )
+    response.headers["Permissions-Policy"] = (
+        "geolocation=(), camera=(), microphone=(), payment=()"
+    )
+    # The API is served over HTTPS in production; tell browsers to refuse
+    # plain HTTP for this host for a year.
+    if settings.is_production:
+        response.headers["Strict-Transport-Security"] = (
+            "max-age=31536000; includeSubDomains"
+        )
+    # Token responses must not be cached by the browser or a proxy.
+    if request.url.path.startswith("/api/v1/auth"):
+        response.headers["Cache-Control"] = "no-store"
+    # Do not advertise the framework.
+    if "X-Powered-By" in response.headers:
+        del response.headers["X-Powered-By"]
+    return response
+
 
 app.include_router(entities.router)
 app.include_router(admin_routes.router)

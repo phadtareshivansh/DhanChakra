@@ -6,6 +6,7 @@ Super Admin manages the two standard slots. Caps are enforced both here (clean
 409s) and at the DB level (migration 012_user_role_limits.sql).
 """
 
+import hashlib
 import logging
 import secrets
 import uuid
@@ -43,22 +44,163 @@ def verify_password(plain: str, hashed: str) -> bool:
     return pwd_context.verify(plain, hashed)
 
 
-def create_access_token(user_id: str, role: str) -> str:
+def create_access_token(user_id: str, role: str, token_version: int = 1) -> str:
+    """A short-lived bearer token.
+
+    ``tv`` carries the user's token version. Bumping the version (on a
+    password reset) makes every access token already issued for that user
+    fail the check in :func:`decode_token`, so a reset really ends the
+    sessions it was meant to end.
+    """
     expire = datetime.utcnow() + timedelta(minutes=settings.access_token_expire_minutes)
-    payload = {"sub": user_id, "role": role, "exp": expire}
+    payload = {
+        "sub": user_id,
+        "role": role,
+        "tv": int(token_version or 1),
+        "typ": "access",
+        "exp": expire,
+    }
     return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
 
 
-def decode_token(token: str) -> Optional[Dict[str, Any]]:
+def decode_token(token: str, expected_token_version: Optional[int] = None
+                 ) -> Optional[Dict[str, Any]]:
+    """Decode an access token, or None if it is not usable.
+
+    ``expected_token_version`` is the version currently stored on the user.
+    When it is given, a token minted before the last password reset is
+    rejected.
+    """
     try:
-        return jwt.decode(token, settings.jwt_secret, algorithms=[settings.jwt_algorithm])
+        payload = jwt.decode(token, settings.jwt_secret,
+                              algorithms=[settings.jwt_algorithm])
     except JWTError:
         return None
+    if payload.get("typ") != "access":
+        return None
+    if expected_token_version is not None:
+        if int(payload.get("tv", 1)) != int(expected_token_version):
+            return None
+    return payload
+
+
+def _hash_refresh_token(token: str) -> str:
+    """Refresh tokens are stored only as a SHA-256 digest.
+
+    The token itself is a random opaque string, so a database dump cannot
+    be replayed as a login.
+    """
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+def new_refresh_token() -> str:
+    return secrets.token_urlsafe(48)
+
+
+async def issue_refresh_token(db, user_id: str, *, client_ip: Optional[str] = None,
+                              user_agent: Optional[str] = None) -> str:
+    """Create a refresh token and return the opaque string to hand out."""
+    token = new_refresh_token()
+    expires = datetime.utcnow() + timedelta(days=settings.refresh_token_expire_days)
+    await db.execute(
+        text("""
+        INSERT INTO refresh_tokens
+            (id, user_id, token_hash, issued_at, expires_at, client_ip, user_agent)
+        VALUES (:id, :user_id, :hash, now(), :expires, :ip, :ua)
+        """),
+        {"id": str(uuid.uuid4()), "user_id": user_id,
+         "hash": _hash_refresh_token(token), "expires": expires,
+         "ip": client_ip, "ua": (user_agent or "")[:255] or None},
+    )
+    await db.commit()
+    return token
+
+
+async def consume_refresh_token(db, token: str) -> Optional[Dict[str, Any]]:
+    """Validate a refresh token and mark it used.
+
+    Returns the owning user, or None when the token is unknown, expired,
+    already used or revoked. A used token is revoked rather than deleted,
+    so a replay is visible in the table.
+    """
+    if not token:
+        return None
+    result = await db.execute(
+        text("""
+        SELECT rt.id, rt.user_id, rt.expires_at, rt.revoked_at
+          FROM refresh_tokens rt
+         WHERE rt.token_hash = :hash
+        """),
+        {"hash": _hash_refresh_token(token)},
+    )
+    row = result.fetchone()
+    if row is None or row.revoked_at is not None:
+        return None
+    if row.expires_at < datetime.utcnow():
+        return None
+
+    await db.execute(
+        text("UPDATE refresh_tokens SET revoked_at = now() WHERE id = :id"),
+        {"id": str(row.id)},
+    )
+    user = await get_user_by_id(db, str(row.user_id))
+    if not user:
+        return None
+    return user
+
+
+async def revoke_refresh_token(db, token: str) -> bool:
+    """Revoke one refresh token (log out). Returns True if one was revoked."""
+    if not token:
+        return False
+    result = await db.execute(
+        text("""
+        UPDATE refresh_tokens SET revoked_at = now()
+         WHERE token_hash = :hash AND revoked_at IS NULL
+        """),
+        {"hash": _hash_refresh_token(token)},
+    )
+    await db.commit()
+    return result.rowcount > 0
+
+
+async def revoke_all_refresh_tokens(db, user_id: str) -> None:
+    """Revoke every refresh token for a user (password reset, role change)."""
+    await db.execute(
+        text("""
+        UPDATE refresh_tokens SET revoked_at = now()
+         WHERE user_id = :user_id AND revoked_at IS NULL
+        """),
+        {"user_id": user_id},
+    )
+    await db.commit()
+
+
+async def bump_token_version(db, user_id: str) -> int:
+    """Invalidate every access token already issued for a user.
+
+    Called when a password is reset or changed: the old sessions must not
+    survive a credential change.
+    """
+    result = await db.execute(
+        text("""
+        UPDATE users
+           SET token_version = COALESCE(token_version, 1) + 1
+         WHERE id = :user_id
+        RETURNING token_version
+        """),
+        {"user_id": user_id},
+    )
+    version = result.scalar_one()
+    await db.commit()
+    return int(version)
 
 
 async def get_user_by_email(db, email: str) -> Optional[Dict[str, Any]]:
     result = await db.execute(
-        text("SELECT id, email, display_name, password_hash, role FROM users WHERE email = :email"),
+        text("SELECT id, email, display_name, password_hash, role, "
+             "COALESCE(token_version, 1) AS token_version "
+             "FROM users WHERE email = :email"),
         {"email": email},
     )
     row = result.fetchone()
@@ -70,12 +212,14 @@ async def get_user_by_email(db, email: str) -> Optional[Dict[str, Any]]:
         "display_name": row.display_name,
         "password_hash": row.password_hash,
         "role": row.role,
+        "token_version": int(row.token_version or 1),
     }
 
 
 async def get_user_by_id(db, user_id: str) -> Optional[Dict[str, Any]]:
     result = await db.execute(
-        text("SELECT id, email, display_name, role, created_at "
+        text("SELECT id, email, display_name, role, created_at, "
+             "COALESCE(token_version, 1) AS token_version "
              "FROM users WHERE id = :id"),
         {"id": user_id},
     )
@@ -88,6 +232,7 @@ async def get_user_by_id(db, user_id: str) -> Optional[Dict[str, Any]]:
         "display_name": row.display_name,
         "role": row.role,
         "created_at": row.created_at,
+        "token_version": int(row.token_version or 1),
     }
 
 
@@ -178,7 +323,12 @@ async def update_user(db, user_id: str, *, email: Optional[str] = None,
     await db.execute(
         text(f"UPDATE users SET {', '.join(sets)} WHERE id = :user_id"), params
     )
-    await db.commit()
+    if password is not None:
+        # A credential change ends the sessions it was meant to end.
+        await bump_token_version(db, user_id)
+        await revoke_all_refresh_tokens(db, user_id)
+    else:
+        await db.commit()
     return await get_user_by_id(db, user_id)
 
 
@@ -204,6 +354,11 @@ async def reset_password(db, user_id: str, password: Optional[str] = None
         {"h": hash_password(password), "id": user_id},
     )
     await db.commit()
+    # A reset must end every session the old password had, so the tokens
+    # already issued are invalidated here rather than left working until
+    # they expire.
+    await bump_token_version(db, user_id)
+    await revoke_all_refresh_tokens(db, user_id)
     return generated
 
 

@@ -53,7 +53,25 @@ class Settings(BaseSettings):
     # --- Auth ---
     jwt_secret: str
     jwt_algorithm: str = "HS256"
-    access_token_expire_minutes: int = 720
+    # Access tokens are deliberately short-lived: they are a bearer credential
+    # and a stolen one should stop working quickly. The session is carried by
+    # a separate, revocable refresh token (TASK C1).
+    access_token_expire_minutes: int = 15
+    refresh_token_expire_days: int = 7
+
+    # --- Login rate limiting / lockout (TASK C1) ---
+    # Failed logins are counted per client IP and per account inside a
+    # sliding window. Either count reaching its limit locks the client out
+    # for login_lockout_minutes. Attempts are recorded in Postgres, so the
+    # decision survives an API restart and can be audited afterwards.
+    login_rate_limit_window_minutes: int = 15
+    login_max_failures_per_ip: int = 10
+    login_max_failures_per_account: int = 5
+    login_lockout_minutes: int = 15
+    # Comma-separated proxy addresses whose X-Forwarded-For header we trust.
+    # Empty (the default) means the socket peer is always the client, which
+    # is what a client can spoof. Set this only for proxies we run.
+    trusted_proxy_ips: str = ""
 
     # --- Seeded user slots (fixed 3-slot model) ---
     # Exactly one Super Admin (role 'admin') and two standard users (role

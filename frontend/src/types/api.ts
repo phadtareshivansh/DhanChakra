@@ -231,4 +231,8 @@ export interface TokenResponse {
   access_token: string
   token_type: string
   user: User
+  /** The session credential. Short-lived access tokens are refreshed with it. */
+  refresh_token?: string
+  /** Access-token lifetime in seconds. */
+  expires_in?: number
 }
