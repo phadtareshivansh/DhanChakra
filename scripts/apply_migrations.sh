@@ -68,7 +68,7 @@ done
 
 psql_q -c "CREATE TABLE IF NOT EXISTS schema_migrations (
               name TEXT PRIMARY KEY,
-              applied_at TIMESTAMESTZ NOT NULL DEFAULT now())" >/dev/null
+              applied_at TIMESTAMPTZ NOT NULL DEFAULT now())" >/dev/null
 
 for name in "${BASELINE[@]}"; do
   psql_q -c "INSERT INTO schema_migrations (name) VALUES ('$name')
