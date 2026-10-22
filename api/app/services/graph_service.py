@@ -186,14 +186,170 @@ async def get_network(session, entity_id: str, hops: int) -> Dict[str, Any]:
 
     flagged = await _flagged_cycle_edges(session, entity_id)
     eway_txns = await _eway_mismatch_transactions(session, entity_id, hops)
+    txn_dates: Dict[str, str] = {}
+    for node in nodes_dict.values():
+        if node["type"] == "Transaction":
+            raw_date = node["properties"].get("invoice_date") or node["properties"].get("date")
+            if raw_date:
+                txn_dates[node["id"]] = str(raw_date)[:10]
     for e in unique_edges:
         e["flagged"] = (e["source"], e["target"], e["type"]) in flagged
         e["eway_mismatch"] = e["source"] in eway_txns or e["target"] in eway_txns
+        e["date"] = txn_dates.get(e["source"]) or txn_dates.get(e["target"])
     for node in nodes_dict.values():
         if node["id"] in eway_txns:
             node["properties"]["eway_mismatch"] = True
 
     return {"nodes": list(nodes_dict.values()), "edges": unique_edges}
+
+
+async def get_network_timeline(session, entity_id: str, hops: int,
+                               bucket: str = "month") -> Dict[str, Any]:
+    """Invoice volume in an entity's neighbourhood grouped by month/week.
+
+    Powers the graph workspace time slider (B2/P2.3). Buckets are derived from
+    the same transaction nodes the canvas renders, so the slider range always
+    matches the visible data.
+    """
+    if not (1 <= hops <= settings.max_neighborhood_hops):
+        hops = settings.default_neighborhood_hops
+    query = f"""
+    MATCH path = (n:Company {{id: $id}})-[*1..{hops}]-(t:Transaction)
+    WHERE n.id = $id
+    WITH DISTINCT t
+    WHERE coalesce(t.invoice_date, t.date) IS NOT NULL
+    RETURN toString(coalesce(t.invoice_date, t.date)) AS date, coalesce(t.amount, 0) AS amount
+    ORDER BY date
+    """
+    result = await session.run(query, id=entity_id)
+    invoices = await result.data()
+
+    grouped: Dict[str, Dict[str, Any]] = {}
+    dates: List[str] = []
+    for invoice in invoices:
+        raw = str(invoice.get("date") or "")[:10]
+        if len(raw) < 10:
+            continue
+        dates.append(raw)
+        if bucket == "week":
+            try:
+                from datetime import date as _date
+                iso = _date.fromisoformat(raw).isocalendar()
+                period = f"{iso.year}-W{iso.week:02d}"
+            except ValueError:
+                period = raw[:7]
+        else:
+            period = raw[:7]
+        entry = grouped.setdefault(period, {"period": period, "amount": 0.0, "count": 0})
+        entry["amount"] += float(invoice.get("amount") or 0)
+        entry["count"] += 1
+
+    buckets = sorted(grouped.values(), key=lambda item: item["period"])
+    for entry in buckets:
+        entry["amount"] = round(entry["amount"], 2)
+    return {
+        "start": min(dates) if dates else None,
+        "end": max(dates) if dates else None,
+        "bucket": "week" if bucket == "week" else "month",
+        "buckets": buckets,
+    }
+
+
+async def find_shortest_paths(session, source_id: str, target_id: str,
+                               max_length: int = 6, limit: int = 5) -> Dict[str, Any]:
+    """Shortest connecting paths between two Company nodes.
+
+    Traverses every relationship type (invoice, director, address, ...) so an
+    analyst can see how two entities are connected even without a direct
+    invoice edge. Path length is capped defensively.
+    """
+    max_length = max(1, min(int(max_length), settings.max_cycle_hops))
+    limit = max(1, min(int(limit), 10))
+    query = f"""
+    MATCH (a:Company {{id: $source}}), (b:Company {{id: $target}})
+    MATCH p = allShortestPaths((a)-[*1..{max_length}]-(b))
+    WITH p LIMIT $limit
+    RETURN nodes(p) AS nodes, [n IN nodes(p) | labels(n)] AS labels,
+           relationships(p) AS rels
+    """
+    result = await session.run(query, source=source_id, target=target_id, limit=limit)
+    records = await result.data()
+
+    nodes_dict: Dict[str, Dict[str, Any]] = {}
+    edges_dict: Dict[Tuple[str, str, str], Dict[str, Any]] = {}
+    paths: List[Dict[str, Any]] = []
+    seen_paths: Set[Tuple[str, ...]] = set()
+
+    for record in records:
+        node_ids: List[str] = []
+        total_amount = 0.0
+        for node, labels in zip(record["nodes"], record["labels"]):
+            node_id = str(node.get("id") or "")
+            if not node_id:
+                continue
+            node_ids.append(node_id)
+            props = _sanitize(dict(node))
+            if "Transaction" in labels:
+                total_amount += float(props.get("amount") or 0)
+            if node_id not in nodes_dict:
+                nodes_dict[node_id] = {
+                    "id": node_id,
+                    "label": props.get("name") or props.get("cin")
+                    or props.get("normalized_address") or props.get("invoice_no")
+                    or props.get("din") or node_id,
+                    "type": labels[0] if labels else "Unknown",
+                    "properties": props,
+                }
+        for rel in record["rels"]:
+            if isinstance(rel, tuple) and len(rel) >= 3:
+                src = str(rel[0].get("id") or "")
+                tgt = str(rel[2].get("id") or "")
+                rtype = rel[1] if isinstance(rel[1], str) else "RELATED"
+                rprops = rel[3] if len(rel) > 3 and isinstance(rel[3], dict) else {}
+            else:
+                src = str(rel.get("source") or rel.get("start_node") or "")
+                tgt = str(rel.get("target") or rel.get("end_node") or "")
+                rtype = rel.get("type", "")
+                rprops = dict(rel)
+            key = (src, tgt, rtype)
+            if key not in edges_dict:
+                edges_dict[key] = {
+                    "source": src,
+                    "target": tgt,
+                    "type": rtype,
+                    "properties": _sanitize(rprops),
+                    "flagged": False,
+                    "eway_mismatch": False,
+                }
+        paths.append({
+            "node_ids": node_ids,
+            "length": len(record["rels"]),
+            "total_amount": round(total_amount, 2),
+        })
+
+    deduped: List[Dict[str, Any]] = []
+    for path in paths:
+        signature = tuple(path["node_ids"])
+        if signature in seen_paths:
+            continue
+        seen_paths.add(signature)
+        deduped.append(path)
+    paths = deduped
+
+    txn_dates: Dict[str, str] = {}
+    for node in nodes_dict.values():
+        if node["type"] == "Transaction":
+            raw_date = node["properties"].get("invoice_date") or node["properties"].get("date")
+            if raw_date:
+                txn_dates[node["id"]] = str(raw_date)[:10]
+    for edge in edges_dict.values():
+        edge["date"] = txn_dates.get(edge["source"]) or txn_dates.get(edge["target"])
+
+    return {
+        "nodes": list(nodes_dict.values()),
+        "edges": list(edges_dict.values()),
+        "paths": paths,
+    }
 
 
 async def _flagged_cycle_edges(session, entity_id: str) -> Set[Tuple[str, str, str]]:

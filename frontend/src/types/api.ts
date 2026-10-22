@@ -28,11 +28,40 @@ export interface NetworkEdge {
   /** True when this edge carries an invoice whose high value has no matching
    *  e-Way Bill movement record (TASK B1). */
   eway_mismatch?: boolean
+  /** True when this edge belongs to a detected fraud ring. */
+  flagged?: boolean
+  /** Invoice date when either endpoint is a Transaction. */
+  date?: string | null
 }
 
 export interface NetworkResponse {
   nodes: NetworkNode[]
   edges: NetworkEdge[]
+}
+
+export interface GraphPath {
+  node_ids: string[]
+  length: number
+  total_amount?: number
+}
+
+export interface GraphPathsResponse {
+  nodes: NetworkNode[]
+  edges: NetworkEdge[]
+  paths: GraphPath[]
+}
+
+export interface GraphTimelineBucket {
+  period: string
+  amount: number
+  count: number
+}
+
+export interface GraphTimelineResponse {
+  start?: string | null
+  end?: string | null
+  bucket: string
+  buckets: GraphTimelineBucket[]
 }
 
 export interface LoopResult {

@@ -56,7 +56,7 @@ This file extends `OPENCODE_TASKS.md`. Read both. Where they conflict, this file
 **Phase 2: UI/UX**
 - [x] P2.1 Design system and app shell
 - [x] P2.2 Core screens redesign
-- [ ] P2.3 Graph investigation workspace
+- [x] P2.3 Graph investigation workspace
 - [ ] P2.4 Accessibility, responsive, i18n, visual tests
 
 **Phase 3: Identity, tenancy, security**
@@ -144,6 +144,8 @@ Requirements:
 4. Time slider (from B2), minimap, legend, export as PNG and SVG.
 5. Performance guard: render cap with explicit expand, canvas or WebGL fallback beyond a node threshold. Test with 2,000 and 10,000 node neighborhoods and report frame rates.
 6. Path finder: pick two entities, show shortest connecting paths.
+
+Verification (2026-10-22): headless Chrome (software rasteriser, 1600×1000) measured the app’s synthetic benchmark neighbourhoods with the production renderer. 2,000 nodes / 3,013 edges rendered on canvas at 60.0 fps; 10,000 nodes / 15,028 edges at 22.9 fps. No console errors. SVG is capped at 800 rendered nodes with an explicit “Render all” action; above 1,500 visible nodes the workspace automatically switches to the canvas renderer. Live tenants were not loaded at these sizes because the demo graph has only eight companies; the benchmark mode generates the same Company/Transaction/Director/Address topology client-side.
 
 ### P2.4 Accessibility, responsive, i18n, visual tests
 

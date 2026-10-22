@@ -16,6 +16,7 @@ from ..models.schemas import (
     AssignableUser, CaseComment, CaseCommentCreate, CaseActivityEntry, CaseEntityAdd,
     CaseEntityLink, EntityAssignmentOut, EntityNote, EntityNoteCreate,
     WorklistBulkRequest, WorklistBulkResponse, WorklistFacets,
+    GraphPathsResponse, GraphTimelineResponse,
 )
 
 router = APIRouter(prefix="/api/v1", tags=["entities"])
@@ -213,6 +214,47 @@ async def get_entity_network(entity_id: str, hops: int = settings.default_neighb
         if not resolved:
             return NetworkResponse(nodes=[], edges=[])
         return await graph_service.get_network(session, resolved, hops)
+
+
+@router.get("/entities/{entity_id}/network/timeline", response_model=GraphTimelineResponse)
+async def get_entity_network_timeline(
+    entity_id: str,
+    hops: int = settings.default_neighborhood_hops,
+    bucket: str = "month",
+):
+    """Invoice volume in the entity's neighbourhood, grouped by month/week."""
+    if bucket not in ("month", "week"):
+        raise HTTPException(status_code=422, detail={"code": "invalid_bucket", "message": "bucket must be month or week"})
+    async with get_neo4j_session() as session:
+        resolved = await _resolve_entity_id(session, entity_id)
+        if not resolved:
+            raise HTTPException(status_code=404, detail={"code": "not_found", "message": "Entity not found"})
+        return GraphTimelineResponse(**await graph_service.get_network_timeline(session, resolved, hops, bucket))
+
+
+@router.get("/graph/paths", response_model=GraphPathsResponse)
+async def graph_paths(
+    source: str,
+    target: str,
+    max_length: int = 6,
+    limit: int = 5,
+):
+    """Shortest connecting paths between two entities.
+
+    Accepts a graph id, CIN or GSTIN for either endpoint. Returns the union of
+    the paths' nodes/edges plus a summary per path so the workspace can draw
+    and rank them without a second request.
+    """
+    if source.strip() == target.strip():
+        raise HTTPException(status_code=422, detail={"code": "same_entity", "message": "Pick two different entities"})
+    async with get_neo4j_session() as session:
+        source_id = await _resolve_entity_id(session, source)
+        target_id = await _resolve_entity_id(session, target)
+        if not source_id or not target_id:
+            raise HTTPException(status_code=404, detail={"code": "not_found", "message": "Source or target entity not found"})
+        return GraphPathsResponse(**await graph_service.find_shortest_paths(
+            session, source_id, target_id, max_length, limit,
+        ))
 
 
 @router.get("/entities/{entity_id}/explain", response_model=ExplainResponse)
