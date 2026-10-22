@@ -114,9 +114,24 @@ export default function EntityNetwork() {
       .selectAll('line')
       .data(visibleEdges)
       .join('line')
-      .attr('stroke', (d: any) => (d.flagged || isBurstEdge(d) ? '#e5484d' : '#94a3b8'))
+      .attr('stroke', (d: any) => (d.flagged || isBurstEdge(d) ? '#e5484d' : (d.eway_mismatch ? '#f97316' : '#94a3b8')))
       .attr('stroke-width', (d: any) => (d.flagged || isBurstEdge(d) ? 3.5 : 2))
       .attr('stroke-dasharray', (d: any) => (isBurstEdge(d) && !d.flagged ? '6,4' : null))
+
+    // e-Way Bill mismatch badge (TASK B1): an invoice whose high value has no
+    // matching movement record. It is drawn as its own marker rather than
+    // only a stroke colour, so an edge that is BOTH a flagged cycle edge and
+    // an e-Way mismatch still shows both signals.
+    const ewayBadge = svg.append('g')
+      .selectAll('circle')
+      .data(visibleEdges.filter((d: any) => d.eway_mismatch))
+      .join('circle')
+      .attr('r', 6)
+      .attr('fill', '#f97316')
+      .attr('stroke', '#fff')
+      .attr('stroke-width', 1.5)
+    ewayBadge.append('title')
+      .text('e-Way Bill mismatch — high-value invoice with no matching movement record')
 
     const node = svg.append('g')
       .selectAll('circle')
@@ -165,6 +180,10 @@ export default function EntityNetwork() {
       label
         .attr('x', (d) => d.x ?? 0)
         .attr('y', (d) => d.y ?? 0)
+
+      ewayBadge
+        .attr('cx', (d: any) => (((d.source as any)?.x ?? 0) + ((d.target as any)?.x ?? 0)) / 2)
+        .attr('cy', (d: any) => (((d.source as any)?.y ?? 0) + ((d.target as any)?.y ?? 0)) / 2)
     })
 
     function drag(simulation: d3.Simulation<NetworkNode, NetworkEdge>) {
@@ -216,6 +235,7 @@ export default function EntityNetwork() {
         <span><span className="inline-block w-2.5 h-2.5 rounded-full bg-violet-500 mr-1" />Bank</span>
         <span className="text-red-600">red solid = flagged cycle</span>
         <span className="text-red-600">red dashed = burst (high-volume window)</span>
+        <span><span className="inline-block w-2.5 h-2.5 rounded-full bg-orange-500 mr-1" />e-Way Bill mismatch (no movement record)</span>
       </div>
       {timeline.length > 0 && (
         <div className="absolute bottom-3 left-3 right-3 bg-white/90 p-2 rounded border border-gray-200">

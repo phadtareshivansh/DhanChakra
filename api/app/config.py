@@ -86,6 +86,11 @@ class Settings(BaseSettings):
     risk_betweenness_cap: float = 10
     risk_flag_threshold: float = 40
     eway_high_value_threshold: float = 50000.0
+    # How far a movement record's value may differ from the invoice value
+    # before it counts as an amount mismatch: a share of the invoice, with an
+    # absolute floor so small invoices are not flagged on rounding.
+    eway_amount_tolerance_pct: float = 0.05
+    eway_amount_tolerance_min: float = 1000.0
     burst_window_days: int = 7
     burst_z_threshold: float = 2.0
     burst_min_transactions: int = 3

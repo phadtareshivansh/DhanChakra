@@ -25,6 +25,9 @@ export interface NetworkEdge {
   target: string
   type: string
   properties: Record<string, any>
+  /** True when this edge carries an invoice whose high value has no matching
+   *  e-Way Bill movement record (TASK B1). */
+  eway_mismatch?: boolean
 }
 
 export interface NetworkResponse {
@@ -76,6 +79,20 @@ export interface ExplainEWayMismatch {
   invoice_no?: string
   amount?: number
   date?: string | null
+  /** Why the invoice failed to match a movement record:
+   *  'no_ref' | 'no_movement_record' | 'amount_mismatch' */
+  reason?: string
+  reason_label?: string
+  /** The e-Way Bill reference the invoice cited. */
+  claimed_ref?: string | null
+  /** The movement record that backs it — null when none exists. */
+  movement_ref?: string | null
+  movement_amount?: number | null
+  movement_date?: string | null
+  from_state?: string | null
+  to_state?: string | null
+  vehicle_no?: string | null
+  distance_km?: number | null
 }
 
 export interface ExplainCycle {

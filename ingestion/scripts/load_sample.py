@@ -228,12 +228,115 @@ def load_gst_csv(file_path: str):
     print(f"Loaded: {counts}")
 
 
+def _read_source_meta(file_path: str):
+    """Parse the `# key,value` comment header of a movement-record CSV.
+
+    The header declares the source's identity and the invoice period it
+    covers. That coverage window is what stops the fraud signal from firing
+    on invoices the feed has nothing to say about.
+    """
+    meta = {}
+    with open(file_path, encoding="utf-8") as fh:
+        for line in fh:
+            line = line.strip()
+            if not line.startswith("#"):
+                break
+            body = line.lstrip("#").strip()
+            if "," not in body:
+                continue
+            key, value = body.split(",", 1)
+            meta[key.strip()] = value.strip()
+    return meta
+
+
+def load_eway_movement_csv(file_path: str):
+    """Load the SIMULATED e-Way Bill movement-record source (TASK B1).
+
+    One :EWayBillMovement node per e-Way Bill that a movement record exists
+    for, keyed by the reference (Backend Schema §2.1). The invoice-side
+    reference lives on Transaction.eway_bill_ref and joins to
+    EWayBillMovement.ref.
+
+    A single :EWayBillMovementSource node records the source's identity and
+    the invoice period it covers. The rule only asserts "no matching movement
+    record" for invoices inside that window -- otherwise a deployment with no
+    feed (or a feed for another quarter) would flag every invoice it sees.
+
+    The point of the source is what it does NOT contain: a high-value invoice
+    may cite a reference that has no movement record here, and that gap is the
+    fraud signal. The sample deliberately leaves some hero-ring references out
+    and understates one, so the signal is neither silent nor universal.
+    """
+    meta = _read_source_meta(file_path)
+    covers_from = meta.get("covers_from") or None
+    covers_to = meta.get("covers_to") or None
+    if not covers_from and not covers_to:
+        raise SystemExit(
+            f"{file_path}: the movement-record source must declare its coverage "
+            "window in the '# covers_from,' / '# covers_to,' comment header."
+        )
+
+    driver = GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASSWORD))
+    df = pd.read_csv(file_path, comment="#")
+    counts = {"EWayBillMovement": 0}
+    with driver.session() as session:
+        for _, row in df.iterrows():
+            ref = _maybe(row, "Eway Bill Ref")
+            if not ref:
+                continue
+            mid = _uid(f"eway:{ref}")
+            session.run(
+                """
+                MERGE (m:EWayBillMovement {ref: $ref})
+                SET m.id = $mid,
+                    m.amount = $amount,
+                    m.movement_date = CASE WHEN $mdate IS NULL THEN null ELSE date($mdate) END,
+                    m.from_state = $from_state,
+                    m.to_state = $to_state,
+                    m.vehicle_no = $vehicle_no,
+                    m.distance_km = $distance_km,
+                    m.source = $source_name
+                """,
+                ref=ref, mid=mid,
+                amount=_to_float(_maybe(row, "Movement Value")),
+                mdate=_to_date(_maybe(row, "Movement Date")),
+                from_state=_maybe(row, "From State"),
+                to_state=_maybe(row, "To State"),
+                vehicle_no=_maybe(row, "Vehicle No"),
+                distance_km=_to_float(_maybe(row, "Distance Km")),
+                source_name=meta.get("name") or "simulated",
+            )
+            counts["EWayBillMovement"] += 1
+
+        # The source is a singleton: the rule needs one authoritative feed.
+        session.run(
+            """
+            MERGE (s:EWayBillMovementSource {id: $sid})
+            SET s.name = $name,
+                s.covers_from = CASE WHEN $covers_from IS NULL THEN null ELSE date($covers_from) END,
+                s.covers_to = CASE WHEN $covers_to IS NULL THEN null ELSE date($covers_to) END,
+                s.record_count = $record_count,
+                s.loaded_at = datetime()
+            """,
+            sid="active",
+            name=meta.get("name") or "simulated",
+            covers_from=covers_from,
+            covers_to=covers_to,
+            record_count=counts["EWayBillMovement"],
+        )
+        counts["EWayBillMovementSource"] = 1
+    driver.close()
+    print(f"Loaded: {counts}")
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Load sample CSVs into Neo4j per 05_Backend_Schema.md §2")
     parser.add_argument("--file", required=True, help="Path to CSV file")
-    parser.add_argument("--type", required=True, choices=["mca", "gst"])
+    parser.add_argument("--type", required=True, choices=["mca", "gst", "eway"])
     args = parser.parse_args()
     if args.type == "mca":
         load_mca_csv(args.file)
-    else:
+    elif args.type == "gst":
         load_gst_csv(args.file)
+    else:
+        load_eway_movement_csv(args.file)

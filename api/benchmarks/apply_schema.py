@@ -5,6 +5,10 @@ nothing applied them to the running database -- so for a long time the live DB
 had no property indexes at all and every property lookup was a full scan
 (see ``docs/performance.md``). This script closes that gap.
 
+``graph/cypher/migrations/*.cypher`` holds numbered schema migrations. They
+are applied after the two base files, in filename order, and are never edited
+once applied.
+
 Every statement in these files uses ``IF NOT EXISTS``, so re-running is a no-op.
 Comment lines (``#``) and blank lines are ignored; statements are separated by
 ``;``. A statement that fails is reported and the run exits non-zero.
@@ -77,6 +81,9 @@ def _default_paths() -> List[str]:
     out: List[str] = []
     for pattern in ("/cypher/constraints.cypher", "/cypher/indexes.cypher"):
         out.extend(sorted(glob.glob(pattern)))
+    # Numbered migration files, applied in order. Each one adds to the schema
+    # without editing what was already applied.
+    out.extend(sorted(glob.glob("/cypher/migrations/*.cypher")))
     return out
 
 

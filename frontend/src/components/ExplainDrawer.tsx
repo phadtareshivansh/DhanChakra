@@ -223,11 +223,30 @@ export default function ExplainDrawer({ data, entityId, onClose }: {
           {eway.length > 0 && (
             <div>
               <div className="micro-label mb-2">e-Way Bill mismatch</div>
-              <div className="panel p-3 space-y-1">
+              <div className="panel p-3 space-y-2">
                 {eway.map((m, i) => (
-                  <div key={i} className="flex justify-between text-[11px] font-mono">
-                    <span className="text-text-secondary truncate mr-2">{m.invoice_no || '—'}</span>
-                    <span className="text-text-primary">₹{Number(m.amount || 0).toLocaleString('en-IN')}</span>
+                  <div key={i} className="text-[11px]">
+                    <div className="flex justify-between font-mono">
+                      <span className="text-text-secondary truncate mr-2">{m.invoice_no || '—'}</span>
+                      <span className="text-text-primary">₹{Number(m.amount || 0).toLocaleString('en-IN')}</span>
+                    </div>
+                    <div className="text-text-primary font-sans">
+                      {m.reason_label || m.reason || 'No matching movement record'}
+                    </div>
+                    {m.claimed_ref && (
+                      <div className="font-mono text-text-secondary">
+                        cites {m.claimed_ref}
+                        {m.movement_ref ? '' : ' — no movement record exists'}
+                      </div>
+                    )}
+                    {m.movement_ref && (
+                      <div className="font-mono text-text-secondary">
+                        {m.movement_ref}: ₹{Number(m.movement_amount || 0).toLocaleString('en-IN')}
+                        {m.movement_date ? ` on ${m.movement_date}` : ''}
+                        {m.from_state && m.to_state ? `, ${m.from_state} → ${m.to_state}` : ''}
+                        {m.vehicle_no ? `, ${m.vehicle_no}` : ''}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>

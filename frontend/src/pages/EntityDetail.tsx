@@ -21,6 +21,9 @@ interface GraphEdge extends d3.SimulationLinkDatum<GraphNode> {
   type: string
   properties: Record<string, any>
   flagged?: boolean
+  /** True when the edge carries an invoice with no matching e-Way Bill
+   *  movement record (TASK B1). */
+  eway_mismatch?: boolean
 }
 
 const TYPE_COLORS: Record<string, string> = {
@@ -104,10 +107,23 @@ export default function EntityDetail() {
       .selectAll('line')
       .data(edges)
       .join('line')
-      .attr('stroke', (d: any) => d.flagged ? '#E5484D' : '#26303E')
+      .attr('stroke', (d: any) => d.flagged ? '#E5484D' : (d.eway_mismatch ? '#F97316' : '#26303E'))
       .attr('stroke-width', (d: any) => d.flagged ? 3 : 1.5)
       .attr('stroke-opacity', 0.85)
       .attr('marker-end', 'url(#arrow)')
+
+    // e-Way Bill mismatch badge (TASK B1) — its own marker so an edge that is
+    // both a flagged cycle edge and an e-Way mismatch shows both signals.
+    const ewayBadge = container.append('g')
+      .selectAll('circle')
+      .data(edges.filter((d: any) => d.eway_mismatch))
+      .join('circle')
+      .attr('r', 6)
+      .attr('fill', '#F97316')
+      .attr('stroke', '#0B1220')
+      .attr('stroke-width', 1.5)
+    ewayBadge.append('title')
+      .text('e-Way Bill mismatch — high-value invoice with no matching movement record')
 
     svg.append('defs').append('marker')
       .attr('id', 'arrow')
@@ -157,6 +173,9 @@ export default function EntityDetail() {
         .attr('x2', (d: any) => d.target.x)
         .attr('y2', (d: any) => d.target.y)
       node.attr('transform', (d: any) => `translate(${d.x},${d.y})`)
+      ewayBadge
+        .attr('cx', (d: any) => (((d.source as any)?.x ?? 0) + ((d.target as any)?.x ?? 0)) / 2)
+        .attr('cy', (d: any) => (((d.source as any)?.y ?? 0) + ((d.target as any)?.y ?? 0)) / 2)
     })
 
     function drag(simulation: d3.Simulation<GraphNode, undefined>) {
@@ -218,6 +237,13 @@ export default function EntityDetail() {
       setCreatingCase(false)
     }
   }
+
+  // e-Way Bill mismatch count for the entity page (TASK B1). The count is
+  // the number of this company's high-value invoices that have no matching
+  // e-Way Bill movement record.
+  const ewayMismatches = explanation?.evidence?.eway_mismatches || []
+  const ewayCount = ewayMismatches.length
+  const ewayTotal = ewayMismatches.reduce((sum, m) => sum + Number(m.amount || 0), 0)
 
   if (error && !entity) {
     return (
@@ -336,6 +362,12 @@ export default function EntityDetail() {
                   ['Community ID', entity?.community_id || '—'],
                   ['PageRank', entity?.pagerank?.toFixed(4) || '—'],
                   ['Betweenness', entity?.betweenness?.toFixed(4) || '—'],
+                  [
+                    'e-Way Bill mismatches',
+                    ewayCount > 0
+                      ? `${ewayCount} · ₹${ewayTotal.toLocaleString('en-IN')}`
+                      : '0',
+                  ],
                 ].map(([k, v]) => (
                   <div key={k as string} className="flex justify-between border-b border-border pb-1.5">
                     <dt className="text-text-secondary">{k}</dt>
@@ -343,6 +375,15 @@ export default function EntityDetail() {
                   </div>
                 ))}
               </dl>
+              {ewayCount > 0 && (
+                <div className="mt-3 flex items-start gap-2 rounded border border-orange-500/40 bg-orange-500/10 p-2 text-[11px] text-text-primary">
+                  <span className="inline-block w-2 h-2 rounded-full bg-orange-500 mt-0.5 shrink-0" />
+                  <span>
+                    {ewayCount} high-value invoice{ewayCount === 1 ? '' : 's'} with no matching e-Way Bill
+                    movement record. Open <strong>Evidence</strong> for the per-invoice reason.
+                  </span>
+                </div>
+              )}
               <div className="mt-4">
                 <div className="micro-label mb-2">Risk level</div>
                 <RiskBadge score={entity?.risk_score} />
@@ -400,6 +441,33 @@ export default function EntityDetail() {
                   <div className="micro-label mb-2">Shared registered addresses</div>
                   {explanation.evidence.shared_addresses.map((sa, i) => (
                     <div key={i} className="text-sm mb-1 font-mono text-[12px]">{sa.address} ({sa.state}) — {sa.companies?.join(', ')}</div>
+                  ))}
+                </div>
+              )}
+              {ewayCount > 0 && (
+                <div>
+                  <div className="micro-label mb-2">e-Way Bill mismatches</div>
+                  {ewayMismatches.map((m, i) => (
+                    <div key={i} className="panel p-3 mb-2">
+                      <div className="text-xs font-semibold mb-1">
+                        {m.invoice_no || '—'} · ₹{Number(m.amount || 0).toLocaleString('en-IN')}
+                        {m.date ? ` · ${m.date}` : ''}
+                      </div>
+                      <div className="text-[11px] text-text-primary">{m.reason_label || m.reason}</div>
+                      {m.claimed_ref && (
+                        <div className="font-mono text-[11px] text-text-secondary">
+                          cites {m.claimed_ref}
+                          {m.movement_ref ? '' : ' — no movement record exists'}
+                        </div>
+                      )}
+                      {m.movement_ref && (
+                        <div className="font-mono text-[11px] text-text-secondary">
+                          {m.movement_ref}: ₹{Number(m.movement_amount || 0).toLocaleString('en-IN')}
+                          {m.movement_date ? ` on ${m.movement_date}` : ''}
+                          {m.from_state && m.to_state ? `, ${m.from_state} → ${m.to_state}` : ''}
+                        </div>
+                      )}
+                    </div>
                   ))}
                 </div>
               )}

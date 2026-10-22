@@ -126,6 +126,9 @@ class NetworkEdge(BaseModel):
     type: str
     properties: dict
     flagged: bool = False
+    # True when this edge carries an invoice whose high value has no matching
+    # e-Way Bill movement record (TASK B1). The UI badges these edges.
+    eway_mismatch: bool = False
 
 
 class NetworkResponse(BaseModel):
