@@ -54,7 +54,7 @@ This file extends `OPENCODE_TASKS.md`. Read both. Where they conflict, this file
 - [x] P1.1 Complete `OPENCODE_TASKS.md` tasks A1, A2, A3, B1, B2, B3, B5, B4, C1, C2, C3 (skip D1 and D2, superseded by Phases 7 and 8)
 
 **Phase 2: UI/UX**
-- [ ] P2.1 Design system and app shell
+- [x] P2.1 Design system and app shell
 - [ ] P2.2 Core screens redesign
 - [ ] P2.3 Graph investigation workspace
 - [ ] P2.4 Accessibility, responsive, i18n, visual tests

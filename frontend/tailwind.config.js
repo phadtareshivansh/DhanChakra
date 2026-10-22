@@ -78,6 +78,32 @@ export default {
       fontSize: {
         'micro': ['11px', { lineHeight: '1.3' }],
         'data': ['13px', { lineHeight: '1.3' }],
+        'label': ['var(--text-xs)', { lineHeight: '1.3' }],
+        'body': ['var(--text-base)', { lineHeight: '1.5' }],
+        'title': ['var(--text-lg)', { lineHeight: '1.2' }],
+        'display': ['var(--text-2xl)', { lineHeight: '1.2' }],
+      },
+      borderRadius: {
+        control: 'var(--radius-md)',
+        panel: 'var(--radius-lg)',
+        pill: 'var(--radius-full)',
+      },
+      boxShadow: {
+        panel: 'var(--shadow-md)',
+        overlay: 'var(--shadow-lg)',
+      },
+      transitionDuration: {
+        fast: 'var(--motion-fast)',
+        base: 'var(--motion-base)',
+        slow: 'var(--motion-slow)',
+      },
+      transitionTimingFunction: {
+        standard: 'var(--ease-standard)',
+        decelerate: 'var(--ease-decelerate)',
+      },
+      spacing: {
+        gutter: 'var(--space-6)',
+        section: 'var(--space-8)',
       },
       letterSpacing: {
         micro: '0.04em',
