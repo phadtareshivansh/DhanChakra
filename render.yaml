@@ -40,7 +40,7 @@ services:
       - key: NEO4J_URI
         sync: false
       - key: NEO4J_USER
-        value: neo4j
+        value: b35f0665
       - key: NEO4J_PASSWORD
         sync: false
       - key: POSTGRES_HOST
