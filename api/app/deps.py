@@ -7,7 +7,7 @@ from .config import settings
 
 neo4j_driver = AsyncGraphDatabase.driver(
     settings.neo4j_uri,
-    auth=(settings.neo4j_user, settings.neo4j_password)
+    auth=(settings.neo4j_user, settings.neo4j_password_clean)
 )
 
 postgres_url = (

@@ -188,6 +188,12 @@ class Settings(BaseSettings):
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
 
     @property
+    def neo4j_password_clean(self) -> str:
+        """Aura/Neon credentials are sometimes pasted with surrounding
+        whitespace or quotes. Strip those without altering the secret itself."""
+        return (self.neo4j_password or "").strip().strip("\"'")
+
+    @property
     def is_production(self) -> bool:
         return self.app_env.strip().lower() in {"prod", "production"}
 

@@ -422,12 +422,16 @@ async def debug_neo4j():
     import hashlib
 
     password = settings.neo4j_password or ""
+    clean = settings.neo4j_password_clean
     info = {
         "uri": settings.neo4j_uri,
         "user": settings.neo4j_user,
         "password_set": bool(password),
         "password_length": len(password),
-        "password_sha256_prefix": hashlib.sha256(password.encode()).hexdigest()[:12],
+        "password_length_clean": len(clean),
+        "password_first_char_code": ord(password[0]) if password else None,
+        "password_last_char_code": ord(password[-1]) if password else None,
+        "password_sha256_prefix": hashlib.sha256(clean.encode()).hexdigest()[:12],
     }
     try:
         async with get_neo4j_session() as session:
