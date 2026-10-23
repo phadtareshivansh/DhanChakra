@@ -415,37 +415,6 @@ async def health_alias():
     return {"status": "healthy", "service": "dhanchakra-api"}
 
 
-@router.get("/debug/neo4j")
-async def debug_neo4j():
-    """Temporary deployment diagnostic: report the configured Aura identity
-    and the exact connection error without exposing the password."""
-    import hashlib
-
-    password = settings.neo4j_password or ""
-    clean = settings.neo4j_password_clean
-    info = {
-        "uri": settings.neo4j_uri,
-        "user": settings.neo4j_user,
-        "password_set": bool(password),
-        "password_length": len(password),
-        "password_length_clean": len(clean),
-        "password_first_char_code": ord(password[0]) if password else None,
-        "password_last_char_code": ord(password[-1]) if password else None,
-        "password_sha256_prefix": hashlib.sha256(clean.encode()).hexdigest()[:12],
-    }
-    try:
-        async with get_neo4j_session() as session:
-            result = await session.run("RETURN 1 AS ok")
-            record = await result.single()
-            info["ok"] = bool(record and record["ok"] == 1)
-    except Exception as exc:
-        info["ok"] = False
-        info["error"] = type(exc).__name__
-        info["code"] = getattr(exc, "code", None)
-        info["message"] = str(exc)[:500]
-    return info
-
-
 @router.get("/analytics/loops", response_model=LoopsResponse)
 async def get_loops(max_length: int = settings.loops_default_max_length, db=Depends(get_db_session)):
     async with get_neo4j_session() as session:
