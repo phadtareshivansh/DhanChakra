@@ -60,21 +60,21 @@ This file extends `OPENCODE_TASKS.md`. Read both. Where they conflict, this file
 - [x] P2.4 Accessibility, responsive, i18n, visual tests
 
 **Phase 3: Identity, tenancy, security**
-- [ ] P3.1 Organizations, tenancy and RBAC
-- [ ] P3.2 SSO and MFA
-- [ ] P3.3 API keys and rate limiting
-- [ ] P3.4 Tamper-evident audit log
-- [ ] P3.5 Data protection and retention
+- [x] P3.1 Organizations, tenancy and RBAC
+- [x] P3.2 SSO and MFA
+- [x] P3.3 API keys and rate limiting
+- [x] P3.4 Tamper-evident audit log
+- [x] P3.5 Data protection and retention
 
 **Phase 4: Data platform**
-- [ ] P4.1 Connector framework
-- [ ] P4.2 Async job system
-- [ ] P4.3 Data quality and schema mapping
-- [ ] P4.4 Incremental graph updates and rescoring
+- [x] P4.1 Connector framework
+- [x] P4.2 Async job system
+- [x] P4.3 Data quality and schema mapping
+- [x] P4.4 Incremental graph updates and rescoring
 
 **Phase 5: ML governance**
-- [ ] P5.1 Model registry and rollback
-- [ ] P5.2 Drift and quality monitoring
+- [x] P5.1 Model registry and rollback
+- [x] P5.2 Drift and quality monitoring
 - [ ] P5.3 Configurable thresholds and review workflow
 
 **Phase 6: Product surface**

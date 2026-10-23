@@ -1,370 +1,358 @@
-# Dhan-Chakra
+<div align="center">
 
-**Graph-AI engine for shell-company networks, circular trading and fraudulent ITC claims.**
+<img src="docs/assets/banner.svg" alt="DhanChakra: See the whole network. Prove the pattern." width="100%">
 
-Dhan-Chakra turns company, director, address and invoice records into a graph,
-scores every company for fraud risk with a GNN, detects closed invoice rings,
-explains *why* an entity is flagged in plain language, and gives an investigator
-a case workflow with a full audit trail — end to end in one browser session.
+<br>
 
-- **Primary customer:** bank / NBFC — MSME lending fraud and AML.
-  **Secondary:** audit / CA firms. Tax authorities are a later segment.
-  GST/ITC-specific analysis is the differentiator, not a user segment.
-- **Delivery:** one codebase, multi-tenant **ready** (`org_id` on every business
-  table and graph node, per Phase 3.1) and fully containerized. SaaS is the
-  first target; on-prem / private-cloud packaging ships later in P7.1 from the
-  same images and code. No customer-specific code branches.
-- **Residency:** designed for India-only data residency.
+<img src="docs/assets/logo.png" alt="DhanChakra logo" width="150">
 
-> **Status: functional v1 build (Phases 0–5 implemented).** The pipeline is real
-> and exercised by the test suite against live Neo4j/PostgreSQL. It is
-> **pre-production**, not hardened for real customer data — see
-> [Module status](#module-status) and
-> [v1 scope vs. production scope](#v1-scope-vs-production-scope).
+### Graph-AI platform that exposes shell-company networks, circular trading and fraudulent GST input-tax-credit claims, with evidence an auditor can defend.
 
----
+<br>
 
-## Purpose
+[![CI](https://github.com/phadtareshivansh/DhanChakra/actions/workflows/ci.yml/badge.svg)](https://github.com/phadtareshivansh/DhanChakra/actions/workflows/ci.yml)
+![Python](https://img.shields.io/badge/Python-3.11-0C437C?logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-API-0C437C?logo=fastapi&logoColor=white)
+![React](https://img.shields.io/badge/React-18-0C437C?logo=react&logoColor=white)
+![Neo4j](https://img.shields.io/badge/Neo4j-5.23-0C437C?logo=neo4j&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-0C437C?logo=postgresql&logoColor=white)
+![PyTorch](https://img.shields.io/badge/PyTorch-2.4-0C437C?logo=pytorch&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-Compose-0C437C?logo=docker&logoColor=white)
+![Tests](https://img.shields.io/badge/tests-200%2B-E29839)
+![Status](https://img.shields.io/badge/status-active%20development-E29839)
 
-Investigators face more flagged entities than they can review. Dhan-Chakra's job
-is to **prioritise** that caseload: rank entities by fraud risk, show the
-supporting evidence subgraph for every score, and let an officer record a
-decision. It prioritises cases for **human review**; it never decides guilt.
+[**Quick start**](#-quick-start) ·
+[**How it works**](#-how-it-works) ·
+[**Features**](#-features) ·
+[**Measured results**](#-measured-results) ·
+[**Docs**](#-documentation) ·
+[**Security**](#-security-and-privacy)
 
-What the product does today:
-
-1. **Ingest** structured company / GSTIN / transaction data (CSV, and agentic
-   extraction from MCA-style PDF filings).
-2. **Model** it as a property graph (Neo4j) with a Postgres app-layer for users,
-   cases, labels and audit.
-3. **Analyse** structure: invoice cycle (ring) detection, weakly-connected
-   components, communities, centrality.
-4. **Score** with a GNN (GraphSAGE-style) trained on the graph, blended with
-   heuristic signals.
-5. **Explain** every score with a plain-language reason list and a subgraph.
-6. **Work it**: ranked worklist, entity network view, case workflow, export,
-   audit trail.
+</div>
 
 ---
 
-## Architecture
+## Why DhanChakra
 
+GST fraud rarely shows up in a single invoice. A fraud ring registers many look-alike companies, passes fabricated invoices around a loop (A → B → C → A), and each firm claims input tax credit against tax that was never genuinely paid. Every individual invoice looks legitimate. **The fraud is the shape of the network.**
+
+Row-by-row tools struggle here because a loop of unknown length needs an unknown number of joins, and rings deliberately cross state boundaries. DhanChakra models companies, directors, addresses, bank accounts and invoices as a **graph**, so a ring becomes one connected, inspectable object.
+
+The scale is real. Indian press reported fake-ITC detections of **₹74,782 crore in FY26** ([Business Standard](https://www.business-standard.com/economy/news/gst-itc-fraud-detections-jump-to-74-782-cr-in-fy26-cases-more-than-double-126072801395_1.html)), and government systems such as GSTN's ADVAIT and BIFA already apply analytics to the problem. DhanChakra is not trying to replace them. It focuses on what investigators keep asking for: **why was this flagged, and can I show the evidence?**
+
+> **Design principle:** DhanChakra prioritizes cases for human review. It never decides guilt. Every score ships with the loop, shared director or burst of transactions that produced it.
+
+---
+
+## ✨ Features
+
+<table>
+<tr>
+<td width="50%" valign="top">
+
+### 🔍 Detect
+- **Circular-trading detection** for 3 to 8 hop invoice loops
+- **Community detection** (WCC, Louvain) to surface tight shell-company clusters
+- **Entity resolution** that links identities sharing a DIN, address or bank account, using exact and fuzzy matching
+- **GraphSAGE risk scoring** on structural features, trained on weak labels
+- **e-Way Bill mismatch signal** for high-value invoices without movement records
+- **Burst detection** for sudden high-volume flows between the same entities
+
+</td>
+<td width="50%" valign="top">
+
+### 🧾 Explain and act
+- **Evidence for every flag**: the specific subgraph and a plain-language reason
+- **Interactive network workspace** (D3) with timeline, path finder and expand-on-demand
+- **Case management** with assignment, comments, activity timeline and export bundles
+- **Analyst feedback loop** to confirm fraud or mark false positives
+- **Watchlist and notifications** for score and structure changes
+- **AI-drafted case summaries**, clearly labelled for officer review
+
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
+
+### 📥 Ingest
+- CSV loaders for company and transaction data
+- **Agentic PDF extraction** of directors, DIN, address and shareholding, with per-field confidence and review before commit
+- Idempotent loaders and job tracking
+
+</td>
+<td width="50%" valign="top">
+
+### 🛡️ Operate safely
+- Role-based access with organization scoping
+- Login rate limiting, lockout, refresh tokens and logout revocation
+- Audit log of sensitive actions
+- Startup gate that refuses weak secrets in production
+- Hashed or synthetic identifiers only, no raw PAN or Aadhaar
+
+</td>
+</tr>
+</table>
+
+---
+
+## 🧠 How it works
+
+```mermaid
+flowchart LR
+    subgraph ING["1 · Ingest"]
+        A1["CSV: MCA and GST data"]
+        A2["Agentic PDF parser<br/>confidence per field"]
+        A3["Human confirm<br/>for low confidence"]
+        A2 --> A3
+    end
+
+    subgraph GR["2 · Graph"]
+        B["Neo4j property graph<br/>Company · Director · Address<br/>BankAccount · Transaction"]
+    end
+
+    subgraph SA["3 · Structural analytics"]
+        C1["Loop detection<br/>3 to 8 hops"]
+        C2["WCC and Louvain<br/>communities"]
+        C3["Entity resolution<br/>shared DIN, address, bank"]
+        C4["Centrality<br/>PageRank"]
+    end
+
+    subgraph ML["4 · Learned scoring"]
+        D["GraphSAGE risk score<br/>structural features"]
+    end
+
+    subgraph EX["5 · Explain"]
+        E["Evidence subgraph<br/>and plain-language reason"]
+    end
+
+    subgraph PR["6 · Product"]
+        F["FastAPI"]
+        H["React + D3 workspace<br/>worklist · cases · export"]
+        F --> H
+    end
+
+    ING --> GR --> SA --> ML --> EX --> PR
+    SA --> PR
 ```
-                    ┌──────────────────────────────┐
-  CSV / PDF  ──────▶│  Ingestion (CSV, agentic PDF) │
-                    └───────────────┬──────────────┘
-                                    │
-              ┌─────────────────────▼─────────────────────┐
-              │              Property graph (Neo4j)        │
-              │   Company · Director · Address ·           │
-              │   BankAccount · Transaction · GSTINFiling  │
-              └───────┬─────────────────────────┬──────────┘
-                      │                         │
-         ┌────────────▼──────────┐   ┌──────────▼───────────┐
-         │  Structural analytics │   │   GNN risk scoring    │
-         │  cycles · WCC · comms │   │   (GraphSAGE, PyTorch)│
-         │  centrality · risk    │   │   risk 0–100, gnn_v1  │
-         └────────────┬──────────┘   └──────────┬───────────┘
-                      │                         │
-              ┌───────▼─────────────────────────▼──────────┐
-              │   Explainability (evidence subgraph)        │
-              └───────────────────┬────────────────────────┘
-                                  │
-              ┌───────────────────▼────────────────────────┐
-              │  Frontend (React) — dashboard, worklist,    │
-              │  entity network, cases, export              │
-              └───────────────────┬────────────────────────┘
-                                  │
-              ┌───────────────────▼────────────────────────┐
-              │  Postgres app-layer — users, cases, labels, │
-              │  exports, audit log                         │
-              └─────────────────────────────────────────────┘
-```
 
-Service diagram and layer notes: `docs/Architecture_Diagram.md`. Technical
-reference: `docs/02_TRD.md`. Product requirements: `docs/01_PRD.md`.
+1. **Data becomes a graph.** Companies, directors, addresses, bank accounts and invoices become nodes. Relationships such as *director of*, *invoiced* and *registered at* become edges.
+2. **Deterministic algorithms run first.** Cycle detection, community detection and centrality need no training data, and an auditor can point at the result on screen.
+3. **Entity resolution removes disguises.** Shell identities that share a DIN, address or bank account are linked before scoring.
+4. **A GraphSAGE model adds a learned risk score** on top of the structural signals.
+5. **Every flag carries its evidence.** The explain endpoint returns the supporting subgraph and a readable reason, not just a number.
 
 ---
 
-## Quick start (fresh Mac)
+## 📊 Measured results
+
+> Numbers below are copied from files generated by the repo's own scripts. Nothing is estimated. Read the caveats before quoting any of it.
+
+### Model benchmark (self-generated synthetic graphs)
+
+Fixed seeded splits by graph, 5 seeds, mean values, edge-derived features with no cycle feature (the fair comparison). Full tables, ablation and false-positive stress test: [`docs/benchmarks.md`](docs/benchmarks.md).
+
+| Model | Precision@50 | Recall@50 | AUC-PR |
+|---|---|---|---|
+| Rule-only baseline | 0.468 | 0.348 | 0.497 |
+| Logistic regression | 0.992 | 0.738 | 0.985 |
+| Gradient boosting | 1.000 | 0.744 | 0.994 |
+| **GraphSAGE** | 0.988 | 0.735 | 0.992 |
+
+**What this says, honestly**
+- Structural, graph-derived features are what matter. Any model using them beats the rule-only baseline by a wide margin.
+- **GraphSAGE is essentially tied with gradient boosting** on these graphs. We report that rather than hide it, and we keep the explainable structural layer as the backbone. GraphSAGE is expected to help more on larger, noisier graphs, which is still to be shown.
+- These graphs are **self-written generators**, so they validate the pipeline, not real-world detection rates.
+- **The real IBM AMLworld table has not been run yet.** It is shown as empty on purpose. Run it yourself with `make benchmark-amlworld`.
+
+### Performance
+
+Measured on the machine that generated [`docs/performance.md`](docs/performance.md):
+
+| Fix found by the scale test | Before | After |
+|---|---|---|
+| Bulk load of 10,000 companies (applying graph indexes) | 281.9 s | 2.4 s |
+
+That is roughly a **117× speed-up** from applying indexes the stack had defined but never applied. Betweenness centrality (O(V·E)) did not finish within 300 s at 100K nodes, so the main analytics path uses PageRank. Details are in [`docs/performance_findings.md`](docs/performance_findings.md).
+
+---
+
+## 🚀 Quick start
+
+**Prerequisites:** Docker with Compose, `make`, and about 4 GB of free memory.
 
 ```bash
-# Prerequisites: Homebrew, Docker Desktop, Node 20+ and common CLI tools.
-# If `docker-credential-desktop` is not found, prefix with:
-#   export PATH="/Applications/Docker.app/Contents/Resources/bin:/opt/homebrew/bin:$PATH"
+git clone https://github.com/phadtareshivansh/DhanChakra.git
+cd DhanChakra
 
-cd <repo-root>
-make env        # writes .env: strong random secrets + the 3 seeded login slots
-make up         # build and start all services (Neo4j, Postgres, API, frontend)
-make bootstrap  # load the sample dataset + run structural analytics and GNN scoring
-make smoke      # verify the API (/health) and the frontend (:5173)
+make env        # writes .env with strong random secrets and the seeded login slots
+make up         # builds and starts Neo4j, PostgreSQL, API and frontend
+make bootstrap  # loads the sample dataset and runs analytics (idempotent)
+make smoke      # health-checks the API and frontend
 ```
 
-Then open **http://localhost:5173** and log in with the Super Admin credentials
-from `.env` (`SUPER_ADMIN_EMAIL` / `SUPER_ADMIN_PASSWORD`). Passwords are
-**generated, never printed** — read them from `.env`, which is gitignored.
+Open **http://localhost:5173** and sign in with the Super Admin credentials from your generated `.env` (`SUPER_ADMIN_EMAIL`, `SUPER_ADMIN_PASSWORD`).
 
 | Service | URL |
 |---|---|
-| Frontend | http://localhost:5173 |
-| API (OpenAPI docs) | http://localhost:8000/docs |
+| Web app | http://localhost:5173 |
+| API and OpenAPI docs | http://localhost:8000/docs |
 | Neo4j Browser | http://localhost:7474 (bolt://localhost:7687) |
-| PostgreSQL | localhost:5432 / `${POSTGRES_DB}` |
+| PostgreSQL | localhost:5432 |
 
-All configuration lives in `.env` (gitignored; see `.env.example`).
+<details>
+<summary><b>All make targets</b></summary>
 
-### Everyday commands
+| Target | What it does |
+|---|---|
+| `make env` | Create `.env` from `.env.example` with fresh secrets |
+| `make up` / `make down` | Start or stop the stack (volumes kept) |
+| `make restart` | Restart the API after Python edits |
+| `make ps` / `make logs` | Service status and logs |
+| `make bootstrap` | Load sample data and run analytics |
+| `make migrate` | Apply pending Postgres migrations |
+| `make apply-schema` | Apply Neo4j constraints and indexes |
+| `make test` / `make test-all` | Run the API test suite (the second seeds data first) |
+| `make benchmark` | Run the model benchmark and refresh `docs/benchmarks.md` |
+| `make benchmark-amlsim` / `make benchmark-amlworld` | Benchmark on AMLSim-style or real IBM AMLworld data |
+| `make scale-test` | Run the scale test and refresh `docs/performance.md` |
+| `make reset` | **Destructive.** Stop the stack and delete all data volumes |
 
-```bash
-make test       # run the API test suite in the container
-make test-all   # seed the sample data, then run the full suite (no skips)
-make benchmark       # reproducible four-model fraud-risk benchmark (A1)
-make benchmark-amlsim    # AML-shape benchmark, ablation + false-positive stress (A2)
-make restart    # reload the API after editing api/app/*.py (mounted read-only)
-make logs       # tail all service logs
-make reset      # DESTRUCTIVE: stop the stack and delete all data volumes
-```
-
-> `api/app` is mounted read-only into the API container, so Python edits need
-> `make restart`. Test-only edits need `docker compose cp <file> api:/app/tests/`
-> (or a rebuild). Frontend TypeScript checks run inside the container:
-> `docker compose exec -T frontend sh -c "cd /app && ./node_modules/.bin/tsc --noEmit"`.
-
----
-
-## Module status
-
-Every row below is **measured** by the test suite against live Neo4j/Postgres
-(`pytest tests` → 149 passed after `make bootstrap`; `tsc --noEmit` → clean).
-
-| Module | Status | What works | Where |
-|---|---|---|---|
-| Structural analytics | **Working** | Invoice **cycle (ring) detection**, WCC, communities, PageRank / betweenness / degree centrality, heuristic risk scoring with per-signal caps | `api/app/services/graph_service.py`, `graph/cypher/analytics.cypher` |
-| GNN risk scoring | **Working** | GraphSAGE-style model (plain PyTorch), trained on the graph; scores every company 0–100, persisted and surfaced as `risk_source=gnn_v1` | `api/app/services/gnn/` |
-| Entity resolution | **Working** | Normalises and links directors / addresses / bank accounts (shared-director, shared-address signals) | `api/app/services/graph_service.py` (`/analytics/resolve`) |
-| Agentic ingestion | **Working** | Extracts fields from MCA-style **PDF filings** with **per-field confidence**; low-confidence fields go to manual review, then confirm into the graph as `source=agentic` | `api/app/services/agentic_ingest.py`, `POST /ingest/document` |
-| Case workflow | **Working** | Create / open / update / delete cases, attach evidence, **export a print-ready bundle** (preview + stored exports) | `api/app/services/case_service.py`, `frontend/src/pages/CasesView.tsx` |
-| Audit log | **Working** | Every consequential action recorded and readable via `GET /audit` | `api/migrations/004_audit_log.sql`, `GET /api/v1/audit` |
-| Explainability | **Working** | Plain-language **reason** list + **subgraph attribution** (`method="subgraph_attribution"`): cycle, members, amount, dates, shared links, risk decomposition | `frontend/src/components/ExplainDrawer.tsx` |
-| Auth & roles | **Working (v1 scope)** | Fixed 3-slot model: **one Super Admin** + **two analysts**. No self-registration; caps enforced at DB *and* service level | `api/app/services/auth_service.py`, `api/migrations/012_user_role_limits.sql` |
-| Benchmark harness | **Working** | Reproducible 4-model comparison, ablation, false-positive stress; real measured numbers | `api/benchmarks/`, `docs/benchmarks.md` |
-| Multi-tenancy | **Planned (P3.1)** | `org_id` to be added to every business table and graph node; org-scoped RBAC | Phase 3.1 |
-| SSO / MFA | **Planned (P3.2)** | OIDC + TOTP | Phase 3.2 |
-| Async jobs | **Planned (P4.2)** | Move heavy work off the request path | Phase 4.2 |
-| Billing | **Out of scope for now** | — | — |
-
-### The sample dataset: one flagged ring
-
-The curated sample data contains exactly **one** fraud ring — six **Maya**
-companies wired into a closed **6-hop** invoice loop (₹5,300,000 across
-`INV-HERO-001..006`). All six score **100.0** with `risk_source=gnn_v1`.
-
-```
-Maya Infra → Trading → Logistics → Exports → Chemicals → Steel → Infra
-```
-
-The ring is *not* the whole dataset: it sits alongside clean companies so the
-worklist, filters and the "outside the ring" explain path all behave honestly
-(a company outside the ring returns `cycles: []`, no ring evidence).
+</details>
 
 ---
 
-## Roles and logins
+## 🧱 Tech stack
 
-There is **no sign-up**. The system ships with three fixed slots, seeded from the
-environment at API startup (rows are updated in place so user IDs stay stable):
-
-| Slot | Role | Env vars |
+| Layer | Technology | Why |
 |---|---|---|
-| Super Admin (exactly 1) | `admin` | `SUPER_ADMIN_EMAIL` / `_PASSWORD` / `_NAME` |
-| Standard user 1 | `analyst` | `USER1_*` |
-| Standard user 2 | `analyst` | `USER2_*` |
-
-- The caps (1 admin, max 2 analysts) are enforced by a partial unique index and
-  a `BEFORE INSERT` trigger (migration `012_user_role_limits.sql`) **and**
-  mirrored in the service layer for clean errors.
-- `GET/PUT /admin/users`, `POST /admin/users/reset-password/{id}` are Super
-  Admin only; a router that requires auth returns **401**, and a non-admin
-  returns **403**. The Super Admin cannot edit or reset itself, and no request
-  body can change a role.
-- In production (`APP_ENV=production`) the API **refuses to boot** if any
-  `SUPER_ADMIN_*` / `USER1_*` / `USER2_*` value is missing or a placeholder,
-  if `JWT_SECRET` is weak, or if CORS is pointed at localhost.
-
-> **Note.** The 3-slot cap is a deliberate v1 constraint. Organizations,
-> many users and an invitation flow arrive in Phase 3.1.
+| Graph store and algorithms | Neo4j 5.23 with Graph Data Science | Native multi-hop traversal; WCC, Louvain and PageRank built in |
+| API | FastAPI, Pydantic v2 | Async, validated, self-documenting |
+| App data | PostgreSQL 16 | Users, cases, audit log, jobs, model versions |
+| ML | PyTorch (CPU), custom sparse GraphSAGE, NumPy checkpoint for light deployments | Avoids fragile PyG wheels; runs anywhere |
+| Frontend | React 18, TypeScript, Vite, Tailwind, D3 | Interactive force-directed investigation workspace |
+| Quality | pytest (200+ tests), ESLint, Playwright visual tests, i18n checks, GitHub Actions CI | |
+| Packaging | Docker Compose, Render blueprint | One-command local stack |
 
 ---
 
-## Account recovery
+## 🗂️ Repository layout
 
-There is **no API endpoint** for recovering a lost Super Admin password, and no
-self-service reset of any kind — that is deliberate. If the Super Admin password
-is forgotten, an operator runs the break-glass CLI script on the host:
+```text
+DhanChakra/
+├── api/             FastAPI app, services, routes, migrations, tests, benchmarks
+├── graph/           Neo4j constraints, indexes, analytics and seed Cypher
+├── analytics/       Structural analytics and ML experiments
+├── ingestion/       CSV loaders and sample data
+├── frontend/        React + TypeScript web app and design system
+├── shared/          Shared contracts and utilities
+├── scripts/         Environment init and bootstrap helpers
+├── docs/            Product, technical, design, benchmark and performance docs
+└── docker-compose.yml, Makefile, render.yaml
+```
+
+---
+
+## 🛡️ Security and privacy
+
+- **No open sign-up.** Accounts are created by administrators.
+- **Production startup gate.** The API refuses to boot with placeholder secrets or localhost CORS when `APP_ENV=production`.
+- **Auth hardening.** Rate limiting per IP and per account, lockout, short-lived access tokens, refresh tokens and logout revocation.
+- **Audit trail.** Sensitive actions are logged with who, what and when.
+- **Privacy by design.** The sample data uses hashed or synthetic identifiers. Do not load real PAN, Aadhaar or raw bank account numbers.
+- **Not yet claimed:** SOC 2, ISO 27001 or any compliance certification. See the roadmap below for what is planned.
+
+Found a vulnerability? Please report it privately to the maintainers instead of opening a public issue.
+
+---
+
+## 🧭 Roadmap
+
+| Area | Status |
+|---|---|
+| Structural analytics, entity resolution, GraphSAGE scoring, explain, cases, ingestion | ✅ Built |
+| Benchmarks, scale test, e-Way Bill signal, temporal view, feedback loop, watchlist | ✅ Built, with caveats in `docs/` |
+| Organizations and tenant isolation | 🚧 In progress |
+| SSO and MFA, API keys, tamper-evident audit log | 📋 Planned |
+| Connector framework, async job queue, incremental rescoring | 📋 Planned |
+| Model registry, drift monitoring, review workflows | 📋 Planned |
+| Public API with webhooks, scheduled reports | 📋 Planned |
+| Real-data validation on IBM AMLworld and on customer data | 📋 Planned, needs data access |
+
+The full plan lives in [`docs/OPENCODE_PRODUCT_TASKS.md`](docs/OPENCODE_PRODUCT_TASKS.md).
+
+---
+
+## 📚 Documentation
+
+| Document | Contents |
+|---|---|
+| [`docs/01_PRD.md`](docs/01_PRD.md) | Product requirements, personas, user stories |
+| [`docs/02_TRD.md`](docs/02_TRD.md) | Architecture, algorithms, API spec |
+| [`docs/03_UIUX_Design.md`](docs/03_UIUX_Design.md) | Design system, colors, typography, components |
+| [`docs/04_AppFlow.md`](docs/04_AppFlow.md) | Navigation and user journeys |
+| [`docs/05_Backend_Schema.md`](docs/05_Backend_Schema.md) | Graph and relational schema |
+| [`docs/benchmarks.md`](docs/benchmarks.md) | Model benchmark, ablation, false-positive test |
+| [`docs/performance.md`](docs/performance.md) | Scale test results |
+| [`docs/OPERATIONS.md`](docs/OPERATIONS.md) | Roles, logins, Super Admin recovery, API surface, deployment notes |
+| [`docs/Demo_Script.md`](docs/Demo_Script.md) | Timed product walkthrough |
+
+---
+
+## 🔬 Research and industry references
+
+DhanChakra builds on public work. Ideas, datasets and tools are credited here; mention does not imply endorsement by or affiliation with any organization.
+
+| Source | How it informs the project |
+|---|---|
+| **IBM Research and ETH Zurich**, *Realistic Synthetic Financial Transactions for Anti-Money Laundering Models* (AMLworld, [arXiv:2306.16424](https://arxiv.org/abs/2306.16424)) | Benchmark dataset and laundering typologies (cycles, fan-in, fan-out, scatter-gather) |
+| **IBM AMLSim** ([github.com/IBM/AMLSim](https://github.com/IBM/AMLSim)) | Format reference for our AMLSim-style synthetic generator |
+| **Neo4j Graph Data Science** | WCC, Louvain and PageRank; fraud-ring and community-detection patterns |
+| **Hamilton, Ying, Leskovec**, *Inductive Representation Learning on Large Graphs* (GraphSAGE, 2017) | Inductive GNN used for scoring new entities |
+| **Amazon Web Services**, *Detect financial transaction fraud using a Graph Neural Network with Amazon SageMaker* | Reference architecture for GNN transaction-fraud detection |
+| **Weber et al.**, Elliptic Bitcoin dataset | Prior work on graph learning for illicit-transaction detection |
+| **GSTN, CBIC, DGGI** public reporting on ADVAIT, BIFA and ITC-fraud enforcement | Problem framing and scale |
+| **Ministry of Corporate Affairs**, Company Master Data (data.gov.in) | Public company-registry schema |
+
+---
+
+## 🧪 Testing
 
 ```bash
-docker compose exec api python /scripts/reset_super_admin.py
+make test-all                      # seeds sample data, then runs the full API suite
+cd frontend && npm run lint        # ESLint, zero warnings allowed
+cd frontend && npm run i18n:check  # no hard-coded UI strings
+cd frontend && npm run test:visual # Playwright visual regression
 ```
 
-It reads `SUPER_ADMIN_EMAIL` / `SUPER_ADMIN_PASSWORD` from the environment,
-rehashes the password, and updates the **existing** admin row in place. It never
-inserts a user and never touches the two analyst slots. Passwords are never
-printed.
-
-| Flag | Effect |
-|---|---|
-| `--dry-run` | Report what would change; write nothing (and no audit row) |
-| `--allow-email-change` | Permit `SUPER_ADMIN_EMAIL` to re-point the admin row (refused if the new email already belongs to another user) |
-
-**Exit codes**
-
-| Code | Meaning |
-|---|---|
-| 0 | Success (or a `--dry-run` that would have succeeded) |
-| 1 | Unexpected error |
-| 2 | `SUPER_ADMIN_EMAIL` / `SUPER_ADMIN_PASSWORD` missing or a placeholder |
-| 3 | No admin row exists (run `make bootstrap` to seed it) |
-| 4 | More than one admin row exists (invariant broken) |
-| 5 | Admin email differs and `--allow-email-change` was not given |
-| 6 | `--allow-email-change` given, but the new email is already taken |
-
-A real (non-dry-run) recovery writes a row to `audit_log` in the same
-transaction as the password update: `action = 'super_admin_recovery'`,
-`user_id = NULL` (out-of-band operator action), `entity_id` = the admin's id, and
-`details = {"via": "cli", "email_changed": <bool>, "dry_run": false}`. The
-password and its hash are never recorded.
+CI runs the Docker build, health checks, bootstrap, API tests and the frontend type-check and build on every push.
 
 ---
 
-## API surface
+## ⚖️ Responsible use
 
-Base path: `/api/v1`.
-
-```
-Auth            POST /auth/login                GET  /auth/me
-Admin           GET  /admin/users               PUT  /admin/users/{id}
-                POST /admin/users/reset-password/{id}
-Entities        GET  /entities/search           GET  /entities/{id}
-                GET  /entities/{id}/network     GET  /entities/{id}/timeline
-                GET  /entities/{id}/explain
-Worklist/stats  GET  /worklist                  GET  /stats/overview
-Analytics       GET  /analytics/loops           GET  /analytics/loops/{cin}
-                GET  /analytics/centrality/{cin} POST /analytics/structural
-                POST /analytics/resolve          POST /analytics/risk
-                GET  /analytics/risk/{job_id}    POST /analytics/wcc
-GNN             POST /analytics/gnn/train        POST /analytics/gnn/predict
-                GET  /analytics/gnn/model
-Ingestion       POST /ingest/csv                 POST /ingest/document
-                POST /ingest/document/confirm    GET  /ingest/status/{job_id}
-Cases           GET/POST /cases                  GET/PATCH/DELETE /cases/{id}
-                POST /cases/{id}/export          GET  /cases/{id}/export/preview
-                GET  /cases/{id}/exports
-Audit           GET  /audit
-Health          GET  /health
-```
+DhanChakra surfaces **risk for human review**, not verdicts. A legitimate, tightly integrated supply chain can look structurally similar to a shell ring, so every flag is paired with evidence and should be reviewed by a trained officer. Results on synthetic data do not predict real-world precision. Validate on your own data before relying on any score.
 
 ---
 
-## v1 scope vs. production scope
+## 🤝 Contributing
 
-**Built and working (v1)**
-
-- Real graph analytics, a real (small) GNN, real entity resolution, real
-  agentic PDF extraction with confidence gating.
-- Real auth with fixed roles and DB-enforced caps; real audit trail.
-- Deterministic curated dataset with a single, explainable fraud ring.
-- Explainability is structural (subgraph attribution) — honest about what it is.
-- Reproducible, honestly reported benchmark harness with an AML-shape dataset.
-
-**Deliberately not production-grade (yet)**
-
-- **Data scale.** The sample set is small (single-digit companies/edges by
-  design). Not tuned or load-tested for lakhs of invoices — see Phase A3 / P7.5.
-- **Tenancy.** Single-tenant today; `org_id` isolation is Phase 3.1.
-- **Explainability.** `method="subgraph_attribution"` is rule/structure-based
-  feature attribution, **not** learned GNNExplainer.
-- **Ingestion.** The default `AGENT_INGEST_BACKEND=rules` is deterministic
-  labeled-line extraction that works offline. An optional `llm` backend exists
-  (OpenAI-compatible: `AGENT_LLM_URL` / `AGENT_LLM_KEY`) and degrades to
-  `rules` when unconfigured.
-- **Risk scoring.** The heuristic score is a weighted sum with per-signal caps;
-  the GNN adds a learned signal. Neither is a calibrated fraud probability.
-- **Ops/security.** Fixed 3 user slots and a single JWT signing key suit v1;
-  production needs an IdP, key rotation, rate limiting, and secret management.
-  Seeding is off in production unless `ALLOW_DEMO_SEED=true`.
-- **Migrations.** SQL files are applied by Postgres `docker-entrypoint-initdb.d`
-  on a **fresh volume**; there is no migration-tracking table. Schema changes to
-  a live DB are applied manually (see `api/migrations/`).
-- **i18n.** English only today; English + Hindi is planned for Phase 2.4.
+1. Branch from `main` using `type/short-description` (for example `feat/timeline-filters`).
+2. Run `make test-all` and the frontend checks before opening a pull request.
+3. Add a migration for any schema change instead of editing an applied one.
+4. Never commit secrets, datasets or large model files.
 
 ---
 
-## Project structure
+## 📄 License
 
-```
-project-root/
-├── docker-compose.yml          # neo4j + postgres + api + frontend
-├── Makefile                    # env / up / bootstrap / test / benchmark / smoke / reset …
-├── .env.example                # every knob, placeholders only (no secrets)
-├── api/
-│   ├── app/
-│   │   ├── main.py             # app wiring + production startup gate
-│   │   ├── config.py           # pydantic-settings; all knobs + safety gates
-│   │   ├── deps.py             # DB/Neo4j sessions + auth dependencies
-│   │   ├── models/schemas.py
-│   │   ├── routes/             # entities.py, admin.py
-│   │   └── services/           # graph_service, auth_service, case_service,
-│   │       └── gnn/            # ingestion_service, agentic_ingest; GNN pkg
-│   ├── benchmarks/             # A1/A2 harness, AML loader + synthetic generator
-│   ├── migrations/             # 001…012 (users, cases, audit, jobs, roles…)
-│   └── tests/                  # API + live-graph + auth + privacy + config suites
-├── graph/cypher/               # constraints, seed, analytics
-├── ingestion/
-│   ├── scripts/                # load_sample.py, make_sample_filings.py
-│   ├── samples/                # MCA/GST CSVs + 5 sample filing PDFs
-│   └── guards/                 # synthetic_pans.txt (privacy test allowlist)
-├── analytics/notebooks/        # structural prototype
-├── frontend/src/
-│   ├── App.tsx                 # routes (auth-gated)
-│   ├── components/             # Layout, ExplainDrawer, RiskBadge …
-│   ├── pages/                  # Dashboard, Worklist, EntityDetail,
-│   │                           #   LoopsView, CasesView, CaseExport,
-│   │                           #   Ingest, Settings, AdminUsers, Login
-│   ├── utils/api.ts
-│   └── types/api.ts
-├── scripts/                    # init_env.py, bootstrap_demo_data.sh
-├── shared/types/
-└── docs/                       # PRD, TRD, UI/UX, app flow, benchmarks, demo…
-```
+No open-source license has been granted. Unless a `LICENSE` file states otherwise, all rights are reserved by the authors.
 
 ---
 
-## Verification
+<div align="center">
 
-```bash
-set -a; source .env; set +a     # credentials come from .env only
+<img src="docs/assets/logo.png" alt="DhanChakra" width="90">
 
-docker compose ps               # all services healthy
-curl http://localhost:8000/health
-make test                       # API suite (some live tests skip if not seeded)
-make test-all                   # seed first, then run everything (no skips)
-```
+**DhanChakra** · See the whole network. Prove the pattern.
 
-The suite covers the API surface, live graph analytics, entity resolution, the
-GNN write-back, the agentic document flow, auth/roles, the production startup
-gate, the benchmark loader/leakage guards, and a privacy guard that scans sample
-data for real PAN/Aadhaar shapes.
-
-### Benchmarks
-
-Measured, not estimated — see `docs/benchmarks.md`. Two AML-shape datasets are
-reported in separate tables (a self-written generator and, when downloaded, the
-real IBM AMLworld), alongside the product's own synthetic graph.
-
-## Notes for deployment
-
-Set `APP_ENV=production`, generate a strong `JWT_SECRET`
-(`python3 -c "import secrets; print(secrets.token_urlsafe(48))"`), set
-`CORS_ORIGINS` to real origins, and leave `SEED_DEMO_USERS`/`ALLOW_DEMO_SEED`
-off. The startup gate refuses to boot on placeholder secrets, localhost CORS, or
-missing seeded-slot credentials.
+</div>
