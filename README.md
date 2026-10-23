@@ -30,7 +30,7 @@
 
 </div>
 
----
+<img src="docs/assets/divider.svg" alt="" width="100%">
 
 ## Why DhanChakra
 
@@ -42,7 +42,7 @@ The scale is real. Indian press reported fake-ITC detections of **₹74,782 cror
 
 > **Design principle:** DhanChakra prioritizes cases for human review. It never decides guilt. Every score ships with the loop, shared director or burst of transactions that produced it.
 
----
+<img src="docs/assets/divider.svg" alt="" width="100%">
 
 ## ✨ Features
 
@@ -93,9 +93,14 @@ The scale is real. Indian press reported fake-ITC detections of **₹74,782 cror
 </tr>
 </table>
 
----
+<img src="docs/assets/divider.svg" alt="" width="100%">
 
 ## 🧠 How it works
+
+<div align="center">
+  <img src="docs/assets/ring-detection.svg" alt="Animation: a scan sweeps a transaction graph, a four-company invoice loop is traced, a shared director is linked, and the loop is flagged for human review" width="760">
+  <br><sub>Illustration of the idea, not real data. A loop is traced, a shared director is linked, and the case is flagged with its evidence.</sub>
+</div>
 
 ```mermaid
 flowchart LR
@@ -141,7 +146,7 @@ flowchart LR
 4. **A GraphSAGE model adds a learned risk score** on top of the structural signals.
 5. **Every flag carries its evidence.** The explain endpoint returns the supporting subgraph and a readable reason, not just a number.
 
----
+<img src="docs/assets/divider.svg" alt="" width="100%">
 
 ## 📊 Measured results
 
@@ -174,7 +179,7 @@ Measured on the machine that generated [`docs/performance.md`](docs/performance.
 
 That is roughly a **117× speed-up** from applying indexes the stack had defined but never applied. Betweenness centrality (O(V·E)) did not finish within 300 s at 100K nodes, so the main analytics path uses PageRank. Details are in [`docs/performance_findings.md`](docs/performance_findings.md).
 
----
+<img src="docs/assets/divider.svg" alt="" width="100%">
 
 ## 🚀 Quick start
 
@@ -219,7 +224,7 @@ Open **http://localhost:5173** and sign in with the Super Admin credentials from
 
 </details>
 
----
+<img src="docs/assets/divider.svg" alt="" width="100%">
 
 ## 🧱 Tech stack
 
@@ -233,7 +238,7 @@ Open **http://localhost:5173** and sign in with the Super Admin credentials from
 | Quality | pytest (200+ tests), ESLint, Playwright visual tests, i18n checks, GitHub Actions CI | |
 | Packaging | Docker Compose, Render blueprint | One-command local stack |
 
----
+<img src="docs/assets/divider.svg" alt="" width="100%">
 
 ## 🗂️ Repository layout
 
@@ -250,7 +255,7 @@ DhanChakra/
 └── docker-compose.yml, Makefile, render.yaml
 ```
 
----
+<img src="docs/assets/divider.svg" alt="" width="100%">
 
 ## 🛡️ Security and privacy
 
@@ -263,7 +268,7 @@ DhanChakra/
 
 Found a vulnerability? Please report it privately to the maintainers instead of opening a public issue.
 
----
+<img src="docs/assets/divider.svg" alt="" width="100%">
 
 ## 🧭 Roadmap
 
@@ -280,7 +285,7 @@ Found a vulnerability? Please report it privately to the maintainers instead of 
 
 The full plan lives in [`docs/OPENCODE_PRODUCT_TASKS.md`](docs/OPENCODE_PRODUCT_TASKS.md).
 
----
+<img src="docs/assets/divider.svg" alt="" width="100%">
 
 ## 📚 Documentation
 
@@ -296,7 +301,7 @@ The full plan lives in [`docs/OPENCODE_PRODUCT_TASKS.md`](docs/OPENCODE_PRODUCT_
 | [`docs/OPERATIONS.md`](docs/OPERATIONS.md) | Roles, logins, Super Admin recovery, API surface, deployment notes |
 | [`docs/Demo_Script.md`](docs/Demo_Script.md) | Timed product walkthrough |
 
----
+<img src="docs/assets/divider.svg" alt="" width="100%">
 
 ## 🔬 Research and industry references
 
@@ -313,7 +318,7 @@ DhanChakra builds on public work. Ideas, datasets and tools are credited here; m
 | **GSTN, CBIC, DGGI** public reporting on ADVAIT, BIFA and ITC-fraud enforcement | Problem framing and scale |
 | **Ministry of Corporate Affairs**, Company Master Data (data.gov.in) | Public company-registry schema |
 
----
+<img src="docs/assets/divider.svg" alt="" width="100%">
 
 ## 🧪 Testing
 
@@ -326,13 +331,13 @@ cd frontend && npm run test:visual # Playwright visual regression
 
 CI runs the Docker build, health checks, bootstrap, API tests and the frontend type-check and build on every push.
 
----
+<img src="docs/assets/divider.svg" alt="" width="100%">
 
 ## ⚖️ Responsible use
 
 DhanChakra surfaces **risk for human review**, not verdicts. A legitimate, tightly integrated supply chain can look structurally similar to a shell ring, so every flag is paired with evidence and should be reviewed by a trained officer. Results on synthetic data do not predict real-world precision. Validate on your own data before relying on any score.
 
----
+<img src="docs/assets/divider.svg" alt="" width="100%">
 
 ## 🤝 Contributing
 
@@ -341,13 +346,13 @@ DhanChakra surfaces **risk for human review**, not verdicts. A legitimate, tight
 3. Add a migration for any schema change instead of editing an applied one.
 4. Never commit secrets, datasets or large model files.
 
----
+<img src="docs/assets/divider.svg" alt="" width="100%">
 
 ## 📄 License
 
 No open-source license has been granted. Unless a `LICENSE` file states otherwise, all rights are reserved by the authors.
 
----
+<img src="docs/assets/divider.svg" alt="" width="100%">
 
 <div align="center">
 
