@@ -419,10 +419,15 @@ async def health_alias():
 async def debug_neo4j():
     """Temporary deployment diagnostic: report the configured Aura identity
     and the exact connection error without exposing the password."""
+    import hashlib
+
+    password = settings.neo4j_password or ""
     info = {
         "uri": settings.neo4j_uri,
         "user": settings.neo4j_user,
-        "password_set": bool(settings.neo4j_password),
+        "password_set": bool(password),
+        "password_length": len(password),
+        "password_sha256_prefix": hashlib.sha256(password.encode()).hexdigest()[:12],
     }
     try:
         async with get_neo4j_session() as session:
